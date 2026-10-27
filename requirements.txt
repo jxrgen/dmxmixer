@@ -1,0 +1,4 @@
+# Kun noedvendigt for Enttec Open DMX USB (USB-donglen).
+# Art-Net, sACN og simulatoren virker uden disse.
+pyftdi>=0.55
+pyusb>=1.2

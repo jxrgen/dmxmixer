@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="da" data-theme="rav">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Lyspult</title>
+<link rel="stylesheet" href="ui.css">
+</head>
+<body>
+
+<div id="top">
+  <h1>Lyspult</h1>
+  <button id="dmxarm" class="sm">DMX ud</button>
+  <div id="tabs"></div>
+  <div id="topright">
+    <span class="ctlsel" id="ctlsel"></span>
+  </div>
+</div>
+
+<div id="ctlwarn"></div>
+
+<div id="views">
+
+  <!-- ============ GUIDE ============ -->
+  <div class="view" id="v-guide">
+    <div class="pan wz">
+      <h2>Guide <span>byg dit eget show trin for trin</span></h2>
+      <div class="pan-body">
+      <div id="wz-steps" class="wz-steps"></div>
+      <div id="wz-note" class="wz-note" style="display:none"></div>
+      <div id="wz-body"></div>
+      <div class="wz-nav">
+        <button id="wz-back">◀ Tilbage</button>
+        <button id="wz-next" class="wz-primary">Næste ▶</button>
+        <span id="wz-saved" class="hint"></span>
+        <button id="wz-restart" class="sm">Start forfra</button>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PULT ============ -->
+  <div class="view active" id="v-pult">
+    <div class="pan" data-panel="master">
+      <h2>Master <span>rammer alle lamper</span></h2>
+      <div class="pan-body">
+      <div class="cols">
+        <div class="col">
+          <div class="rowline"><span class="k" title="Hovedskyder - ganger sig ind på alle moduler samtidig, uanset deres eget niveau">Grand</span>
+            <input type="range" id="m-grand" min="0" max="255"><span class="v" id="m-grand-v">255</span></div>
+          <div class="hint" style="margin-top:-2px">Grand er hovedskyderen for hele riggen — den ganger
+            sig ind på alle lamper på én gang, oven i deres eget niveau. 255 = lamperne
+            bestemmer selv. 0 = alt er sort, uanset hvad der ellers er sat.</div>
+          <div class="rowline"><span class="k">Strobe</span>
+            <input type="range" id="m-strobe" min="0" max="255"><span class="v" id="m-strobe-v">fra</span></div>
+          <div class="rowline"><span class="k">BPM</span>
+            <input type="range" id="m-bpm" min="40" max="220"><span class="v" id="m-bpm-v">120</span></div>
+          <div class="btns tempo-btns">
+            <button id="m-tap" class="tapbtn" title="Tap i takt med musikken - eller tryk T på tastaturet, uanset hvilken fane du står på">Tap tempo (T)<span class="beat" aria-hidden="true"></span></button>
+            <button id="m-bpm-dn" class="sm" title="Ét slag langsommere">−1</button>
+            <button id="m-bpm-up" class="sm" title="Ét slag hurtigere">+1</button>
+            <button id="m-bpm-half" class="sm" title="Halvt tempo">½×</button>
+            <button id="m-bpm-dbl" class="sm" title="Dobbelt tempo">2×</button>
+          </div>
+          <label class="chk" title="Slået fra: scenerne kører i det tempo du har tappet. Slået til: hver scene tager det tempo med, den blev gemt med - og du kan stadig tappe et nyt bagefter."><input type="checkbox" id="m-scene-tempo"> Scener sætter eget tempo</label>
+          <div class="hint">Tap på knappen, på <b>TAP</b> i live-matrixen eller med
+            tasten <b>T</b> — den virker i alle faner. Skriv tallet direkte i feltet
+            for at sætte tempoet manuelt. Lag med <b>Følg tempo</b> slået til
+            skifter fart med det samme, også i en scene der kører.</div>
+          <div class="btns"><button id="m-sync-all" class="sm" title="Slå Følg tempo til på alle lag, både nu og i alle gemte scener">Alle lag og scener følger tempo</button></div>
+        </div>
+        <div class="col">
+          <div class="btns">
+            <button id="m-black" class="alarm">Blackout</button>
+            <button id="m-freeze">Frys billedet</button>
+          </div>
+          <div class="btns" style="margin-top:6px">
+            <button id="m-full">Alle lamper 100 %</button>
+            <button id="m-zero">Alle lamper 0</button>
+          </div>
+          <div class="hint">Blackout og strobe laves i pulten, ikke i lamperne,
+            så alle rammer præcis samtidig.</div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="pan" data-panel="layers">
+      <h2>Lag <span id="lay-sub">ét lag = ét mønster på en gruppe lamper</span></h2>
+      <div class="pan-body">
+      <div id="layerlist"></div>
+      <div class="btns" style="margin-bottom:12px">
+        <button id="lay-add" class="sm">Tilføj lag</button>
+        <button id="lay-rem" class="sm">Fjern sidste lag</button>
+        <button id="lay-alloff" class="sm">Sluk alle lag</button>
+      </div>
+      <div class="cols" id="layerform"></div>
+      </div>
+    </div>
+
+    <div class="pan" data-panel="manual">
+      <h2>Faste kanaler <span>rammer lamperne i det lag du redigerer</span></h2>
+      <div class="pan-body">
+      <div id="manual"></div>
+      <div class="hint">Hvid, ravgul, UV, strobe og makro sættes direkte på
+        lampen og røres ikke af farvemotoren. Er lagets maske tom, rammer
+        de alle lamper; ellers kun dem i masken. Kun kanaler som mindst én
+        af lamperne faktisk har, vises.</div>
+      </div>
+    </div>
+
+    <div class="pan" data-panel="fixtures">
+      <h2>Lamper <span>gul kant = med i det lag du redigerer</span></h2>
+      <div class="pan-body">
+      <div class="btns" style="margin-bottom:9px">
+        <button id="st-compact" class="sm">Kompakt visning</button>
+        <span class="hint" style="margin:0;align-self:center">Mindre felter, så alle lamper
+          kan være der ved siden af simulatoren.</span>
+      </div>
+      <div class="btns" style="margin-bottom:11px" id="quickpick"></div>
+      <div id="strips"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LAYOUT ============ -->
+  <div class="view" id="v-layout">
+    <div class="pan">
+      <h2>Scenegulv <span>træk lamperne derhen hvor de hænger</span></h2>
+      <canvas id="stage"></canvas>
+      <div class="btns" style="margin-top:9px">
+        <button id="lay-tools-tgl" class="sm">▾ Skjul værktøjer</button>
+        <span class="hint" style="margin:0;align-self:center" id="lay-tools-note">
+          Skjuler menuen, så scenegulvet fylder mere.</span>
+      </div>
+      <div id="laytools">
+      <div class="btns" style="margin-top:9px">
+        <button id="lay-auto">Stil på række</button>
+        <button id="lay-grid">Stil i gitter</button>
+        <button id="lay-arc">Bue bag scenen</button>
+        <button id="lay-snap">Snap til ½ meter</button>
+        <span style="display:inline-block;width:1px;height:22px;background:var(--rule);margin:0 4px;vertical-align:middle"></span>
+        <button id="le-lamp" aria-pressed="true">Flyt lamper</button>
+        <button id="le-pan" title="Træk for at flytte hele visningen">✋ Flyt visning</button>
+        <button id="le-rect">Rektangel</button>
+        <button id="le-circ">Cirkel</button>
+        <button id="le-tri">Trekant</button>
+        <button id="le-sel">Flyt former</button>
+        <button id="le-del">Slet form</button>
+        <span style="display:inline-block;width:1px;height:22px;background:var(--rule);margin:0 4px;vertical-align:middle"></span>
+        <input type="color" id="le-color" value="#2a3040" title="Formfarve"
+          style="width:28px;height:26px;border:1px solid var(--rule);background:none;padding:0;vertical-align:middle;border-radius:4px">
+        <input type="text" id="le-name" value="Scene" placeholder="Navn" title="Formens label"
+          style="width:80px;vertical-align:middle">
+      </div>
+      <div class="btns" style="margin-top:7px">
+        <span class="k" style="align-self:center">Grupper:</span>
+        <button id="le-grpsel">⬚ Vælg lamper</button>
+        <button id="le-grpadd" class="wz-primary">+ Gruppe</button>
+        <button id="le-grpedit">Redigér gruppe</button>
+        <button id="le-grpdel" class="alarm">Slet gruppe</button>
+        <span class="hint" id="le-grpinfo" style="margin:0;align-self:center"></span>
+      </div>
+      <div class="hint">Tryk <b>⬚ Vælg lamper</b>, markér et vilkårligt antal lamper (og
+        gerne eksisterende grupper) og tryk <b>+ Gruppe</b>. Gruppen får en navngivet
+        label med stiplede streger til sit indhold. En gruppe kan indeholde andre grupper.
+        Træk i en label for at flytte den.</div>
+      <div class="btns" style="margin-top:7px">
+        <button id="le-beams">Stråler</button>
+        <button id="le-labels">Navne</button>
+        <button id="le-lblall">Vis alle navne</button>
+        <button id="le-lblnone">Skjul alle navne</button>
+        <button id="le-lblreset">Nulstil navnepladser</button>
+        <span style="display:inline-block;width:1px;height:22px;background:var(--rule);margin:0 4px;vertical-align:middle"></span>
+        <button id="le-zin">+</button>
+        <button id="le-zout">−</button>
+        <button id="le-zfit">Tilpas</button>
+        <a href="/sim" target="_blank" rel="noopener" class="simbtn"
+           style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
+                  padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
+                  color:var(--accent);font-weight:800;font-size:13px">◱ Simulator</a>
+      </div>
+      <div class="hint">Træk i et <b>navn</b> for at flytte det væk fra lampen — så
+        tegnes der en henvisningsstreg til den. <b>✋ Flyt visning</b> (eller musehjul
+        / Alt+træk) panorerer og zoomer, så du kan arbejde tæt på en del af riggen.</div>
+
+      <div class="cols" style="margin-top:11px">
+        <div class="col">
+          <div class="rowline"><span class="k">Zoom</span>
+            <input type="range" id="lay-scale" min="10" max="140"><span class="v" id="lay-scale-v">40</span></div>
+          <div class="rowline"><span class="k">Drej lampe</span>
+            <input type="range" id="lay-rot" min="-180" max="180"><span class="v" id="lay-rot-v">0</span></div>
+          <div class="rowline"><span class="k">Navnefarve</span>
+            <input type="color" id="vw-lblcol" value="#e8ecf4" style="width:46px">
+            <span class="k" style="flex:0 0 auto">Synlighed</span>
+            <input type="range" id="vw-lblop" min="10" max="100"><span class="v" id="vw-lblop-v">85</span></div>
+        </div>
+        <div class="col">
+          <div class="rowline"><span class="k">Lyspøl</span>
+            <input type="range" id="vw-pool" min="5" max="100"><span class="v" id="vw-pool-v">15</span></div>
+          <div class="rowline"><span class="k">Strålekraft</span>
+            <input type="range" id="vw-beam" min="10" max="100"><span class="v" id="vw-beam-v">50</span></div>
+          <div class="rowline"><span class="k">Strålevinkel</span>
+            <input type="range" id="vw-bang" min="3" max="45"><span class="v" id="vw-bang-v">14</span></div>
+        </div>
+      </div>
+      <div class="hint">Lamperne lyser i deres aktuelle farve, så du kan se
+        riggen som den står. Indstillingerne her deles med scene-simulatoren.
+        Placeringen bruges af lag der kører <b>i rummet</b> — så en bølge eller
+        et chase fejer hen over scenen efter hvor lamperne fysisk hænger, ikke
+        efter deres DMX-adresse.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AFVIKLING ============ -->
+  <div class="view" id="v-afvikling">
+    <div class="pan">
+      <h2>Afvikling <span>styr lamper og grupper live</span></h2>
+      <div class="af-wrap">
+        <div class="af-left">
+          <canvas id="afstage"></canvas>
+          <div class="btns" style="margin-top:8px">
+            <button id="af-zin">+</button>
+            <button id="af-zout">−</button>
+            <button id="af-zfit">Tilpas</button>
+            <button id="af-pan" title="Træk for at flytte visningen">✋ Flyt visning</button>
+            <button id="af-clearsel" class="sm">Ryd markering</button>
+            <button id="af-savescene" class="wz-primary">Gem som scene</button>
+            <button id="af-blackall" class="alarm">Alt mørkt</button>
+            <a href="/sim" target="_blank" rel="noopener" class="simbtn"
+               style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
+                      padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
+                      color:var(--accent);font-weight:800;font-size:13px">◱ Simulator</a>
+          </div>
+          <div class="hint" id="af-selinfo" style="margin-top:6px"></div>
+          <div class="hint">Tryk på en lampe eller en gruppe for at vælge den — vælg lige
+            så mange du vil. Træk på tom baggrund for at vælge flere på én gang.
+            Det du vælger, styrer du i panelet ved siden af.</div>
+        </div>
+        <div class="af-icons" id="af-icons"></div>
+        <div class="af-ctrl" id="af-ctrl"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ENKEL ============ -->
+  <div class="view" id="v-enkel">
+    <div class="pan ek">
+      <h2>Enkel <span>tryk på lamperne, og så på en farve</span></h2>
+      <div class="ek-wrap">
+        <div class="ek-lamps" id="ek-lamps"></div>
+        <div class="ek-side">
+          <div class="ek-selinfo" id="ek-selinfo"></div>
+          <div class="ek-pal" id="ek-pal"></div>
+          <div class="ek-level">
+            <span class="k">Lysstyrke</span>
+            <input type="range" id="ek-level" min="0" max="255" value="255" aria-label="Lysstyrke">
+            <span class="val" id="ek-levelv">100 %</span>
+          </div>
+          <div class="ek-btns">
+            <button id="ek-all">Vælg alle</button>
+            <button id="ek-none">Ryd valg</button>
+            <button id="ek-dark" class="alarm">Alt mørkt</button>
+            <button id="ek-scene" class="wz-primary">Gem som scene</button>
+          </div>
+          <div class="hint">Tryk på en eller flere lamper, så de bliver markeret, og tryk
+            så på en farve — eller brug bogstavet på tastaturet. <b>Sluk</b> slukker de
+            valgte. Fliserne viser den farve lamperne har lige nu. Det du gør her, er
+            det samme som i <b>Afvikling</b> og vises også dér og i simulatoren.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PATCH ============ -->
+  <div class="view" id="v-patch">
+    <div class="pan" data-panel="add">
+      <h2>Tilføj lamper <span>vælg type, antal og hvor de starter</span></h2>
+      <div class="cols">
+        <div class="col">
+          <div class="rowline"><span class="k">Type</span>
+            <select id="pa-type"></select></div>
+          <div class="rowline"><span class="k">Antal</span>
+            <input type="number" id="pa-qty" min="1" max="96" value="1"></div>
+        </div>
+        <div class="col">
+          <div class="rowline"><span class="k">Univers</span>
+            <input type="number" id="pa-uni" min="1" max="8" value="1"></div>
+          <div class="rowline"><span class="k">Start-adresse</span>
+            <input type="number" id="pa-addr" min="1" max="512" value="1"></div>
+        </div>
+      </div>
+      <div class="btns" style="margin-top:9px">
+        <button id="pa-add">Tilføj</button>
+        <button id="pa-auto">Auto-adressér alle</button>
+        <button id="pa-lib">Bibliotek…</button>
+        <button id="pa-import">Importér opsætning…</button>
+        <button id="pa-newtype">Ny lampetype…</button>
+        <button id="pa-reset" class="alarm">Nulstil setup…</button>
+      </div>
+      <input type="file" id="pa-file" accept=".qxf,.qxw,.xml,.csv,.json" style="display:none">
+      <div class="hint" id="pa-hint"></div>
+      <div class="hint">Importér fra andre systemer: en <b>QLC+ workspace</b>
+        (.qxw) eller et <b>QLC+ fixture</b> (.qxf), eller en generisk
+        <b>CSV</b> (kolonner: navn, univers, adresse, kanaler — som fx MagicQ
+        kan eksportere). Hele patchen lægges ind med rigtige adresser; da de
+        store systemer ikke gemmer kanalfunktionerne i patchen, gættes en
+        generisk profil ud fra kanalantallet — finpuds den i Lampe-editoren
+        med rød-testen. Vil du erstatte riggen i stedet for at føje til, så
+        tryk <b>Nulstil setup</b> først.</div>
+    </div>
+
+    <div class="pan" id="lt-pan" data-panel="lamptest">
+      <h2>Lampetest <span>find opsætningen på en lampe du ikke kender</span></h2>
+      <div id="lt-body"></div>
+    </div>
+
+    <div class="pan" id="ed-pan" data-panel="editor">
+      <h2>Lampe-editor <span>i tvivl om kanalerne? prøv en standardopsætning igennem</span></h2>
+      <div class="cols">
+        <div class="col">
+          <div class="rowline"><span class="k">Lampe</span><select id="ed-lamp"></select></div>
+          <div class="rowline"><span class="k">Opsætning</span><select id="ed-type"></select></div>
+          <div class="btns" style="margin-top:4px">
+            <button id="ed-prev">◀ Forrige</button>
+            <button id="ed-next">Næste ▶</button>
+            <button id="ed-apply">Anvend</button>
+          </div>
+          <label class="chk" style="margin-top:6px"><input type="checkbox" id="ed-allsel"> Gælder alle valgte lamper</label>
+        </div>
+        <div class="col">
+          <div class="hint">Kanaler i den valgte opsætning (DMX-slot → funktion):</div>
+          <div id="ed-chans" class="edchans"></div>
+          <div class="btns" style="margin-top:9px">
+            <button id="ed-custom">Byg egen…</button>
+            <button id="ed-del" class="alarm">Fjern lampe</button>
+          </div>
+        </div>
+      </div>
+      <div class="hint">Kender du ikke lampens opsætning, så find den med
+        <b>Lampetest</b> ovenfor. Her kan du også køre rød-testen (lag på
+        <b>Fyldt</b> + farve rød, <b>Alle lamper 100 %</b>) og klikke <b>Næste</b>
+        indtil lampen lyser rigtigt rødt.
+        Adressen bevares når du skifter opsætning, så den bliver ved med at matche
+        lampens egen adresse — bliver den <b>rød</b> i tabellen nedenfor, overlapper
+        den en anden lampe.</div>
+    </div>
+
+    <div class="pan" id="pt-pan" data-panel="types">
+      <h2>Lampetyper <span>ret, kopiér og test kanalerne i dine lamper</span></h2>
+      <div class="pt-top">
+        <span class="k">Lampetype</span>
+        <select id="pt-sel" aria-label="Lampetype"></select>
+        <button id="pt-new">+ Ny lampetype</button>
+        <button id="pt-copy">Lav kopi</button>
+        <button id="pt-del" class="alarm">Slet</button>
+      </div>
+      <div id="pt-info" class="pt-info"></div>
+      <div id="pt-form"></div>
+      <div id="pt-use"></div>
+      <div id="pt-test"></div>
+    </div>
+
+    <div class="pan" data-panel="rig">
+      <h2>Riggen <span id="pa-count">0 lamper</span></h2>
+      <div class="btns" style="margin-bottom:9px">
+        <label class="chk" style="margin:0"><input type="checkbox" id="pa-renum">
+          Omnummerér efter rækkefølge når jeg flytter en lampe</label>
+        <button id="pa-renum-now" class="sm">Omnummerér alle 1…N nu</button>
+      </div>
+      <div class="tbl"><table id="patchtab"></table></div>
+      <div class="hint">Træk i <b>⠿</b> for at flytte en lampe op eller ned i listen.
+        Numrene følger som udgangspunkt lampen, så de ikke skrider når du sorterer;
+        sæt flueben ovenfor hvis de i stedet skal omnummereres efter rækkefølgen.
+        Nummeret er et frit felt — du kan skrive fx <b>SR1</b> eller <b>Bag 3</b>.</div>
+      <div class="hint">Rød adresse betyder overlap med en anden lampe i samme
+        univers, eller at den løber ud over kanal 512. <b>Auto-adressér</b>
+        pakker alt tæt fra adresse 1 pr. univers i listens rækkefølge.
+        Kanalkortet for hver type sættes under <b>Ny lampetype</b> eller er
+        indbygget for de tre kendte.</div>
+    </div>
+  </div>
+
+  <!-- ============ MØNSTRE ============ -->
+  <div class="view" id="v-pat">
+    <div class="pan">
+      <h2>Egne mønstre <span>mal lysstyrke — farven kommer fra lagets farvekilde</span></h2>
+      <div class="btns" style="margin-bottom:11px">
+        <select id="pat-pick" style="width:auto;min-width:170px"></select>
+        <button id="pat-new">Nyt mønster</button>
+        <button id="pat-del">Slet</button>
+        <button id="pat-clear">Ryd</button>
+        <button id="pat-inv">Inverter</button>
+        <button id="pat-erase">Viskelæder</button>
+      </div>
+      <canvas id="patcv"></canvas>
+      <div class="cols" style="margin-top:11px">
+        <div class="col">
+          <div class="rowline"><span class="k">Antal trin</span>
+            <input type="range" id="pat-steps" min="1" max="32"><span class="v" id="pat-steps-v">8</span></div>
+          <div class="rowline"><span class="k">Pensel</span>
+            <input type="range" id="pat-brush" min="0" max="100"><span class="v" id="pat-brush-v">100</span></div>
+        </div>
+        <div class="col">
+          <label class="chk"><input type="checkbox" id="pat-smooth"> Blød overgang</label>
+          <div class="hint">Vandret er positionen hen over riggen (bruges når
+            laget kører <b>i rummet</b>), lodret er trin i tiden. Vælg
+            mønsteret <b>Eget mønster</b> på et lag for at bruge det.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCENER ============ -->
+  <div class="view" id="v-scene">
+    <div class="pan" data-panel="scenes">
+      <h2>Scener <span>gemmer master, alle lag og alle modulniveauer</span></h2>
+      <div class="btns" style="margin-bottom:11px">
+        <button id="sc-store">Gem nuværende som scene</button>
+        <button id="sc-list" aria-pressed="true">Liste</button>
+        <button id="sc-matrix" aria-pressed="false">Matrix</button>
+        <button id="sc-prev" aria-pressed="false">Vis animation</button>
+        <button id="sc-live" aria-pressed="false">Live-matrix</button>
+      </div>
+      <div id="scenetabs"></div>
+      <div class="btns" style="margin:0 0 11px">
+        <button id="tab-add" class="sm">+ Nyt faneblad</button>
+        <button id="tab-ren" class="sm">Omdøb faneblad</button>
+        <button id="tab-del" class="sm">Fjern faneblad</button>
+        <span class="hint" style="margin:0;align-self:center">Træk i fanebladene
+          for at bytte om på dem. Scener i et fjernet faneblad flyttes til det første.</span>
+      </div>
+      <div class="tbl" id="scenelist"></div>
+      <div class="hint" id="sc-hint"></div>
+    </div>
+    <div class="pan" data-panel="cue">
+      <h2>Cueliste <span>kæd scener sammen til et forløb</span></h2>
+      <div class="btns" style="margin-bottom:11px">
+        <button id="cue-go">GO</button>
+        <button id="cue-back">Tilbage</button>
+        <button id="cue-auto">Auto-følg</button>
+        <span class="stat" style="align-self:center" id="cue-pos">—</span>
+      </div>
+      <div id="cue-stats" class="hint"></div>
+      <div class="tbl" id="cuelist"></div>
+    </div>
+  </div>
+
+  <!-- ============ OUTPUT ============ -->
+  <div class="view" id="v-out">
+    <div class="panflow" id="out-panels">
+      <div class="pan third" data-panel="artnet">
+        <h2>Art-Net <span>UDP 6454</span></h2>
+        <label class="chk"><input type="checkbox" id="o-artnet"> Aktiv</label>
+        <div class="rowline"><span class="k">Modtager</span>
+          <input type="text" id="o-artnet-host" placeholder="127.0.0.1"></div>
+        <label class="chk"><input type="checkbox" id="o-artnet-bc"> Broadcast</label>
+        <div class="hint">127.0.0.1 fodrer <b>modulsim.py</b> på samme maskine.
+          En Art-Net-node på nettet får sin egen IP-adresse.</div>
+      </div>
+
+      <div class="pan third" data-panel="sacn">
+        <h2>sACN / E1.31 <span>UDP 5568</span></h2>
+        <label class="chk"><input type="checkbox" id="o-sacn"> Aktiv</label>
+        <div class="rowline"><span class="k">Unicast</span>
+          <input type="text" id="o-sacn-host" placeholder="tom = multicast"></div>
+        <div class="rowline"><span class="k">Prioritet</span>
+          <input type="number" id="o-sacn-prio" min="1" max="200"></div>
+      </div>
+
+      <div class="pan third" data-panel="enttec">
+        <h2>DMX-udgang <span>USB til riggen</span></h2>
+        <label class="chk"><input type="checkbox" id="o-enttec"> Aktiv</label>
+        <div class="rowline"><span class="k">Enhed</span>
+          <select id="o-enttec-port"></select></div>
+        <div class="btns" style="margin:4px 0 2px">
+          <button id="o-enttec-scan" class="sm">Søg efter enheder igen</button>
+        </div>
+        <div class="rowline"><span class="k">Univers ud</span>
+          <input type="number" id="o-enttec-uni" min="0" max="7" value="0"></div>
+        <div class="hint" id="o-enttec-hint"></div>
+        <div id="o-enttec-errbar" style="display:none;margin-top:9px;padding:9px 12px;
+             border-radius:6px;background:#3a1418;border:1px solid #7a2830;
+             color:#ffb3b8;font-family:ui-monospace,Menlo,Consolas,monospace;
+             font-size:.85rem;white-space:pre-wrap;word-break:break-word"></div>
+        <div class="hint">Kræver <code>pip3 install pyftdi pyusb</code>. Send ikke
+          rigtig DMX fra to ting på samme linje samtidig — de skriver over
+          hinanden.</div>
+      </div>
+
+    <div class="pan" data-panel="motor">
+      <h2>Motor <span>gælder både simulering og rigtigt DMX</span></h2>
+      <div class="motor-stat">Kører med <b id="st-fps">0</b> billeder i sekundet ·
+        <span id="st-out">—</span></div>
+      <div class="cols">
+        <div class="col">
+          <div class="rowline"><span class="k">Framerate</span>
+            <input type="range" id="s-fps" min="5" max="60"><span class="v" id="s-fps-v">40</span></div>
+          <div class="rowline"><span class="k">Lysloft</span>
+            <input type="range" id="s-bright" min="0" max="255"><span class="v" id="s-bright-v">255</span></div>
+        </div>
+        <div class="col">
+          <label class="chk"><input type="checkbox" id="s-perf"> Sparetilstand (langsom iPad)</label>
+          <div class="rowline"><span class="k">Art-Net base</span>
+            <input type="number" id="s-abase" min="0" max="32"></div>
+          <div class="hint">Lysloft skalerer alle lamper ned under ét — nyttigt
+            hvis riggen er for kraftig i et lille rum. Art-Net base 0 sender
+            lampeunivers 1 som Art-Net-univers 0.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pan" data-panel="peek">
+      <h2>DMX-kig <span>de første 24 slots pr. univers</span></h2>
+      <div id="dmxpeek" class="hint"></div>
+    </div>
+    </div>
+  </div>
+
+  <!-- ============ SHOW ============ -->
+  <div class="view" id="v-show">
+    <div class="pan" data-panel="current">
+      <h2>Nuværende show</h2>
+      <div class="rowline"><span class="k">Navn</span>
+        <input type="text" id="sh-name"></div>
+      <div class="btns" style="margin-top:9px">
+        <button id="sh-save">Gem</button>
+        <button id="sh-new">Nyt show</button>
+        <button id="sh-reset" class="alarm">Nulstil setup…</button>
+        <button id="sh-export">Eksportér til fil</button>
+        <button id="sh-import">Importér fra fil</button>
+      </div>
+      <input type="file" id="sh-file" accept=".json" style="display:none">
+    </div>
+    <div class="pan" data-panel="saved">
+      <h2>Gemte shows</h2>
+      <div id="showlist"></div>
+    </div>
+  </div>
+
+  <!-- ============ HJÆLP ============ -->
+  <div class="view" id="v-help">
+    <div class="pan" id="set-pan">
+      <h2>Indstillinger <span>gælder kun denne skærm</span></h2>
+      <div class="rowline"><span class="k">Farvetema</span>
+        <select id="theme" style="width:auto;min-width:240px;max-width:100%" aria-label="Farvetema">
+          <optgroup label="Pultens egne">
+          <option value="rav">Rav</option>
+          <option value="nat">Nat</option>
+          <option value="lys">Lys</option>
+          <option value="kontrast">Kontrast</option>
+          <option value="scope">Scope</option>
+          </optgroup>
+          <optgroup label="I stil med kendte flader">
+          <option value="fluent">Windows 11</option>
+          <option value="macos">macOS</option>
+          <option value="material">Material (Google, lys)</option>
+          <option value="office">Office (lys)</option>
+          <option value="vscode">VS Code</option>
+          <option value="ubuntu">Ubuntu</option>
+          <option value="mint">Linux Mint</option>
+          <option value="magicq">MagicQ-stil</option>
+          <option value="grandma">grandMA-stil</option>
+          <option value="ableton">Ableton-stil</option>
+          </optgroup>
+        </select>
+        <button id="theme-advbtn" class="sm" aria-expanded="false">▸ Avanceret</button></div>
+      <div class="hint">Valget gemmes i browseren, så hver skærm kan have sit eget tema.
+        <b>Kontrast</b> er den mest læsbare i mørke. <b>Lys</b>, <b>Material</b> og
+        <b>Office</b> er til, når du rigger i dagslys. De øvrige låner farver, skrift og
+        hjørner fra kendte programmer, men holder samme læsbarhed.</div>
+      <div id="theme-adv" class="theme-adv" style="display:none"></div>
+    </div>
+
+    <div class="pan help">
+      <h2>Hjælp <span>tryk på en fane for at hoppe derhen</span></h2>
+      <div class="help-toc" id="help-toc"></div>
+
+      <h3 id="h-start" data-ico="go">Hurtig start</h3>
+      <p>Har du aldrig brugt pulten før, så lad <b>Guide</b> gøre arbejdet: den spørger
+        om fem ting og bygger et helt sæt scener ud fra dine lamper. Vil du hellere selv,
+        er det disse fem skridt:</p>
+      <ol class="steps">
+        <li><b>Lamper ind.</b> Under <b>Patch</b> giver du hver lampe en type og en
+          DMX-adresse. Der ligger et demorig klar; tryk <b>Nulstil setup…</b> for at
+          starte på en tom rig. Kender du ikke en lampes opsætning, så find den med
+          <b>Lampetest</b>.</li>
+        <li><b>DMX ud.</b> Sæt USB-donglen i, vælg den under <b>Output → DMX-udgang</b>,
+          sæt flueben i <b>Aktiv</b>, og tryk <b>DMX ud</b> øverst til venstre.</li>
+        <li><b>Placér lamperne.</b> Træk dem på plads under <b>Layout</b>, og saml dem i
+          grupper med <b>⬚ Vælg lamper</b> og <b>+ Gruppe</b>.</li>
+        <li><b>Styr lyset.</b> Den nemmeste vej er <b>Enkel</b>: tryk på lamperne og så
+          på en farve. <b>Afvikling</b> kan også køre mønstre på grupper, og
+          <b>Pult</b> er den store lagpult. Vælg hvem der styrer med ikonerne øverst
+          til højre.</li>
+        <li><b>Gem og kør.</b> Gem et look som scene, og kør showet fra <b>Scener</b>
+          eller live-matrixen. Gem hele showet under <b>Show</b>.</li>
+      </ol>
+
+      <h3 id="h-top" data-ico="tabs">Fanerne og hvem der styrer</h3>
+      <ul>
+        <li><b>Fanerne</b> kan byttes om: træk en fane, og en pil viser, hvor den
+          lander, når du slipper. Rækkefølgen gemmes i showet. Er der ikke plads til det
+          hele på én linje, vises fanerne kun med ikon — hold musen over et ikon for
+          at se navnet.</li>
+        <li><b>Hvem styrer lyset?</b> Tre faner kan bestemme over lamperne:
+          <b>Pult</b>, <b>Afvikling</b> og <b>Enkel</b>. Deres ikoner står øverst til
+          højre; den der styrer, er udfyldt, og har en prik på sit faneblad. Tryk på et
+          andet ikon, så tager den over, og den forrige slipper. Indstillingerne bliver
+          liggende, så de er der igen, når du skifter tilbage, og skiftet toner over
+          med standard-overgangstiden.</li>
+        <li><b>Flere på én gang:</b> sæt flueben i <b>Flere</b> og tryk på de ikoner du
+          vil have med. Så står der <b>Flere styrer samtidig</b> under fanerne. Styrer
+          to den samme lampe, ejer Afvikling og Enkel deres lamper over Pult, og
+          mellem Afvikling og Enkel vinder den lyseste.</li>
+        <li>Åbner du en af de tre faner, mens den ikke styrer, står det i en bjælke
+          øverst i fanen, med en knap til at lade den styre.</li>
+        <li><b>Striben under fanerne</b> dukker op, når noget rammer <i>alle</i> lamper,
+          uanset hvem der styrer: blackout, grand under 100 %, frosset billede,
+          strobe, lamper der er slukket i Pult → Lamper, en kørende lampe- eller
+          kanaltest, en fejl på en DMX-udgang, eller at DMX ud er slået fra. De fleste
+          har en knap til at rette det.</li>
+        <li><b>Rammerne</b> i Pult, Patch, Output, Scener og Show klappes sammen ved
+          at trykke på overskriften og flyttes ved at trække i den. Det huskes i
+          browseren.</li>
+      </ul>
+
+      <h3 id="h-guide" data-ico="v-guide">Guide</h3>
+      <p>Guiden bygger et færdigt sceneforløb ud fra de lamper, der er oprettet i
+        <b>Patch</b>. Du svarer på fem ting: hvad lamperne skal bruges til, hvilke
+        farver showet har, hvilke scener du vil have, om lyset skal følge musikkens
+        tempo, og hvad scenernes faneblad skal hedde.</p>
+      <ul>
+        <li>Tryk <b>Prøv</b> ved en scene for at se den på lamperne, før du gemmer.</li>
+        <li>Scenerne lægges i deres eget faneblad under <b>Scener</b>, så dine andre
+          scener ikke røres. <b>Start afvikling</b> åbner live-matrixen med dem.</li>
+        <li>Guiden husker, hvor du er, også efter genstart, og følger med showet.</li>
+        <li>Retter du i guiden og trykker <b>Opdatér scenerne</b>, erstattes guidens
+          scener. En scene du selv har rettet og trykket <b>Opdatér</b> på, rører
+          guiden ikke.</li>
+      </ul>
+
+      <h3 id="h-pult" data-ico="v-pult">Pult</h3>
+      <p>Pulten er en <b>lagpult</b>. Et lag er én effekt: et mønster, en farvekilde og
+        en maske, der siger hvilke lamper det rammer. Lagene lægges oven på hinanden.</p>
+      <ul>
+        <li><b>Master</b>: <b>Grand</b> er hovedskyderen for hele riggen.
+          <b>Blackout</b>, <b>Frys billedet</b> og strobe virker på alle lamper på én
+          gang, uanset hvem der styrer. <b>Alle lamper 100 %</b> og <b>Alle lamper 0</b>
+          sætter lampernes egne niveauer.</li>
+        <li><b>Lag</b>: <b>Til</b> tænder laget, <b>Solo</b> viser kun det lag, mens du
+          arbejder. Forskellige effekter på forskellige lamper laver du med hvert sit
+          lag og hver sin maske.</li>
+        <li><b>Mønster og farve er skilt ad.</b> Mønsteret bestemmer kun hvor og hvor
+          meget der lyser; farven kommer fra <b>Farvekilde</b>: <b>Fast</b>,
+          <b>Gradient</b>, <b>Regnbue</b> eller <b>Paletcyklus</b>. Derfor kan alle mønstre køre i alle farver.</li>
+        <li><b>Kører i</b>: <b>Hver lampe</b> fylder lampen med laget — godt til
+          faste looks. <b>Rummet</b> lader effekten feje hen over riggen efter
+          lampernes placering på Layout.</li>
+        <li><b>Forskydning</b> sætter lamperne forskudt i mønsteret, fx efter
+          <b>Modulnummer</b>, position eller fra midten — så bliver en ensfarvet puls
+          til en bølge.</li>
+        <li><b>Faste kanaler</b>: hvid, ravgul, UV og lampens egen strobe/makro
+          styres ikke af farvemotoren, men sættes her. De rammer lamperne i det lag du
+          redigerer.</li>
+        <li><b>Lamper</b>: hver lampe har en niveauskyder og knapperne <b>Tændt</b>
+          (slukker lampen helt), <b>I lag</b> (med i det lag du redigerer) og
+          <b>Kun her</b> (laget rammer kun den lampe). Gul kant betyder, at lampen er
+          med i lagets maske.</li>
+        <li><b>Paletter</b>: når et lag har fast farve, viser Pult de 14 palettefarver
+          med bogstaverne <b>A S D F G H J Z X C V B N M</b>. Tryk på en farve eller
+          tasten. <b>Redigér…</b>, <b>Gem som ny…</b> og vælgeren skifter og retter
+          paletter — det er de samme paletter som i Afvikling.</li>
+      </ul>
+      <p><b>Tempo</b>: BPM står i <b>Master</b>. Tap med <b>Tap tempo</b>, med
+        <b>TAP</b> i live-matrixen eller med tasten <b>T</b> (virker i alle faner, men
+        ikke mens du skriver i et felt). Tap mindst to gange; holder du pause i over to
+        sekunder, starter en ny måling. Du kan også skrive tallet eller bruge
+        <b>−1 / +1 / ½× / 2×</b>.</p>
+      <ul>
+        <li>Et lag følger kun tempoet, når <b>Følg tempo</b> er slået til på laget.
+          Så er <b>Fart 100</b> én omgang pr. slag, og farten skifter blødt, når du
+          tapper — også midt i en scene.</li>
+        <li><b>Alle lag og scener følger tempo</b> slår det til overalt, også i
+          gemte scener.</li>
+        <li>Scener kører i det tempo, du har tappet. Slår du <b>Scener sætter eget
+          tempo</b> til, tager hver scene sit eget tempo med.</li>
+      </ul>
+
+      <h3 id="h-layout" data-ico="v-layout">Layout</h3>
+      <p>Her placerer du lamperne, som de hænger, og laver <b>grupper</b>.</p>
+      <ul>
+        <li>Træk lamperne på plads. <b>Stil på række</b>, <b>Stil i gitter</b> og
+          <b>Bue bag scenen</b> ordner mange på én gang. Rektangler, cirkler og
+          trekanter tegner scene, tæppe og lignende.</li>
+        <li><b>Lav en gruppe:</b> tryk <b>⬚ Vælg lamper</b>, markér lamperne (træk et
+          rektangel eller klik dem enkeltvis), og tryk <b>+ Gruppe</b>. Giv den et navn,
+          fx «Sidelys». Gruppen får en label med stiplede streger ud til lamperne;
+          træk i labelen for at flytte den.</li>
+        <li><b>Nummerering:</b> rækkefølgen i gruppe-dialogen giver lamperne numrene
+          1, 2, 3 … Et chase eller en bølge løber i den rækkefølge, uanset adresse og
+          placering.</li>
+        <li><b>Grupper i grupper:</b> en gruppe kan indeholde andre grupper, fx «Alt»
+          med «Sidelys» og «Bagvæg». En gruppe kan aldrig komme til at indeholde sig
+          selv — den slags vises slet ikke i listen.</li>
+      </ul>
+
+      <h3 id="h-afvikling" data-ico="v-afvikling">Afvikling</h3>
+      <p>Live-styring af grupper og lamper. Oversigten er en kopi af scenegulvet, hvor
+        du kun kan vælge — ikke flytte.</p>
+      <ul>
+        <li>Vælg en lampe eller en gruppe i oversigten, eller i <b>gruppe-kolonnen</b>
+          ved siden af. Tasterne <b>1–9</b> og <b>0</b> vælger grupperne direkte;
+          <b>Shift</b> + tal lægger en gruppe til det, du har valgt.</li>
+        <li>Når en gruppe er valgt, vises dens egne numre som små cirkler på lamperne.
+          Flere valgte grupper har hver sin farve.</li>
+        <li>I panelet sætter du lysstyrke, farve og mønster med fart og forskydning.
+          Farven vælges med <b>Farvefelt</b>, <b>Skydere</b> eller <b>Paletter</b>
+          (bogstaverne A–M virker som genveje). Gradient og farvecyklus kan have
+          lige så mange farver du vil.</li>
+        <li><b>Overgangstid</b> (sekunder med én decimal) bestemmer hvor blødt lyset
+          skifter, og huskes for netop det, du har valgt. Grupper uden egen tid bruger
+          <b>Standard overgangstid</b> øverst i panelet.</li>
+        <li><b>Gem som scene</b> gemmer det hele som en scene. <b>Alt mørkt</b> rydder
+          al Afviklings styring. <b>◱ Simulator</b> åbner simulatoren i et nyt vindue.</li>
+      </ul>
+
+      <h3 id="h-enkel" data-ico="v-enkel">Enkel</h3>
+      <p>Den nemmeste styring: én stor flise pr. lampe, der viser lampens farve lige
+        nu.</p>
+      <ol class="steps">
+        <li>Tryk på de lamper, du vil styre. De får et flueben.</li>
+        <li>Tryk på en farve, eller tasten A–M. <b>Sluk</b> slukker de valgte.</li>
+        <li>Skyderen sætter lysstyrken. <b>Alt mørkt</b> slukker alle lamper.</li>
+      </ol>
+      <p>En farve tænder altid lampen, også hvis den var skruet helt ned. Det, du gør
+        her, kan gemmes som en scene med <b>Gem som scene</b>.</p>
+
+      <h3 id="h-patch" data-ico="v-patch">Patch</h3>
+      <p>Her bor riggen: hver lampe har en <b>type</b> (hvilke kanaler den fylder og i
+        hvilken rækkefølge) og en <b>startadresse</b>. Cameo Root Par 6 (D12ch), Thunder
+        Wash 600 RGBW (7ch2) og TS 100 WW er indbygget efter Cameos manualer.</p>
+      <ul>
+        <li><b>Tilføj lamper</b>: vælg type, antal, univers og startadresse.
+          <b>Auto-adressér alle</b> pakker adresserne tæt fra 1. Lamper kan også hentes
+          fra <b>Bibliotek…</b> eller importeres fra QLC+ eller en CSV fra fx MagicQ.</li>
+        <li><b>Lampetest</b> finder opsætningen på en lampe, du ikke kender: skriv
+          adressen (eller hent den fra en lampe), tryk <b>▶ Start test</b>, og tryk
+          <b>Næste</b> (eller →) indtil lampen lyser i den farve, den store boks viser.
+          Så giver du lampen opsætningen med ét tryk — eller tilføjer en ny lampe på
+          adressen. Vælg selv farvesekvensen, fx én farvekanal ad gangen for at finde
+          hvid, ravgul og UV. Testen stopper, når du forlader Patch.</li>
+        <li><b>Lampe-editor</b>: skift en lampes opsætning mellem standardopsætningerne
+          med <b>◀ Forrige</b> og <b>Næste ▶</b>.</li>
+        <li><b>Lampetyper</b> er stedet for dine egne lamper: <b>+ Ny lampetype</b>,
+          eller vælg en indbygget og tryk <b>Lav kopi</b>. Hver kanal får en funktion,
+          et navn, en standardværdi, en maks og evt. vend. <b>Fast værdi</b> sender altid
+          standardværdien (til mode-kanaler); <b>maks</b> bruges, når lampen gør noget
+          andet over en bestemt værdi. <b>Kanaltest</b> holder én kanal på en værdi på
+          alle lamper af typen, så du kan se hvad den gør.</li>
+        <li><b>Riggen</b> er listen over alle lamper. Træk i <b>⠿</b> for at flytte en
+          lampe; nummeret er et frit felt. En rød adresse overlapper en anden lampe
+          eller løber ud over kanal 512.</li>
+        <li><b>Nulstil setup…</b> tømmer riggen for lamper, grupper, scener og looks.
+          DMX-udgangen, egne lampetyper, paletter og fanernes rækkefølge bliver, og der
+          gemmes først en kopi under Show, så du kan fortryde.</li>
+      </ul>
+
+      <h3 id="h-pat" data-ico="v-pat">Mønstre</h3>
+      <p>Her maler du dine egne mønstre som lysstyrke i et gitter: vandret er
+        positionen hen over riggen (når laget kører i <b>Rummet</b>), lodret er trin i
+        tiden. Farven kommer stadig fra lagets farvekilde. På et lag i Pult vælger du
+        mønsteret <b>Eget mønster</b> for at bruge det.</p>
+
+      <h3 id="h-scene" data-ico="v-scene">Scener</h3>
+      <p>En scene er et øjebliksbillede: master, alle lag, lampernes niveauer og faste
+        kanaler, Afviklings og Enkels looks — og hvem der styrede. Når du kalder en
+        scene frem, toner billedet over i scenens fadetid, og styringen følger med.</p>
+      <ul>
+        <li><b>Gem nuværende som scene</b> gemmer det, der lyser nu. Scener kan ligge i
+          flere faneblade; træk i fanebladene for at bytte om på dem.</li>
+        <li><b>Liste</b> viser alle knapper (Kald, Opdatér, → Cue, Slet).
+          <b>Matrix</b> viser scenerne som kort til at køre show fra. <b>Vis
+          animation</b> tegner en lille levende stribe af hver scene.</li>
+        <li><b>Cuelisten</b> kæder scener sammen: <b>GO</b> går videre,
+          <b>Auto-følg</b> kører videre af sig selv.</li>
+        <li><b>Live-matrix</b> fylder skærmen med én flise pr. scene — til at køre
+          showet. Øverst: blackout, grand, <b>◀ Forrige</b> / <b>GO ▶</b>, <b>TAP</b>
+          og <b>Animér</b>. Tasterne: <b>1–9</b> kalder, <b>mellemrum</b> er GO,
+          <b>T</b> tapper, <b>B</b> er blackout og <b>Esc</b> går ud.</li>
+      </ul>
+
+      <h3 id="h-out" data-ico="v-out">Output</h3>
+      <p>Pulten laver DMX512 og kan sende det tre veje samtidig: <b>DMX-udgang</b>
+        (USB-dongle til riggen), <b>Art-Net</b> og <b>sACN</b> (over netværk, fx til en
+        node eller en simulator). Sæt flueben i <b>Aktiv</b> på dem, du bruger, og
+        tryk <b>DMX ud</b> øverst.</p>
+      <ul>
+        <li><b>USB-dongle:</b> pulten bruger en <b>Enttec Open DMX USB</b> (en rå
+          FTDI-chip, VID 0403 / PID 6001) direkte via libusb, ligesom QLC+. Den skal
+          have <code>pip3 install pyftdi pyusb</code>. Vælg den under <b>Enhed</b>; tryk
+          <b>Søg efter enheder igen</b>, hvis du satte den i efter start. Kun ét program
+          ad gangen kan bruge donglen — luk QLC+ eller en anden pult først.</li>
+        <li><b>Linux (fx Mint):</b> læg en udev-regel, så du ikke skal være root.
+          Opret <code>/etc/udev/rules.d/99-ftdi.rules</code> med linjen
+          <code>SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ATTR{idProduct}=="6001",
+          MODE="0666"</code>, kør <code>sudo udevadm control --reload-rules</code>, og
+          sæt donglen i igen. Tjek med <code>lsusb</code>, at den ses.</li>
+        <li><b>Mac:</b> <code>brew install libusb</code> — så virker den uden driver.
+          <b>Windows:</b> donglen skal have WinUSB-driveren (fx med Zadig).</li>
+        <li><b>Martin USB DMX / Light Jockey II</b> kan <i>ikke</i> bruges: den har en
+          lukket protokol, som intet andet program end Martins eget kan tale.</li>
+        <li><b>Motor</b>: <b>Framerate</b> er opdateringer pr. sekund, og linjen
+          øverst i rammen viser, hvor mange pulten faktisk når, og hvordan udgangene
+          har det. <b>Lysloft</b> skalerer alle lamper ned.
+          <b>Sparetilstand</b> er til en gammel iPad. <b>DMX-kig</b> viser de første
+          kanaler i hvert univers.</li>
+        <li>Når en lampe har r/g/b, står dens dimmer på 255, og al dæmpning ligger i
+          farven — det giver finere trin. Lamper uden farve dæmpes på dimmeren. Strobe
+          laves i pulten, så alle lamper blinker præcis samtidig.</li>
+      </ul>
+
+      <h3 id="h-show" data-ico="v-show">Show</h3>
+      <p>Et show er hele setuppet: rig, grupper, scener, paletter, fanernes rækkefølge
+        og hvem der styrer. <b>Gem</b> gemmer under navnet; under <b>Gemte shows</b> trykker du på et
+        navn for at hente det. <b>Eksportér til fil</b> / <b>Importér fra fil</b> flytter et show
+        mellem maskiner. <b>Nyt show</b> starter forfra med standardindstillinger, og
+        <b>Nulstil setup…</b> tømmer riggen men beholder udstyr og indstillinger.</p>
+
+      <h3 id="h-set" data-ico="v-help">Indstillinger</h3>
+      <p>Farvetemaet vælges øverst på denne side. Det gælder kun den skærm, du sidder
+        ved — en iPad og en computer kan have hvert sit tema.</p>
+      <ul>
+        <li><b>Egne farver:</b> tryk <b>▸ Avanceret</b> ved temavælgeren. Her retter du
+          tolv farver i tre grupper — flader, tekst og fremhævning — og ser ændringen
+          med det samme. Under <b>Kan det læses?</b> står kontrasten mellem tekst og
+          baggrund; under 4,5:1 bliver den rød.</li>
+        <li><b>Gem som nyt tema…</b> gemmer farverne under et navn du selv vælger.
+          Findes navnet allerede blandt dine egne temaer, bliver du spurgt, om det skal
+          overskrives. Står du i et eget tema, gemmer <b>Gem</b> direkte i det, og
+          <b>Slet tema</b> fjerner det.</li>
+        <li>De faste temaer kan aldrig ændres, og deres navne kan ikke bruges til egne
+          temaer. Et eget tema beholder skrift og hjørner fra det tema, det blev lavet
+          ud fra.</li>
+        <li>Egne temaer ligger på computeren der kører pulten (i <code>temaer.json</code>
+          ved siden af <code>shows</code>), så alle skærme kan vælge dem.</li>
+      </ul>
+
+      <h3 id="h-ipad" data-ico="ipad">På iPad og telefon</h3>
+      <p>Pulten er en webserver, så der skal ikke installeres noget på iPad eller
+        telefon. Flere skærme kan være koblet på samtidig og ser det samme.</p>
+      <ol class="steps">
+        <li>Start pulten på computeren. Den skriver en <b>netværksadresse</b> i stil
+          med <code>http://192.168.1.42:8080</code>.</li>
+        <li>Sæt iPad/telefon på <b>samme wifi</b> som computeren (ikke et gæstenet).</li>
+        <li>Åbn adressen i Safari, og tryk <b>Del → Føj til hjemmeskærm</b> — så får
+          den sit eget ikon og fylder hele skærmen.</li>
+        <li>På en gammel iPad: slå <b>Sparetilstand</b> til under Output, og vælg evt.
+          temaet <b>Kontrast</b>.</li>
+      </ol>
+      <ul>
+        <li>Svarer siden ikke, er det næsten altid firewall eller forkert netværk. På
+          Mac spørger systemet første gang, om Python må tage imod forbindelser — sig
+          ja. På Linux med firewall skal porten (8080) åbnes. Prøv først adressen i
+          browseren på selve computeren.</li>
+        <li>Mens live-matrixen er fremme, holder telefonen skærmen tændt (iOS 16.4 eller
+          nyere; ellers skru selv op for skærmtimeout).</li>
+        <li>Træk i faner og rammer virker med mus; på iPad kan rammerne klappes sammen
+          med et tryk.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LIVE-MATRIX ============ -->
+<div id="live">
+  <div id="livebar">
+    <button id="lv-exit">Afslut live</button>
+    <select id="lv-tab" aria-label="Vis scener fra faneblad" title="Hvilke scener live-matrixen viser"></select>
+    <button id="lv-black" class="alarm">Blackout</button>
+    <div id="lv-grandwrap">
+      <span class="k">Grand</span>
+      <input type="range" id="lv-grand" min="0" max="255">
+      <span id="lv-grand-v">255</span>
+    </div>
+    <button id="lv-back">◀ Forrige</button>
+    <button id="lv-go">GO ▶</button>
+    <button id="lv-tap" class="tapbtn" title="Tap tempo - eller tasten T">TAP <span id="lv-bpm">120</span><span class="beat" aria-hidden="true"></span></button>
+    <label id="lv-animwrap"><input type="checkbox" id="lv-animall" checked> Animér</label>
+    <span id="lv-now">—</span>
+    <span id="lv-hint">1–9 kalder · mellemrum GO · T tap · B blackout · Esc ud</span>
+  </div>
+  <div id="lv-fadewrap"><div id="lv-fade"></div></div>
+  <div id="livegrid"></div>
+</div>
+
+<!-- ============ GRUPPE-DIALOG ============ -->
+<div id="grpdlg">
+  <div class="grpdlg-box">
+    <div class="grpdlg-hd">
+      <b id="grpdlg-title">Ny gruppe</b>
+      <button id="grpdlg-close" class="sm">Luk</button>
+    </div>
+    <div class="grpdlg-body" id="grpdlg-body"></div>
+  </div>
+</div>
+
+<div id="rstdlg">
+  <div class="grpdlg-box" style="max-width:560px">
+    <div class="grpdlg-hd">
+      <b>Nulstil setup</b>
+      <button onclick="id('rstdlg').className=''" class="sm">Luk</button>
+    </div>
+    <div class="grpdlg-body" id="rstdlg-body"></div>
+  </div>
+</div>
+
+<div id="paldlg">
+  <div class="grpdlg-box" style="max-width:520px">
+    <div class="grpdlg-hd">
+      <b>Redigér palette</b>
+      <button onclick="id('paldlg').className=''" class="sm">Luk</button>
+    </div>
+    <div class="grpdlg-body" id="paldlg-body"></div>
+  </div>
+</div>
+
+<div id="lib">
+  <div id="libbar">
+    <b>Fixture-bibliotek</b>
+    <input type="text" id="lib-search" placeholder="Søg lampe eller mærke…" aria-label="Søg">
+    <span id="lib-note" class="hint" style="margin:0">Vælg den mode der matcher lampens display. Direkte-farve-modes er de sikre.</span>
+    <button id="lib-close">Luk</button>
+  </div>
+  <div id="libgrid"></div>
+</div>
+
+<div id="toast"></div>
+<script src="ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Brugerdata der laves når pulten kører
+shows/*.json
+temaer.json
+
+# OS-skrald
+.DS_Store
+Thumbs.db
