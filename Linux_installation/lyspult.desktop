@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Lyspult
+Comment=DMX-lysstyring
+Exec=/opt/lyspult/Lyspult
+Icon=lyspult
+Terminal=false
+Categories=AudioVideo;Utility;
+StartupNotify=true

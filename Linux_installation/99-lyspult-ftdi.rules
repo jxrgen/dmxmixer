@@ -1,0 +1,4 @@
+# Giver adgang til Enttec Open DMX USB (FTDI FT232, VID 0403 / PID 6001)
+# uden root. Lyspult taler direkte med chippen via libusb, så den skal
+# kunne åbnes af en almindelig bruger i gruppen plugdev.
+SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ATTR{idProduct}=="6001", MODE="0666", GROUP="plugdev", TAG+="uaccess"

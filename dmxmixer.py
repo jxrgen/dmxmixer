@@ -48,11 +48,27 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # man koerer scriptet normalt.
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     HERE = sys._MEIPASS
-SHOW_DIR = os.path.join(HERE, "shows")
+
+
+def user_data_dir():
+    """En mappe brugeren altid maa skrive i - til shows og egne temaer.
+    Program Files og indersiden af en .app er skrivebeskyttet, saa en
+    installeret app kan ikke gemme ved siden af sig selv."""
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(base, "Lyspult")
+
+
 if getattr(sys, "frozen", False):
-    # I en pakket app kan vi ikke skrive inde i _MEIPASS; laeg shows ved
-    # siden af den eksekverbare fil i stedet.
-    SHOW_DIR = os.path.join(os.path.dirname(sys.executable), "shows")
+    # Installeret app: gem i brugerens egen datamappe.
+    SHOW_DIR = os.path.join(user_data_dir(), "shows")
+else:
+    # Koert som almindeligt script: gem ved siden af scriptet (nemt i udvikling).
+    SHOW_DIR = os.path.join(HERE, "shows")
 
 OFS_DIM, OFS_STROBE, OFS_R, OFS_G, OFS_B, OFS_PIX = 0, 1, 2, 3, 4, 5
 DMX_SLOTS = 5 + 36 * 3     # kun tilbage af hensyn til gammel kode
@@ -3701,18 +3717,9 @@ def merge_show(target, src):
 
 
 # ======================================================================
-def main():
-    ap = argparse.ArgumentParser(description="Lyspult - DMX-mixer til lamper")
-    ap.add_argument("--port", type=int, default=8080)
-    ap.add_argument("--bind", default="0.0.0.0",
-                    help="0.0.0.0 for adgang fra iPad m.fl.")
-    ap.add_argument("--layers", type=int, default=6)
-    ap.add_argument("--blank", action="store_true",
-                    help="tomt rig i stedet for demo-rigget")
-    ap.add_argument("--show", default="", help="indlaes dette show ved start")
-    ap.add_argument("--no-browser", action="store_true")
-    args = ap.parse_args()
-
+def build_server(args):
+    """Opret motor og server ud fra argumenterne. Returnerer (server, port,
+    url) hvor url er netvaerksadressen (eller None hvis bundet lokalt)."""
     os.makedirs(SHOW_DIR, exist_ok=True)
     n_layers = args.layers or 6
     show = default_show(0, n_layers) if args.blank else demo_show()
@@ -3725,13 +3732,82 @@ def main():
     Handler.engine = Engine(show)
     server = open_server(args.bind, args.port, Handler)
     port = server.server_address[1]
+    url = "http://%s:%d" % (lan_ip(), port) if args.bind == "0.0.0.0" else None
+    return server, port, url
 
-    host = lan_ip()
+
+def open_browser_soon(port):
+    threading.Timer(0.7,
+                    lambda: webbrowser.open("http://127.0.0.1:%d" % port)
+                    ).start()
+
+
+def run_gui(server, port, url):
+    """Lille vindue med adressen og en Stop-knap, saa en installeret app
+    kan koere uden en terminal. Falder tilbage til konsollen hvis der ikke
+    er noget vinduessystem (fx en ren server)."""
+    try:
+        import tkinter as tk
+    except Exception:
+        return False
+
+    local = "http://127.0.0.1:%d" % port
+
+    def do_stop():
+        Handler.engine.running = False
+        try:
+            threading.Thread(target=server.shutdown, daemon=True).start()
+        except Exception:
+            pass
+        root.destroy()
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return False
+    root.title("Lyspult")
+    root.configure(bg="#14181E")
+    try:
+        root.minsize(380, 0)
+    except Exception:
+        pass
+    pad = {"padx": 18, "pady": 4}
+    tk.Label(root, text="Lyspult kører", fg="#F2B33D", bg="#14181E",
+             font=("Helvetica", 18, "bold")).pack(anchor="w", padx=18, pady=(16, 2))
+    tk.Label(root, text="Lad dette vindue stå åbent, mens du bruger pulten.",
+             fg="#B4BCC8", bg="#14181E", justify="left").pack(anchor="w", **pad)
+    tk.Label(root, text="På denne computer:", fg="#8B94A2", bg="#14181E").pack(anchor="w", padx=18, pady=(10, 0))
+    tk.Label(root, text=local, fg="#EDF0F5", bg="#14181E",
+             font=("Helvetica", 13, "bold")).pack(anchor="w", **pad)
+    if url:
+        tk.Label(root, text="Fra iPad eller telefon på samme wifi:", fg="#8B94A2", bg="#14181E").pack(anchor="w", padx=18, pady=(8, 0))
+        tk.Label(root, text=url, fg="#EDF0F5", bg="#14181E",
+                 font=("Helvetica", 13, "bold")).pack(anchor="w", **pad)
+
+    btns = tk.Frame(root, bg="#14181E")
+    btns.pack(anchor="w", padx=16, pady=(16, 18))
+    tk.Button(btns, text="Åbn i browser", command=lambda: webbrowser.open(local),
+              highlightbackground="#14181E").pack(side="left", padx=2)
+    tk.Button(btns, text="Stop pulten", command=do_stop, fg="#180C08",
+              bg="#E86A50", activebackground="#F2805C",
+              highlightbackground="#14181E").pack(side="left", padx=2)
+
+    root.protocol("WM_DELETE_WINDOW", do_stop)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    open_browser_soon(port)
+    try:
+        root.mainloop()
+    finally:
+        Handler.engine.running = False
+    return True
+
+
+def run_console(args, server, port, url):
+    n_mods = len(Handler.engine.show["modules"])
     print()
-    print("  Lyspult - %d lamper, %d lag" % (len(show["modules"]), n_layers))
+    print("  Lyspult - %d lamper" % n_mods)
     print("  Lokalt:      http://127.0.0.1:%d" % port)
-    if args.bind == "0.0.0.0":
-        url = "http://%s:%d" % (host, port)
+    if url:
         print("  Netvaerk:    %s" % url)
         print()
         l1 = "Telefon eller iPad paa samme wifi:"
@@ -3753,16 +3829,39 @@ def main():
     print()
     print("  Ctrl-C for at stoppe")
     print()
-
     if not args.no_browser:
-        threading.Timer(0.7,
-                        lambda: webbrowser.open("http://127.0.0.1:%d" % port)
-                        ).start()
+        open_browser_soon(port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         Handler.engine.running = False
         print("\n  Stoppet.")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Lyspult - DMX-mixer til lamper")
+    ap.add_argument("--port", type=int, default=8080)
+    ap.add_argument("--bind", default="0.0.0.0",
+                    help="0.0.0.0 for adgang fra iPad m.fl.")
+    ap.add_argument("--layers", type=int, default=6)
+    ap.add_argument("--blank", action="store_true",
+                    help="tomt rig i stedet for demo-rigget")
+    ap.add_argument("--show", default="", help="indlaes dette show ved start")
+    ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--gui", action="store_true",
+                    help="vis et lille vindue med en Stop-knap i stedet for konsollen")
+    ap.add_argument("--no-gui", action="store_true",
+                    help="koer altid i konsollen, ogsaa i en pakket app")
+    args = ap.parse_args()
+
+    server, port, url = build_server(args)
+
+    # En pakket app vises som vindue (ingen terminal); et almindeligt
+    # scriptkald bruger konsollen. --gui / --no-gui tvinger valget.
+    want_gui = args.gui or (getattr(sys, "frozen", False) and not args.no_gui)
+    if want_gui and run_gui(server, port, url):
+        return
+    run_console(args, server, port, url)
 
 
 # =====================================================================

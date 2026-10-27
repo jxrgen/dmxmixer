@@ -1,0 +1,86 @@
+name: Byg installationsfiler
+
+# Bygger Lyspult til Windows, macOS og Linux. GitHub stiller maskinerne til
+# rådighed, så du ikke selv skal eje alle tre styresystemer.
+#
+#  - Kør manuelt: fanen "Actions" -> "Byg installationsfiler" -> "Run workflow".
+#  - Eller skub et versionsmærke (fx  git tag v1.0.0 && git push --tags),
+#    så bygges filerne OG lægges som en Release man kan hente.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Byg installationsprogram
+        run: cmd /c Windows_installation\build.bat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-Lyspult-Setup
+          path: Windows_installation/output/Lyspult-Setup.exe
+
+  macos:
+    strategy:
+      matrix:
+        include:
+          - runner: macos-14    # Apple Silicon (M1/M2/M3 ...)
+            suffix: AppleSilicon
+          - runner: macos-13    # Intel
+            suffix: Intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Byg diskbillede
+        run: bash MacOS_installation/build.sh
+      - name: Omdøb efter chiptype
+        run: mv MacOS_installation/Lyspult.dmg "MacOS_installation/Lyspult-${{ matrix.suffix }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS-${{ matrix.suffix }}
+          path: MacOS_installation/Lyspult-${{ matrix.suffix }}.dmg
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Systempakker
+        run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0 python3-tk
+      - name: Byg .deb
+        run: bash Linux_installation/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux-deb
+          path: Linux_installation/lyspult_*_amd64.deb
+
+  # Når der skubbes et versionsmærke: saml filerne i en Release man kan hente.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: filer
+      - name: Lav Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: filer/**/*
