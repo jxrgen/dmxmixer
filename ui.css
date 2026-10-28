@@ -1164,3 +1164,38 @@ button.lcv-key.wide{-webkit-flex:0 0 118px;flex:0 0 118px;width:118px}
 .lc11-no.sel{background:#3FD06B;color:#06210F}
 .lc11-no.on{background:#F2553F;color:#2A0702}
 .lc11-no.inl{position:static;display:inline-block;margin-right:7px;vertical-align:middle;box-shadow:none}
+/* LC-11, det rigtige panels opbygning: Auto/Take under søjle 10-11 uden
+   lampe, den runde lampe ved T-baren, joysticks og tryk på drejeknapperne */
+.lcv-at{margin-top:2px}
+.lcv-at button.lcv-key[data-k="auto"]{margin-left:558px}
+button.lcv-key.noled{background:#C9C5BD;color:#1E2126;box-shadow:0 2px 0 #77736C}
+button.lcv-key.noled:hover{color:#000000}
+button.lcv-key.ready{outline:3px solid #3FD06B;outline-offset:2px}
+.lcv-ind{width:14px;height:14px;border-radius:50%;background:#2B2E34;box-shadow:inset 0 0 0 2px #454A54;
+  -webkit-align-self:flex-end;align-self:flex-end;margin:0 6px -4px 0}
+.lcv-ind.on{background:#3E9BF5;box-shadow:0 0 10px 2px rgba(62,155,245,.7)}
+.lcv-joy{width:58px;height:58px;border-radius:50%;background:#101215;box-shadow:inset 0 0 0 3px #2B2E34;
+  position:relative}
+.lcv-stick{position:absolute;left:19px;top:19px;width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#4A4E56,#15171B 70%)}
+.lcv-kb button.push{font-size:11px;width:30px}
+/* tre knapper under hver drejeknap: smallere, så de ikke rammer naboen */
+.lcv-knob{width:102px}
+.lcv-kb button{width:28px;margin:0 2px;font-size:16px}
+.lcv-kb button.push{width:28px;font-size:11px}
+/* det rigtige panel har flere drejeknapper end tegningen havde -
+   lidt smallere taster, så hele panelet kan ses på en almindelig skærm */
+.lcv-rl{-webkit-flex:0 0 64px;flex:0 0 64px}
+.lcv-no{-webkit-flex:0 0 52px;flex:0 0 52px;margin-right:5px}
+button.lcv-key{-webkit-flex:0 0 52px;flex:0 0 52px;width:52px;height:50px;margin-right:5px}
+button.lcv-key.wide{-webkit-flex:0 0 109px;flex:0 0 109px;width:109px}
+.lcv-at button.lcv-key[data-k="auto"]{margin-left:513px}
+.lcv-tb{width:80px;margin:0 4px 0 10px}
+.lcv-sec{margin-left:10px;padding:12px 4px 14px 10px}
+.lcv-knob{width:92px;margin-right:2px}
+.lcv-kb button{width:26px;margin:0 2px}
+.lcv-kb button.push{width:24px}
+.lcv-rl{-webkit-flex:0 0 66px;flex:0 0 66px;min-width:0;overflow:hidden;letter-spacing:.06em}
+.lcv-ovl .lcv-pair button.lcv-key{-webkit-flex:0 0 63px;flex:0 0 63px;width:63px}
+.lcv-ovl .lcv-pair button.lcv-key.wide{-webkit-flex:0 0 131px;flex:0 0 131px;width:131px}
+button.lcv-key .l2{max-height:24px;overflow:hidden}

@@ -1058,7 +1058,7 @@ class EnttecOut:
         from pyftdi.ftdi import Ftdi
         self._close()
         f = Ftdi()
-        f.open_from_url(url)                 # libusb kobler ftdi_sio af selv
+        f.open_from_url(EnttecOut.skip_lc11(url))   # libusb kobler ftdi_sio af selv
         f.set_baudrate(250000)
         f.set_line_property(8, 2, 'N')       # 8 databit, 2 stopbit, ingen paritet
         for call in (lambda: f.set_flowctrl(''),
@@ -1130,6 +1130,42 @@ class EnttecOut:
     # Hvorfor listen er tom - vises i fladen i stedet for bare "ingen enhed".
     ftdi_error = ""
 
+    # LC-11-panelet (lc11_driver.py) bruger samme FTDI-chip (0403:6001) som
+    # Enttec-donglen. Det kendes paa serienummer og USB-navn og maa aldrig
+    # bruges som DMX-udgang.
+    @staticmethod
+    def is_lc11(desc):
+        sn = (getattr(desc, "sn", None) or "").upper()
+        d = (getattr(desc, "description", None) or "").lower()
+        return sn == "FTRHBAHV" or "newtek" in d or "control surface" in d
+
+    @staticmethod
+    def skip_lc11(url):
+        """Donglen har intet serienummer, saa dens URL er bare
+        ftdi://0x0403:0x6001/1. Sidder LC-11-panelet ogsaa i, passer den paa
+        to enheder, og pyftdi naegter at vaelge. Saa peges paa donglen via
+        dens USB-adresse i stedet. Uden panelet bruges URL'en som den er."""
+        try:
+            from pyftdi.ftdi import Ftdi
+            netloc = url.split("://", 1)[1].split("/", 1)[0]
+            iface = url.rsplit("/", 1)[1] or "1"
+            parts = netloc.split(":")
+            if len(parts) != 2:
+                return url                   # har allerede serienummer/adresse
+            vid, pid = int(parts[0], 0), int(parts[1], 0)
+            devs = [d for d, _ in Ftdi.list_devices()]
+        except Exception:
+            return url
+        if not any(EnttecOut.is_lc11(d) for d in devs):
+            return url
+        rest = [d for d in devs if d.vid == vid and d.pid == pid and not EnttecOut.is_lc11(d)]
+        if not rest:
+            raise IOError("kun LC-11-panelet er fundet - sidder DMX-donglen i?")
+        d = rest[0]
+        if len(rest) == 1 and d.bus is not None and d.address is not None:
+            return "ftdi://0x%04x:0x%04x:%x:%x/%s" % (vid, pid, d.bus, d.address, iface)
+        return url
+
     @staticmethod
     def ftdi_devices():
         """FTDI-enheder som pyftdi-URL'er - til opendmx."""
@@ -1149,6 +1185,8 @@ class EnttecOut:
                 "for 0403:6001 (se dongle-vejledningen)." % e)
             return []
         for desc, _ifc in devs:
+            if EnttecOut.is_lc11(desc):
+                continue                     # LC-11-panelet er ikke en DMX-dongle
             if getattr(desc, "sn", None):
                 url = "ftdi://0x%04x:0x%04x:%s/1" % (desc.vid, desc.pid, desc.sn)
             else:

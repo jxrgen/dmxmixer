@@ -26,21 +26,32 @@ Panelet paa skaermen (Indstillinger -> LC-11) bruger de samme logiske navne
 og sender sine tryk ind gennem /api (op "lc11_input"), saa alt kan proeves
 uden panelet.
 
-Driverfilen skal have en klasse Panel:
+Driveren (lc11_driver.py) taler med det rigtige panel og har en klasse Panel:
 
     class Panel:
-        def __init__(self, on_event):
+        def __init__(self, on_event, port=""):
             # on_event(kind, cid, value) kaldes for hvert input:
             #   ("press", cid, None) og ("release", cid, None) - taster
             #   ("turn", cid, trin)       - endeloese drejeknapper (+1/-1 ...)
-            #   ("abs", cid, 0.0 .. 1.0)  - drejeknapper med anslag og T-bar
+            #   ("abs", cid, 0.0 .. 1.0)  - T-baren (1.0 = helt oppe)
+            #   ("joy", cid, [x, y])      - joysticks (-1.0 .. 1.0)
+            # port = "" finder selv panelet
         def open(self):
             # True naar panelet er fundet og aabnet, ellers False
-        def set_led(self, cid, rgb):
-            # rgb = (r, g, b) 0-255; (0, 0, 0) er slukket. Driveren vaelger
-            # den naermeste farve tasten kan vise.
+        def set_led(self, cid, on):
+            # taend/sluk tastens lampe. Panelets lamper har én fast farve
+            # hver og kan kun vaere taendt eller slukket - blink klarer vi her.
         def close(self): ...
         # valgfri: alive() -> False naar panelet er trukket ud
+        #          status() -> (tilstand, tekst), fx mens panelet starter op
+    list_ports() -> [{"dev", "desc", "lc11"}]  (til valg af port)
+
+Lamperne i tasterne betyder:
+    Program-raekken (roed)   taendt = lyser nu / koerer
+    Preview-raekken (groen)  taendt = valgt / staar klar
+    Effects-raekken (rav)    taendt = det aktive moenster, faneblad eller farve
+    de blaa taster           taendt = slaaet til / den tilstand man staar i
+    blink                    tryk her, eller noget venter (takt, blackout ...)
 """
 
 import colorsys
@@ -53,16 +64,20 @@ import time
 #  Panelets logiske kontroller
 # ----------------------------------------------------------------------
 COLS = 8                                   # ting pr. side (soejle 1-8)
-EFF = ["e%d" % i for i in range(1, 12)]    # Effects-raekken
-PROG = ["p%d" % i for i in range(1, 12)]   # Program-raekken
-PREV = ["v%d" % i for i in range(1, 10)]   # Preview-raekken
+EFF = ["e%d" % i for i in range(1, 12)]    # Effects-raekken (raekke 1)
+PROG = ["p%d" % i for i in range(1, 12)]   # Program-raekken (raekke 2)
+PREV = ["v%d" % i for i in range(1, 12)]   # Preview-raekken (raekke 3)
 TRANS_KEYS = ["tap", "styr", "ftb", "frys", "side_prev", "side_next"]
 MODE_KEYS = ["m_scener", "m_afvikling", "m_enkel", "m_pult"]
 OTHER_KEYS = ["auto", "take", "gem", "mork"]
-KEYS = EFF + PROG + PREV + OTHER_KEYS + TRANS_KEYS + MODE_KEYS
-KNOBS = ["grand", "k1", "k2", "k3"]
+KNOBS = ["grand", "tempo", "k1", "k2", "k3"]
+PUSH_KEYS = ["push_" + k for k in KNOBS]   # tryk paa drejeknapperne
+KEYS = EFF + PROG + PREV + OTHER_KEYS + TRANS_KEYS + MODE_KEYS + PUSH_KEYS
 FADERS = ["tbar"]
-CONTROLS = KEYS + KNOBS + FADERS
+JOYS = ["joy1", "joy2"]                    # ikke i brug endnu
+CONTROLS = KEYS + KNOBS + FADERS + JOYS
+NO_LED = set(["auto", "take"] + PUSH_KEYS)  # taster uden lampe
+LEDS = [k for k in KEYS if k not in NO_LED] + ["tbar_led"]   # tbar_led = den runde ved T-baren
 
 MODES = ("scener", "afvikling", "enkel", "pult")
 MODE_NAME = {"scener": "Scener", "afvikling": "Afvikling", "enkel": "Enkel", "pult": "Pult"}
@@ -74,18 +89,24 @@ EFF_PATTERNS = [("fyldt", "Fyldt"), ("chase", "Chase"), ("teater", "Teater"),
                 ("gnister", "Gnister"), ("blink", "Blink"), ("komet", "Komet"),
                 ("alternating", "Skiftevis"), ("random_flash", "Flash")]
 
-COLOURS = {"red": (236, 48, 36), "green": (63, 208, 107), "amber": (246, 178, 40),
-           "blue": (62, 155, 245), "white": (255, 255, 255)}
-TEST_SEQ = ("red", "green", "blue", "amber", "white")
+# Lampernes faste farve i panelet (til tegningen paa skaermen)
+LED_HEX = {"e": "#f6b228", "p": "#ec3024", "v": "#3fd06b", "*": "#3e9bf5"}
+
+
+def led_hex(cid):
+    if cid[0] in "epv" and cid[1:].isdigit():
+        return LED_HEX[cid[0]]
+    return LED_HEX["*"]
+
 
 DEFAULTS = {
     "on": False,             # LC-11 i brug
     "start": "styrer",       # starttilstand: "styrer" = den der styrer lyset
-    "pickup": True,          # blød overtagelse for T-bar og drejeknapper med anslag
+    "pickup": True,          # blød overtagelse for T-baren
     "tbar_invert": False,    # T-baren vendt om
-    "sens": 5,               # følsomhed for endeløse drejeknapper, 1-10
-    "own_colours": True,     # farvetaster lyser i deres egen farve
-    "led_level": 100,        # lysstyrke i tasterne, 10-100 %
+    "enc_invert": False,     # drejeknapperne drejer den forkerte vej
+    "sens": 5,               # følsomhed for drejeknapperne, 1-10
+    "port": "",              # serieport til panelet, "" = find det selv
 }
 
 
@@ -93,16 +114,17 @@ def clean_settings(src):
     out = dict(DEFAULTS)
     if not isinstance(src, dict):
         return out
-    for k in ("on", "pickup", "tbar_invert", "own_colours"):
+    for k in ("on", "pickup", "tbar_invert", "enc_invert"):
         if k in src:
             out[k] = bool(src[k])
     if src.get("start") in ("styrer",) + MODES:
         out["start"] = src["start"]
-    for k, lo, hi in (("sens", 1, 10), ("led_level", 10, 100)):
-        try:
-            out[k] = int(max(lo, min(hi, int(src.get(k, out[k])))))
-        except (TypeError, ValueError):
-            pass
+    try:
+        out["sens"] = int(max(1, min(10, int(src.get("sens", out["sens"])))))
+    except (TypeError, ValueError):
+        pass
+    if isinstance(src.get("port"), str):
+        out["port"] = src["port"].strip()[:200]
     return out
 
 
@@ -157,12 +179,14 @@ class HardwareLink:
         self.dev = None
         self.sent = {}
         self.next_try = 0.0
+        self.port = None
+        self.ports = []
         self.state = "fra"
         self.text = "LC-11 er slået fra"
 
     def info(self):
         return {"state": self.state, "text": self.text,
-                "driver": _DRIVER is not None}
+                "driver": _DRIVER is not None, "ports": self.ports}
 
     def _close(self):
         if self.dev is not None:
@@ -173,35 +197,50 @@ class HardwareLink:
         self.dev = None
         self.sent = {}
 
-    def poll(self, enabled, leds):
+    def _scan(self):
+        try:
+            self.ports = list(_DRIVER.list_ports())[:20]
+        except Exception:
+            self.ports = []
+
+    def poll(self, enabled, leds, port=""):
         if not enabled:
             if self.dev is not None:
                 try:
                     for cid in list(self.sent):
-                        self.dev.set_led(cid, (0, 0, 0))
+                        self.dev.set_led(cid, False)
+                    time.sleep(0.1)            # lad driveren sende slukket, foer porten lukkes
                 except Exception:
                     pass
             self._close()
             self.state, self.text = "fra", "LC-11 er slået fra"
+            self.port = None
             return
         if _DRIVER is None:
             self.state = "fejl" if _DRIVER_ERR else "mangler"
             self.text = ("Driveren til panelet fejler: " + _DRIVER_ERR) if _DRIVER_ERR else \
-                "Driveren til det fysiske panel er ikke lagt ind endnu - brug panelet her på skærmen"
+                "Driveren til det fysiske panel mangler (lc11_driver.py) - brug panelet her på skærmen"
             return
+        if self.dev is not None and port != self.port:
+            self._close()                      # en anden port er valgt
+            self.next_try = 0.0
         now = time.monotonic()
         if self.dev is None:
             if now < self.next_try:
                 return
             self.next_try = now + self.RETRY
+            self._scan()
             try:
-                dev = _DRIVER.Panel(self.ctl.event)
+                dev = _DRIVER.Panel(self.ctl.event, port)
                 if dev.open():
                     self.dev = dev
+                    self.port = port
                     self.sent = {}
                     self.state, self.text = "ok", "Panelet er tilsluttet"
                 else:
-                    self.state, self.text = "søger", "Panelet er ikke fundet - sæt det i, så findes det af sig selv"
+                    self.state = "søger"
+                    self.text = ("Panelet er ikke fundet - sæt det i, så findes det af sig selv"
+                                 if not port else "Fandt ikke porten %s" % port)
                     try:
                         dev.close()
                     except Exception:
@@ -214,10 +253,13 @@ class HardwareLink:
             alive = getattr(self.dev, "alive", None)
             if alive is not None and not alive():
                 raise IOError("panelet blev trukket ud")
-            for cid, rgb in (leds or {}).items():
-                if self.sent.get(cid) != rgb:
-                    self.dev.set_led(cid, rgb)
-                    self.sent[cid] = rgb
+            stf = getattr(self.dev, "status", None)
+            if stf is not None:
+                self.state, self.text = stf()
+            for cid, on in (leds or {}).items():
+                if self.sent.get(cid) != on:
+                    self.dev.set_led(cid, on)
+                    self.sent[cid] = on
         except Exception as e:
             self._close()
             self.next_try = time.monotonic() + self.RETRY
@@ -251,6 +293,7 @@ class Controller:
         self.last, self.last_t = "", 0.0
         self.seq = 0                 # tæller op ved hvert tilstandsskift
         self.test_until = 0.0
+        self.flash_until = 0.0        # Gem som scene lyser kort efter et tryk
         self.hw = HardwareLink(self)
         threading.Thread(target=self._run, daemon=True).start()
 
@@ -454,11 +497,14 @@ class Controller:
                     self.last = "%s står på %d %%" % (cid, int(round(value * 100)))
                 elif kind == "press":
                     self.last = "%s trykket" % cid
+                elif kind == "joy":
+                    x, y = float(value[0]), float(value[1])
+                    self.last = "%s X %+.2f  Y %+.2f (ikke i brug)" % (cid, x, y)
                 else:
                     value = None
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, IndexError):
                 return False
-            if kind in ("press", "turn", "abs"):
+            if kind in ("press", "turn", "abs", "joy"):
                 self.last_t = time.monotonic()
             if not self.settings["on"] or cid not in CONTROLS:
                 return False
@@ -468,7 +514,7 @@ class Controller:
                 if kind == "press":
                     self._press(cid)
                 elif kind == "turn":
-                    self._turn(cid, value)
+                    self._turn(cid, -value if self.settings["enc_invert"] else value)
                 elif kind == "abs":
                     self._abs(cid, value)
             except Exception as e:
@@ -500,6 +546,8 @@ class Controller:
             return self._store()
         if cid == "mork":
             return self._dark()
+        if cid in PUSH_KEYS:
+            return self._push(cid[5:])
         row = {"e": "eff", "p": "prog", "v": "prev"}.get(cid[0])
         if row and cid in EFF + PROG + PREV:
             getattr(self, "_%s_%s" % (self.mode, row))(int(cid[1:]))
@@ -580,6 +628,7 @@ class Controller:
         name = "Scene %d" % n
         self._api({"op": "scene_store", "name": name, "tab": self._tab()})
         self._say("Gemt som %s" % name)
+        self.flash_until = time.monotonic() + 1.0
 
     def _dark(self):
         if self.mode == "pult":
@@ -858,6 +907,12 @@ class Controller:
     def _param(self, cid):
         show = self.show
         mode = self.mode
+        if cid == "tempo":
+            return self._P("Tempo", 40, 220, 1,
+                           lambda: float(show["master"].get("bpm", 120)),
+                           lambda v: self._api({"op": "set", "path": ["master", "bpm"],
+                                                "value": int(round(v))}),
+                           lambda v: "%d BPM" % int(round(v)), "tempo")
         if cid == "grand":
             return self._P("Grand", 0, 255, 5,
                            lambda: float(show["master"].get("grand", 255)),
@@ -1011,12 +1066,44 @@ class Controller:
                                pf, lambda v: "scenens egen" if v < 0 else ("%.1f s" % v).replace(".", ","),
                                "scener:fade")
             if cid == "k2":
-                return self._P("BPM", 40, 220, 1,
-                               lambda: float(show["master"].get("bpm", 120)),
-                               lambda v: self._api({"op": "set", "path": ["master", "bpm"],
-                                                    "value": int(round(v))}),
-                               lambda v: str(int(round(v))), "scener:bpm")
+                n = len(self._items())
+
+                def gsel():
+                    ids = [it[1] for it in self._items()]
+                    return float(ids.index(self.armed)) if self.armed in ids else -1.0
+                return self._P("Næste scene", -1, max(0, n - 1), 1, gsel, self._arm_index,
+                               lambda v: (self._scene(self.armed) or {}).get("name", "") or "ingen",
+                               "scener:pick", off=(n == 0))
         return None
+
+    def _arm_index(self, v):
+        """Scener, knap 2: læg scene nr. v (i det viste faneblad) klar."""
+        its = self._items()
+        if not its or self.tb["active"]:
+            return
+        i = int(round(_clamp(v, 0, len(its) - 1)))
+        self.armed, self.armed_fade = its[i][1], None
+        self.page["scener"] = i // COLS        # vis siden, scenen ligger på
+
+    # Hvad et tryk på en drejeknap gør: sætter værdien tilbage til standard
+    PUSH_DEFAULT = {"grand": 255, "pult:k1": 30, "pult:k2": 30,
+                    "enkel:k2": 100, "enkel:k3": 1.0,
+                    "afvikling:k1": 30, "afvikling:k2": 0, "scener:k1": -0.1}
+
+    def _push(self, knob):
+        if knob == "tempo":
+            return self._tap()                 # tryk på tempoknappen = tap
+        if self.mode == "scener" and knob == "k2":
+            return self._next_cue()
+        d = self.PUSH_DEFAULT.get(knob, self.PUSH_DEFAULT.get("%s:%s" % (self.mode, knob)))
+        P = self._param(knob)
+        if d is None or not P:
+            return
+        if P["off"]:
+            P["set"](0)
+            return
+        P["set"](d)
+        self.pick.pop(knob, None)
 
     def _turn(self, cid, delta):
         if cid == "tbar" or not delta:
@@ -1027,8 +1114,13 @@ class Controller:
         if P["off"]:
             P["set"](0)
             return
-        step = P["step"] * self.settings["sens"] / 5.0 * delta
+        if P["key"] == "scener:pick":
+            step = float(delta)                # én scene pr. trin, uanset følsomhed
+        else:
+            step = P["step"] * self.settings["sens"] / 5.0 * delta
         v = P["get"]() + step
+        if P["key"] == "scener:pick" and P["get"]() < 0 and delta > 0:
+            v = 0                              # første drej frem: den første scene
         if P["wrap"]:
             span = P["max"] - P["min"]
             v = P["min"] + (v - P["min"]) % span
@@ -1074,115 +1166,149 @@ class Controller:
 
     # -- hvad tasterne skal lyse -----------------------------------------
     def _keys(self):
-        """{cid: (tekst, farve, blink)} - farve er et navn, en rgb-liste eller
-        None (slukket); blink er None, "slow" eller "beat"."""
+        """{cid: (tekst, tændt, blink, farvechip, hint)}
+        tændt = lampen i tasten; blink = None, "slow" eller "beat";
+        farvechip = palettefarven en tast giver (kun til skærmen);
+        hint = "ready" på Auto/Take, når en scene står klar (de har ingen lampe)."""
         show = self.show
         mode = self.mode
-        K = dict((c, ("", None, None)) for c in KEYS)
+        K = dict((c, ["", False, None, None, ""]) for c in KEYS + ["tbar_led"])
+
+        def put(cid, lbl, on=False, blink=None, chip=None):
+            K[cid] = [lbl, bool(on), blink, chip, ""]
+
         items, page, pages = self._page_items()
         ctl = self._ctl()
         m = show["master"]
-        K["tap"] = ("Tap", "amber", "beat")
-        K["ftb"] = ("Blackout", "red", "slow") if m.get("blackout") else ("Blackout", "amber", None)
-        K["frys"] = ("Frys", "blue" if m.get("freeze") else "amber", None)
-        K["side_prev"] = ("Side ◀", "amber" if page > 0 else None, None)
-        K["side_next"] = ("Side ▶", "amber" if page < pages - 1 else None, None)
+        put("tap", "Tap", True, "beat")
+        put("ftb", "Blackout", bool(m.get("blackout")), "slow")
+        put("frys", "Frys", bool(m.get("freeze")))
+        put("side_prev", "Side ◀", page > 0)
+        put("side_next", "Side ▶", page < pages - 1)
         for md in MODES:
-            col = "blue" if md == mode else ("red" if md in ctl else "amber")
-            K["m_" + md] = (MODE_NAME[md], col, None)
+            put("m_" + md, MODE_NAME[md], md == mode)
         if mode in CONTROLLERS:
-            K["styr"] = ("Lad styre", "red", None) if mode in ctl else ("Lad styre", "amber", "slow")
+            if mode in ctl:
+                put("styr", "Lad styre", True)
+            else:
+                put("styr", "Lad styre", True, "slow")
         else:
-            K["styr"] = ("Lad styre", None, None)
-        K["gem"] = ("Gem som scene", "amber", None)
-        K["mork"] = ("Alt mørkt", "amber" if mode != "scener" else None, None)
+            put("styr", "Lad styre")
+        put("gem", "Gem som scene", time.monotonic() < self.flash_until)
+        put("mork", "Alt mørkt" if mode != "scener" else "")
         ready = self._scene(self.armed) is not None and not self.tb["active"]
-        K["auto"] = ("Auto", "green" if ready else None, None)
-        K["take"] = ("Take", "green" if ready else None, None)
-
-        own = self.settings["own_colours"]
-
-        def colkey(c):
-            return list(c) if own else "amber"
+        for c in ("auto", "take"):
+            put(c, "Auto" if c == "auto" else "Take")
+            K[c][4] = "ready" if ready else ""
+        for kn in KNOBS:
+            put("push_" + kn, "")
 
         if mode == "pult":
             L = self._edit()
             for n, (pat, lbl) in enumerate(EFF_PATTERNS, 1):
-                K["e%d" % n] = (lbl, "blue" if (L and L.get("pattern") == pat) else "amber", None)
+                put("e%d" % n, lbl, bool(L and L.get("pattern") == pat))
             for n, it in enumerate(items, 1):
                 La = show["layers"][it[1]]
-                K["p%d" % n] = (_short(it[2]), "red" if La.get("on") else "amber", None)
-                K["v%d" % n] = (_short(it[2]), "green" if it[1] == self.edit_layer else "amber", None)
+                put("p%d" % n, _short(it[2]), La.get("on"))
+                put("v%d" % n, _short(it[2]), it[1] == self.edit_layer)
             if L is not None:
-                K["v9"] = ("Solo", "blue" if L.get("solo") else "amber", None)
+                put("v9", "Solo", L.get("solo"))
         elif mode == "enkel":
             pal = self._palette()
+            cur = None                      # farven ALLE valgte lamper har lige nu
+            for i in self.sel_lamps:
+                lk = self._ek(i)
+                c = list(lk.get("colour") or []) if (lk and self._ek_lit(i)) else None
+                if c is None or (cur is not None and c != cur):
+                    cur = None
+                    break
+                cur = c
             for n in range(1, 12):
-                K["e%d" % n] = ("", colkey(pal[n - 1]), None)
+                c = [int(x) for x in pal[n - 1]]
+                put("e%d" % n, "", cur == c, None, c)
             for n in range(9, 12):
-                K["p%d" % n] = ("", colkey(pal[11 + n - 9]), None)
+                c = [int(x) for x in pal[11 + n - 9]]
+                put("p%d" % n, "", cur == c, None, c)
             for n, it in enumerate(items, 1):
-                K["p%d" % n] = (self._label(it), "red" if self._ek_lit(it[1]) else "amber", None)
-                K["v%d" % n] = (self._label(it), "green" if it[1] in self.sel_lamps else "amber", None)
+                put("p%d" % n, self._label(it), self._ek_lit(it[1]))
+                put("v%d" % n, self._label(it), it[1] in self.sel_lamps)
             if items:
-                K["v9"] = ("Alle / ingen", "amber", None)
+                put("v9", "Alle / ingen", bool(self.sel_lamps))
         elif mode == "afvikling":
             lk0 = self._grp_look(self.sel_groups[0]) if self.sel_groups else None
             for n, (pat, lbl) in enumerate(EFF_PATTERNS, 1):
-                on = bool(lk0 and lk0.get("pattern", "fyldt") == pat)
-                K["e%d" % n] = (lbl, "blue" if on else "amber", None)
+                put("e%d" % n, lbl, bool(lk0 and lk0.get("pattern", "fyldt") == pat))
             for n, it in enumerate(items, 1):
-                K["p%d" % n] = (_short(it[2]), "red" if self._grp_lit(it[1]) else "amber", None)
-                K["v%d" % n] = (_short(it[2]), "green" if it[1] in self.sel_groups else "amber", None)
-            K["v9"] = ("Ryd valg", "amber" if self.sel_groups else None, None)
+                put("p%d" % n, _short(it[2]), self._grp_lit(it[1]))
+                put("v%d" % n, _short(it[2]), it[1] in self.sel_groups)
+            put("v9", "Ryd valg", bool(self.sel_groups))
         else:
             tab = self._tab()
             for n, t in enumerate(self._tabs()[:11], 1):
-                K["e%d" % n] = (_short(t.get("name")), "blue" if t.get("id") == tab else "amber", None)
+                put("e%d" % n, _short(t.get("name")), t.get("id") == tab)
             live = self._live_scene()
             for n, it in enumerate(items, 1):
-                K["p%d" % n] = (_short(it[2]), "red" if it[1] == live else "amber", None)
-                K["v%d" % n] = (_short(it[2]), "green" if it[1] == self.armed else "amber", None)
-            K["v9"] = ("Næste cue", "amber" if show.get("cuelist") else None, None)
+                put("p%d" % n, _short(it[2]), it[1] == live)
+                put("v%d" % n, _short(it[2]), it[1] == self.armed)
+            if show.get("cuelist"):
+                put("v9", "Næste cue")
+
+        # den runde lampe ved T-baren: tændt = T-baren styrer noget,
+        # blink = før den hen til værdien (eller til en ende) først
+        if mode == "scener":
+            if self.tb["active"] or (self.armed and self.tb["p0"] is not None):
+                K["tbar_led"][1] = True
+            elif self.armed:
+                K["tbar_led"][1:3] = [True, "slow"]
+        else:
+            P = self._param("tbar")
+            if P and not P["off"]:
+                pk = self.pick.get("tbar")
+                if pk and not pk["ok"] and pk["last"] is not None and pk["key"] == P["key"]:
+                    K["tbar_led"][1:3] = [True, "slow"]
+                else:
+                    K["tbar_led"][1] = True
 
         now = time.monotonic()
-        if now < self.test_until:
-            col = TEST_SEQ[int(now * 2.0) % len(TEST_SEQ)]
-            K = dict((c, (K[c][0], col, None)) for c in K)
+        if now < self.test_until:           # lystest: alt blinker i takt
+            on = int(now * 2.5) % 2 == 0
+            for c in K:
+                K[c][1], K[c][2] = (c not in NO_LED) and on, None
         return K
 
     def _resolve(self, K):
-        """Farve lige nu (blink regnet ind): {cid: (r, g, b)}"""
+        """Lampen lige nu, med blink regnet ind: {cid: True/False}"""
         now = time.monotonic()
         slow_on = (now % 0.8) < 0.45
         beat_on = (self.eng.beats % 1.0) < 0.2
         out = {}
-        for cid, (lbl, col, blink) in K.items():
-            if col is None or (blink == "slow" and not slow_on) or (blink == "beat" and not beat_on):
-                out[cid] = (0, 0, 0)
-            elif isinstance(col, (list, tuple)):
-                out[cid] = (int(col[0]), int(col[1]), int(col[2]))
-            else:
-                out[cid] = COLOURS.get(col, (0, 0, 0))
+        for cid, k in K.items():
+            on, blink = k[1], k[2]
+            if blink == "slow":
+                on = on and slow_on
+            elif blink == "beat":
+                on = on and beat_on
+            out[cid] = bool(on) and cid not in NO_LED
         return out
 
     # -- tråd: lys i tasterne på det fysiske panel ---------------------
     def _run(self):
         while getattr(self.eng, "running", True):
             leds = None
+            port = ""
             try:
                 with self.eng.lock:
                     on = self.settings["on"]
+                    port = self.settings.get("port", "")
                     if on:
                         self._ensure_mode()
                         self._clean()
                         if self.tb["active"] and self.eng.fade is not self.tb.get("fade"):
                             self.tb["active"] = False
                             self.tb["p0"] = None
-                        lvl = self.settings["led_level"] / 100.0
-                        leds = dict((c, tuple(int(round(x * lvl)) for x in rgb))
-                                    for c, rgb in self._resolve(self._keys()).items())
-                self.hw.poll(on, leds)
+                        res = self._resolve(self._keys())
+                        leds = dict((c, res[c]) for c in LEDS)
+                self.hw.poll(on, leds, port)
             except Exception:
                 pass
             time.sleep(0.04)
@@ -1194,17 +1320,17 @@ class Controller:
         st = {"on": self.settings["on"], "settings": dict(self.settings),
               "hw": self.hw.info(),
               "last": self.last if now - self.last_t < 20 else "",
-              "controls": {"eff": len(EFF), "prog": len(PROG), "prev": len(PREV), "cols": COLS}}
+              "cols": COLS}
         if not self.settings["on"]:
             return st
         self._ensure_mode()
         self._clean()
         K = self._keys()
-        rgb = self._resolve(K)
+        lit = self._resolve(K)
         keys = {}
-        for cid, (lbl, col, blink) in K.items():
-            r = rgb[cid]
-            keys[cid] = [lbl, "" if r == (0, 0, 0) else _hex(r), 1 if col is not None else 0]
+        for cid, k in K.items():
+            keys[cid] = [k[0], led_hex(cid) if lit[cid] else "",
+                         _hex(k[3]) if k[3] else "", k[4]]
         items, page, pages = self._page_items()
         ctl = self._ctl()
         marks = []

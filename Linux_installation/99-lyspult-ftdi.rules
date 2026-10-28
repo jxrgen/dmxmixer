@@ -2,3 +2,7 @@
 # uden root. Lyspult taler direkte med chippen via libusb, så den skal
 # kunne åbnes af en almindelig bruger i gruppen plugdev.
 SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ATTR{idProduct}=="6001", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+# NewTek LiveControl LC-11 (samme FTDI-chip, men som serieport). Kendes paa
+# sit serienummer/USB-navn, saa det kan aabnes uden at vaere i gruppen dialout.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="FTRHBAHV", MODE="0666", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{product}=="NewTek Control Surface", MODE="0666", TAG+="uaccess"

@@ -2,3 +2,5 @@
 # Art-Net, sACN og simulatoren virker uden disse.
 pyftdi>=0.55
 pyusb>=1.2
+# Kun nødvendigt for LC-11-panelet (NewTek LiveControl).
+pyserial>=3.4

@@ -11,7 +11,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 echo "=== Installerer byggeværktøjer ==="
-python3 -m pip install --upgrade pip pyinstaller pyftdi pyusb
+python3 -m pip install --upgrade pip pyinstaller pyftdi pyusb pyserial
 
 echo "=== Bygger Lyspult.app ==="
 python3 -m PyInstaller --noconfirm --clean \
@@ -26,6 +26,9 @@ python3 -m PyInstaller --noconfirm --clean \
   --collect-submodules pyftdi \
   --collect-submodules usb \
   --hidden-import usb.backend.libusb1 \
+  --collect-submodules serial \
+  --hidden-import lc11 \
+  --hidden-import lc11_driver \
   dmxmixer.py
 
 echo "=== Bygger Lyspult.dmg ==="

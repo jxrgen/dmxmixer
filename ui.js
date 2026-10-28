@@ -5534,6 +5534,7 @@ function lcKey(cid, cls) {
 }
 function lcKnob(cid) {
   var w = el("div", "lcv-knob");
+  w.setAttribute("data-k", cid);
   var cap = el("div", "lcv-cap");
   cap.setAttribute("role", "slider");
   cap.tabIndex = 0;
@@ -5541,12 +5542,14 @@ function lcKnob(cid) {
   var lab = el("div", "lcv-kl", "");
   var val = el("div", "lcv-kv", "");
   var row = el("div", "lcv-kb");
-  var mi = el("button", "", "−"), pl = el("button", "", "+");
-  mi.type = "button"; pl.type = "button";
+  var mi = el("button", "", "−"), pu = el("button", "push", "●"), pl = el("button", "", "+");
+  mi.type = "button"; pu.type = "button"; pl.type = "button";
   mi.setAttribute("aria-label", "Drej ned"); pl.setAttribute("aria-label", "Drej op");
+  pu.setAttribute("aria-label", "Tryk på knappen"); pu.title = "Tryk på knappen";
   mi.onclick = function () { lcInput("turn", cid, -1); };
   pl.onclick = function () { lcInput("turn", cid, 1); };
-  row.appendChild(mi); row.appendChild(pl);
+  pu.onclick = function () { lcInput("press", "push_" + cid); lcInput("release", "push_" + cid); };
+  row.appendChild(mi); row.appendChild(pu); row.appendChild(pl);
   w.appendChild(cap); w.appendChild(lab); w.appendChild(val); w.appendChild(row);
   cap.addEventListener("wheel", function (e) {
     e.preventDefault();
@@ -5578,7 +5581,7 @@ function lcKnob(cid) {
   window.addEventListener("touchmove", dMove, false);
   window.addEventListener("mouseup", dUp, false);
   window.addEventListener("touchend", dUp, false);
-  lcKnobEls[cid] = { lab: lab, val: val, cap: cap, w: w };
+  lcKnobEls[cid] = { lab: lab, val: val, cap: cap, w: w, push: pu };
   return w;
 }
 function lcTbarEl() {
@@ -5589,9 +5592,11 @@ function lcTbarEl() {
   tr.tabIndex = 0;
   var h = el("div", "lcv-handle");
   tr.appendChild(h);
+  var ind = el("div", "lcv-ind");
+  ind.title = "Lyser når T-baren styrer noget, blinker når den skal føres hen til værdien";
   var lab = el("div", "lcv-sl", "T-bar");
-  box.appendChild(tr); box.appendChild(lab);
-  lcTb = { track: tr, handle: h, lab: lab, pos: 0, drag: false };
+  box.appendChild(ind); box.appendChild(tr); box.appendChild(lab);
+  lcTb = { track: tr, handle: h, lab: lab, ind: ind, pos: 0, drag: false };
   function place() { h.style.top = Math.round((1 - lcTb.pos) * 100) + "%"; }
   function setFrom(e) {
     var r = tr.getBoundingClientRect();
@@ -5640,10 +5645,13 @@ function lcBuildVirt() {
     bus.appendChild(r);
   }
   var e = [], pr = [], pv = [];
-  for (i = 1; i <= 11; i++) { e.push("e" + i); pr.push("p" + i); }
-  for (i = 1; i <= 9; i++) pv.push("v" + i);
-  pv.push("auto"); pv.push("take");
+  for (i = 1; i <= 11; i++) { e.push("e" + i); pr.push("p" + i); pv.push("v" + i); }
   row("Effects", e); row("Program", pr); row("Preview", pv);
+  /* Auto og Take sidder under søjle 10 og 11 og har ingen lampe */
+  var at = el("div", "lcv-row lcv-at");
+  at.appendChild(el("span", "lcv-rl", ""));
+  at.appendChild(lcKey("auto", "noled")); at.appendChild(lcKey("take", "noled"));
+  bus.appendChild(at);
   p.appendChild(bus);
   p.appendChild(lcTbarEl());
   function pair(a, b, cls) {
@@ -5653,12 +5661,20 @@ function lcBuildVirt() {
   }
   var tsec = el("div", "lcv-sec lcv-trans");
   tsec.appendChild(pair("tap", "styr"));
-  var kn = el("div", "lcv-knobs"); kn.appendChild(lcKnob("grand")); tsec.appendChild(kn);
+  var kn = el("div", "lcv-knobs"); kn.appendChild(lcKnob("grand")); kn.appendChild(lcKnob("tempo")); tsec.appendChild(kn);
   tsec.appendChild(pair("ftb", "frys"));
   tsec.appendChild(pair("side_prev", "side_next"));
   tsec.appendChild(el("span", "lcv-silk", "Transition"));
   p.appendChild(tsec);
   var osec = el("div", "lcv-sec lcv-ovl");
+  var js = el("div", "lcv-knobs lcv-joys");
+  ["Joystick 1", "Joystick 2"].forEach(function (t) {
+    var j = el("div", "lcv-joy"); j.title = t + " — ikke i brug";
+    j.appendChild(el("div", "lcv-stick"));
+    var w = el("div", "lcv-knob unused"); w.appendChild(j); w.appendChild(el("div", "lcv-kl", t));
+    js.appendChild(w);
+  });
+  osec.appendChild(js);
   var k3 = el("div", "lcv-knobs");
   k3.appendChild(lcKnob("k1")); k3.appendChild(lcKnob("k2")); k3.appendChild(lcKnob("k3"));
   osec.appendChild(k3);
@@ -5684,21 +5700,25 @@ function lcPaintVirt(L) {
   }
   for (var cid in lcKeyEls) {
     var b = lcKeyEls[cid], k = on ? L.keys[cid] : null;
-    var lbl = k ? k[0] : "", hx = k ? k[1] : "";
-    var sig = lbl + "|" + hx;
+    var lbl = k ? k[0] : "", hx = k ? k[1] : "", chip = k ? (k[2] || "") : "", hint = k ? (k[3] || "") : "";
+    var sig = lbl + "|" + hx + "|" + chip + "|" + hint;
     if (b._sig === sig) continue;
     b._sig = sig;
     var parts = lbl.split("\n");
     b.firstChild.textContent = parts.length > 1 ? parts[0] : "";
     b.lastChild.textContent = parts.length > 1 ? parts[1] : parts[0];
+    /* farvechip: den palettefarve tasten giver (kun på skærmen - panelets
+       lamper har én fast farve) */
+    b.style.boxShadow = chip ? "inset 0 -15px 0 " + chip : "";
     if (hx) {
       b.style.background = hx; b.style.color = lcInk(hx);
-      b.className = b._base + " lit";
+      b.className = b._base + " lit" + (hint ? " " + hint : "");
     } else {
       b.style.background = ""; b.style.color = "";
-      b.className = b._base;
+      b.className = b._base + (hint ? " " + hint : "");
     }
-    b.setAttribute("aria-label", (lbl.replace("\n", " ") || "Tom tast") + (hx ? "" : " (slukket)"));
+    b.setAttribute("aria-label", (lbl.replace("\n", " ") || (chip ? "Farve" : "Tom tast")) +
+                   (hx ? " (lyser)" : "") + (hint ? " (scene klar)" : ""));
   }
   for (var kc in lcKnobEls) {
     var o = lcKnobEls[kc], kd = on && L.knobs ? L.knobs[kc] : null;
@@ -5712,6 +5732,8 @@ function lcPaintVirt(L) {
     o.w.className = "lcv-knob" + (kd && kd.label ? "" : " unused");
   }
   if (lcTb) {
+    var ik = on && L.keys && L.keys.tbar_led && L.keys.tbar_led[1];
+    if (lcTb.ind._on !== !!ik) { lcTb.ind._on = !!ik; lcTb.ind.className = "lcv-ind" + (ik ? " on" : ""); }
     var tl = on && L.tbar ? (L.tbar.label + (L.tbar.txt ? " · " + L.tbar.txt : "") +
                              (L.tbar.need ? " — før til " + L.tbar.need : "")) : "T-bar";
     tl = tl.replace(/ %/g, "\u00a0%").replace(/ s\b/g, "\u00a0s");
@@ -5743,12 +5765,11 @@ function lcPaintSettings(L) {
     if (a !== id("lc11-start")) id("lc11-start").value = s.start;
     id("lc11-pickup").checked = !!s.pickup;
     id("lc11-invert").checked = !!s.tbar_invert;
-    id("lc11-own").checked = !!s.own_colours;
+    id("lc11-encinv").checked = !!s.enc_invert;
     if (a !== id("lc11-sens")) id("lc11-sens").value = s.sens;
-    if (a !== id("lc11-led")) id("lc11-led").value = s.led_level;
   }
   id("lc11-sens-v").textContent = id("lc11-sens").value;
-  id("lc11-led-v").textContent = id("lc11-led").value + " %";
+  lcPortList(L);
   id("lc11-bar").checked = lcPref("bar");
   id("lc11-marks").checked = lcPref("marks");
   id("lc11-follow").checked = lcPref("follow");
@@ -5756,17 +5777,31 @@ function lcPaintSettings(L) {
   if (id("lc11-last").textContent !== last) id("lc11-last").textContent = last;
   id("lc11-test").disabled = !on;
 }
+/* portvælgeren: "Find selv" + de serieporte driveren har set */
+function lcPortList(L) {
+  var sel = id("lc11-port"); if (!sel || document.activeElement === sel) return;
+  var cur = (L && L.settings && L.settings.port) || "";
+  var ports = (L && L.hw && L.hw.ports) || [];
+  var opts = [["", "Find selv (NewTek Control Surface)"]];
+  ports.forEach(function (p) { opts.push([p.dev, p.dev + (p.desc ? " — " + p.desc : "") + (p.lc11 ? "  ✓ LC-11" : "")]); });
+  if (cur && !ports.some(function (p) { return p.dev === cur; })) opts.push([cur, cur + " (ikke fundet)"]);
+  var sig = JSON.stringify(opts) + "|" + cur;
+  if (sel._sig === sig) return;
+  sel._sig = sig;
+  sel.innerHTML = "";
+  opts.forEach(function (o) { var op = el("option", "", o[1]); op.value = o[0]; sel.appendChild(op); });
+  sel.value = cur;
+}
 function lcWire() {
   if (!id("lc11-on")) return;
   id("lc11-on").onclick = function () { lcSettings({ on: !(LC && LC.on) }); };
   id("lc11-start").onchange = function () { lcSettings({ start: this.value }); };
   id("lc11-pickup").onchange = function () { lcSettings({ pickup: this.checked }); };
   id("lc11-invert").onchange = function () { lcSettings({ tbar_invert: this.checked }); };
-  id("lc11-own").onchange = function () { lcSettings({ own_colours: this.checked }); };
+  id("lc11-encinv").onchange = function () { lcSettings({ enc_invert: this.checked }); };
   id("lc11-sens").onchange = function () { lcSettings({ sens: parseInt(this.value, 10) }); };
   id("lc11-sens").oninput = function () { id("lc11-sens-v").textContent = this.value; };
-  id("lc11-led").onchange = function () { lcSettings({ led_level: parseInt(this.value, 10) }); };
-  id("lc11-led").oninput = function () { id("lc11-led-v").textContent = this.value + " %"; };
+  id("lc11-port").onchange = function () { lcSettings({ port: this.value }); };
   id("lc11-bar").onchange = function () { lcSetPref("bar", this.checked); lcBar(LC); };
   id("lc11-marks").onchange = function () { lcSetPref("marks", this.checked); lcMark(LC); };
   id("lc11-follow").onchange = function () { lcSetPref("follow", this.checked); };
@@ -5788,10 +5823,11 @@ function lcBar(L) {
   else if (L.ctl === false) h.push('<span class="lcb-ctl off">styrer ikke lyset — tryk Lad styre</span>');
   else h.push('<span class="lcb-ctl">' + (L.armed ? 'næste: <b>' + e(L.armed) + '</b>' : 'ingen scene klar') + '</span>');
   var kn = L.knobs || {};
-  [["k1", "Knap 1"], ["k2", "Knap 2"], ["k3", "Knap 3"], ["grand", "Grand"]].forEach(function (k) {
+  [["k1", "Knap 1"], ["k2", "Knap 2"], ["k3", "Knap 3"], ["grand", "Grand"], ["tempo", "Tempo"]].forEach(function (k) {
     var d = kn[k[0]];
     if (!d || !d.label) return;
-    h.push('<span class="lcb-k"><i>' + k[1] + '</i> ' + (k[0] === "grand" ? "" : e(d.label) + ' ') + '<b>' + e(d.txt) + '</b>' +
+    var plain = k[0] === "grand" || k[0] === "tempo";
+    h.push('<span class="lcb-k"><i>' + k[1] + '</i> ' + (plain ? "" : e(d.label) + ' ') + '<b>' + e(d.txt) + '</b>' +
            (d.need ? ' <span class="lcb-need">før til ' + e(d.need) + '</span>' : '') + '</span>');
   });
   if (L.tbar && L.tbar.label) {

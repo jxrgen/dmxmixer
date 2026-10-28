@@ -12,7 +12,7 @@ setlocal
 cd /d "%~dp0\.."
 
 echo === Installerer byggevaerktoejer ===
-python -m pip install --upgrade pip pyinstaller pyftdi pyusb || goto :err
+python -m pip install --upgrade pip pyinstaller pyftdi pyusb pyserial || goto :err
 
 echo === Bygger Lyspult.exe ===
 python -m PyInstaller --noconfirm --clean ^
@@ -26,6 +26,9 @@ python -m PyInstaller --noconfirm --clean ^
   --collect-submodules pyftdi ^
   --collect-submodules usb ^
   --hidden-import usb.backend.libusb1 ^
+  --collect-submodules serial ^
+  --hidden-import lc11 ^
+  --hidden-import lc11_driver ^
   dmxmixer.py || goto :err
 
 echo === Bygger installationsprogrammet ===
