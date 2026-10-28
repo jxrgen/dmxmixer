@@ -1053,3 +1053,114 @@ html.nogap .help-toc>*,html.nogap .help-toc button>.ico,html.nogap .help h3>.ico
 .th-ct .sw{display:inline-block;padding:2px 7px;border-radius:4px;font-weight:800;border:1px solid var(--rule)}
 .th-ct.bad{border-color:var(--alarm);color:var(--alarm);font-weight:700}
 html.nogap .th-groups>*,html.nogap .th-row>*,html.nogap .th-contrast>*,html.nogap .th-ct>*{margin-right:8px}
+
+/* ---------------- LC-11 ----------------
+   Indstillinger → LC-11, panelet på skærmen, bjælken nederst og
+   søjlenumrene. Panelet er tegnet som det sorte stykke hardware i alle
+   temaer. Ingen grid og ingen gap - Safari 9 skal kunne være med. */
+.lc11-top{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;
+  -webkit-align-items:center;align-items:center;margin:0 0 6px}
+.lc11-top>*{margin:0 14px 8px 0}
+#lc11-on{min-width:170px;font-size:14px;min-height:44px}
+.lc11-hw{font-size:14px;color:var(--muted);line-height:1.4}
+.lc11-hw.ok{color:var(--ok);font-weight:700}
+.lc11-hw.warn{color:var(--ink)}
+.lc11-hw.bad{color:var(--alarm);font-weight:700}
+.lc11-cols{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:0 -12px}
+.lc11-col{-webkit-flex:1 1 380px;flex:1 1 380px;padding:0 12px;min-width:0}
+.lc11-sub{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink);margin:10px 0 6px}
+.lc11-sub span{font-weight:400;letter-spacing:.02em;text-transform:none;color:var(--muted);margin-left:6px}
+#lc11-pan label.chk{-webkit-align-items:flex-start;align-items:flex-start;margin:8px 0;font-size:13px;
+  line-height:1.45;color:var(--muted)}
+#lc11-pan label.chk input{margin-top:2px;-webkit-flex:0 0 auto;flex:0 0 auto}
+#lc11-pan label.chk b{color:var(--ink)}
+#lc11-pan .rowline>select{-webkit-flex:1 1 auto;flex:1 1 auto;max-width:300px}
+.lc11-vhead{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;
+  -webkit-align-items:center;align-items:center;margin-top:16px;border-top:2px solid var(--rule);padding-top:10px}
+.lc11-vhead>*{margin:0 14px 6px 0}
+.lc11-vhead .lc11-sub{margin:0 14px 6px 0}
+.lc11-last{font-size:13px;color:var(--muted)}
+.lc11-virt{position:relative;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 0 12px}
+
+.lcv{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:stretch;align-items:stretch;
+  background:#16181C;border:2px solid #454A54;border-radius:12px;padding:16px 16px 20px;
+  font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#C7CCD6}
+.lcv.off{opacity:.45}
+.lcv-offmsg{position:absolute;left:24px;top:60px;background:var(--panel);color:var(--ink);
+  border:2px solid var(--rule);border-radius:6px;padding:10px 14px;font-size:14px;font-weight:700}
+.lcv-row{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;margin-bottom:8px}
+.lcv-rl{-webkit-flex:0 0 72px;flex:0 0 72px;font-size:11px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:#C7CCD6}
+.lcv-nums{margin-bottom:4px}
+.lcv-no{-webkit-flex:0 0 56px;flex:0 0 56px;margin-right:6px;text-align:center;font-size:11px;color:#8C929C}
+button.lcv-key{-webkit-flex:0 0 56px;flex:0 0 56px;width:56px;height:52px;min-height:0;margin:0 6px 0 0;padding:3px;
+  border:0;border-radius:7px;background:#3A3E46;color:#AEB4BE;
+  font:700 10.5px/1.15 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;letter-spacing:0;
+  display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;
+  text-align:center;overflow:hidden;box-shadow:0 2px 0 #23262b;-webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;touch-action:manipulation}
+button.lcv-key:hover{border:0;color:#FFFFFF}
+button.lcv-key.lit{box-shadow:0 0 12px 1px rgba(255,255,255,.22),0 2px 0 rgba(0,0,0,.55)}
+button.lcv-key.lit:hover{opacity:.9}
+button.lcv-key .l1{display:block;font-size:15px;font-weight:800;line-height:1.05}
+button.lcv-key .l1:empty{display:none}
+button.lcv-key .l2{display:block;max-width:100%;overflow:hidden;word-wrap:break-word}
+button.lcv-key.wide{-webkit-flex:0 0 118px;flex:0 0 118px;width:118px}
+.lcv-tb{display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;width:96px;margin:0 8px 0 14px}
+.lcv-track{position:relative;width:22px;-webkit-flex:1 1 auto;flex:1 1 auto;min-height:180px;margin:14px 0;
+  border-radius:12px;background:#000;box-shadow:inset 0 0 0 2px #454A54;cursor:ns-resize;touch-action:none}
+.lcv-track:focus{outline:3px solid var(--accent);outline-offset:4px}
+.lcv-handle{position:absolute;left:-17px;width:56px;height:28px;margin-top:-14px;border-radius:7px;
+  background:#D6D2CA;box-shadow:0 2px 0 #77736C;pointer-events:none}
+.lcv-sl{font-size:11px;font-weight:700;line-height:1.3;text-align:center;color:#E3E6EC;min-height:44px}
+.lcv-sec{position:relative;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-justify-content:space-between;justify-content:space-between;
+  border:2px solid #454A54;border-radius:10px;padding:12px 6px 14px 12px;margin-left:14px}
+.lcv-pair{display:-webkit-flex;display:flex;margin:4px 0}
+.lcv-knobs{display:-webkit-flex;display:flex;-webkit-justify-content:space-around;justify-content:space-around;margin:4px 0}
+.lcv-silk{position:absolute;right:12px;bottom:-9px;background:#16181C;padding:0 6px;
+  font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#C7CCD6}
+.lcv-knob{display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;width:92px;margin-right:4px}
+.lcv-knob.unused{opacity:.35}
+.lcv-cap{width:46px;height:46px;border-radius:50%;position:relative;cursor:ns-resize;touch-action:none;
+  background:radial-gradient(circle at 40% 35%,#4A4E56,#15171B 70%);box-shadow:0 0 0 3px #2B2E34,0 3px 0 #000}
+.lcv-cap:after{content:"";position:absolute;left:21px;top:5px;width:4px;height:12px;border-radius:2px;background:#E9E7E1}
+.lcv-cap:focus{outline:3px solid var(--accent);outline-offset:3px}
+.lcv-kl{margin-top:7px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  text-align:center;color:#C7CCD6;min-height:13px}
+.lcv-kv{font-size:13px;font-weight:700;color:#FFFFFF;text-align:center;min-height:16px}
+.lcv-kv.need{color:#F4A62A}
+.lcv-kb{display:-webkit-flex;display:flex;margin-top:4px}
+.lcv-kb button{min-height:30px;width:34px;padding:0;margin:0 3px;font-size:17px;font-weight:700;
+  background:#2B2E34;color:#FFFFFF;border-color:#5A606B}
+
+/* bjælken nederst */
+#lc11bar{display:none}
+#lc11bar.on{-webkit-flex:0 0 auto;flex:0 0 auto;display:-webkit-flex;display:flex;
+  -webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center;
+  padding:7px 13px 5px;background:var(--panel);border-top:2px solid var(--rule);font-size:14px;line-height:1.35}
+#lc11bar.on>*{margin:0 16px 3px 0}
+.lcb-tag{background:var(--ink);color:var(--bg);font-weight:800;padding:1px 7px;border-radius:3px;letter-spacing:.08em}
+.lcb-mode{font-weight:800;color:var(--ink)}
+.lcb-mode i{font-style:normal;font-weight:400;color:var(--muted)}
+.lcb-ctl{color:var(--muted)}
+.lcb-ctl.on{color:var(--ok);font-weight:700}
+.lcb-ctl.off{color:var(--accent);font-weight:700}
+.lcb-k i{font-style:normal;color:var(--muted)}
+.lcb-k b{color:var(--ink)}
+.lcb-need{color:var(--accent);font-weight:700}
+.lcb-msg{color:var(--accent);font-weight:700}
+
+/* søjlenumre på det panelet styrer */
+.lc11-host{position:relative}
+.lc11-no{position:absolute;top:-8px;left:-8px;z-index:3;min-width:22px;height:22px;padding:0 5px;
+  -webkit-box-sizing:border-box;box-sizing:border-box;border-radius:11px;
+  background:var(--ink);color:var(--bg);font:800 12px/22px -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--bg)}
+.lc11-no.sel{background:#3FD06B;color:#06210F}
+.lc11-no.on{background:#F2553F;color:#2A0702}
+.lc11-no.inl{position:static;display:inline-block;margin-right:7px;vertical-align:middle;box-shadow:none}

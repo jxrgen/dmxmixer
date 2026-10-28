@@ -582,7 +582,8 @@ var ICONS = {
   /* kun i hjælpen */
   "go": '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
   "tabs": '<path d="M2 20h20M4 20V8.5A1.5 1.5 0 0 1 5.5 7h5A1.5 1.5 0 0 1 12 8.5V20M12 11h6.5a1.5 1.5 0 0 1 1.5 1.5V20"/>',
-  "ipad": '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/>'
+  "ipad": '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/>',
+  "lc11": '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9.5h1.5M10 9.5h1.5M6 14.5h1.5M10 14.5h1.5M17 8.5v7"/><rect x="15.5" y="10.5" width="3" height="2.5" rx=".6" fill="currentColor"/>'
 };
 function icon(vid, cls) {
   var sp = el("span", "ico" + (cls ? " " + cls : ""));
@@ -624,6 +625,7 @@ function enterView(vid) {
   if (vid === "v-guide") wzOpen();
   if (vid === "v-afvikling") enterAfvikling();
   if (vid === "v-enkel") buildEnkel();
+  if (vid === "v-help") { lcPaintSettings(LC); lcPaintVirt(LC); }
 }
 function gotoTab(vid) {
   if (!id(vid)) return;
@@ -5297,6 +5299,7 @@ function poll() {
       press(id("dmxarm"), armed());
       ltFrame(d.lt);
       ctlFrameIn(d);
+      lc11Frame(d.lc11);
       if (liveOn) {
         var fb = id("lv-fade");
         fb.style.width = (d.fade === null || d.fade === undefined)
@@ -5429,6 +5432,462 @@ function beatTick() {
   beatOn = on;
   var b = document.querySelectorAll(".tapbtn .beat");
   for (var i = 0; i < b.length; i++) b[i].className = on ? "beat on" : "beat";
+}
+
+/* ------------------------------------------------------------ LC-11 */
+/* NewTek LiveControl LC-11. Al logikken ligger i serveren (lc11.py), så
+   panelet virker ens fra alle skærme. Fladen viser panelet på skærmen
+   (Indstillinger → LC-11), bjælken nederst og søjlenumrene, og sender
+   tryk fra skærmpanelet ind, som om de kom fra det rigtige panel. */
+var LC = null;                       /* seneste status fra /frame */
+var lcSeq = null, lcEdit = null;     /* til "skift fane sammen med panelet" */
+var lcKeyEls = {}, lcKnobEls = {}, lcTb = null, lcVirtOn = null;
+var lcMarked = [];
+var lcQ = [], lcQBusy = false;
+var LC_TAB = { scener: "v-scene", afvikling: "v-afvikling", enkel: "v-enkel", pult: "v-pult" };
+var LC_PREF = { bar: true, marks: true, follow: true };
+
+function lcPref(k) {
+  try {
+    var v = localStorage.getItem("lc11." + k);
+    if (v === "1") return true;
+    if (v === "0") return false;
+  } catch (e) {}
+  return LC_PREF[k];
+}
+function lcSetPref(k, on) { try { localStorage.setItem("lc11." + k, on ? "1" : "0"); } catch (e) {} }
+
+/* Tryk sendes ét ad gangen og i rækkefølge, så et T-bar-træk aldrig kommer
+   frem i forkert orden. Serverens rev følges IKKE her (req, ikke api), så
+   fladen henter showet igen og viser det, panelet har ændret. */
+var lcAbsLast = {};
+function lcInput(kind, cid, value) {
+  var last = lcQ.length ? lcQ[lcQ.length - 1] : null;
+  var same = last && last.id === cid && last.kind === kind;
+  if (same && kind === "turn") {
+    last.value += value;
+  } else if (same && kind === "abs" && (value - last.value) * (last.value - last.prev) >= 0) {
+    /* samme retning: kun den nyeste stilling skal frem. Vender bevægelsen,
+       sendes vendepunktet med, så blød overtagelse kan se at T-baren
+       passerede værdien. */
+    last.value = value;
+  } else {
+    var prev = lcAbsLast.hasOwnProperty(cid) ? lcAbsLast[cid] : value;
+    lcQ.push({ kind: kind, id: cid, value: value, prev: prev });
+  }
+  if (kind === "abs") lcAbsLast[cid] = value;
+  lcPump();
+}
+function lcPump() {
+  if (lcQBusy || !lcQ.length) return;
+  var m = lcQ.shift();
+  lcQBusy = true;
+  req("POST", "/api", { op: "lc11_input", kind: m.kind, id: m.id, value: m.value }, function () {
+    lcQBusy = false; lcPump();
+  });
+}
+function lcSettings(values) {
+  req("POST", "/api", { op: "lc11_settings", values: values }, function (d) {
+    if (d && d.settings && LC) { LC.settings = d.settings; lcPaintSettings(LC); }
+  });
+}
+
+/* tekst der kan læses på en tast i en vilkårlig farve */
+function lcInk(hx) {
+  var h = hx.replace("#", "");
+  var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 120 ? "#111418" : "#FFFFFF";
+}
+
+/* ---- panelet på skærmen ---- */
+function lcKey(cid, cls) {
+  var b = el("button", "lcv-key" + (cls ? " " + cls : ""));
+  b.type = "button";
+  b._base = "lcv-key" + (cls ? " " + cls : "");
+  b.setAttribute("data-k", cid);
+  b.appendChild(el("span", "l1", ""));
+  b.appendChild(el("span", "l2", ""));
+  var downAt = 0;
+  function down(e) {
+    if (e.type === "mousedown" && e.button !== 0) return;
+    if (e.type === "touchstart") e.preventDefault();
+    downAt = Date.now();
+    lcInput("press", cid);
+  }
+  function up(e) {
+    if (e.type === "touchend") e.preventDefault();
+    if (!downAt) return;
+    downAt = 0;
+    lcInput("release", cid);
+  }
+  b.addEventListener("touchstart", down, false);
+  b.addEventListener("touchend", up, false);
+  b.addEventListener("mousedown", down, false);
+  b.addEventListener("mouseup", up, false);
+  b.addEventListener("mouseleave", up, false);
+  /* tastatur: Enter/mellemrum giver et klik uden mus */
+  b.addEventListener("click", function (e) {
+    if (e.detail === 0) { lcInput("press", cid); lcInput("release", cid); }
+  }, false);
+  lcKeyEls[cid] = b;
+  return b;
+}
+function lcKnob(cid) {
+  var w = el("div", "lcv-knob");
+  var cap = el("div", "lcv-cap");
+  cap.setAttribute("role", "slider");
+  cap.tabIndex = 0;
+  cap.setAttribute("aria-label", "Drejeknap");
+  var lab = el("div", "lcv-kl", "");
+  var val = el("div", "lcv-kv", "");
+  var row = el("div", "lcv-kb");
+  var mi = el("button", "", "−"), pl = el("button", "", "+");
+  mi.type = "button"; pl.type = "button";
+  mi.setAttribute("aria-label", "Drej ned"); pl.setAttribute("aria-label", "Drej op");
+  mi.onclick = function () { lcInput("turn", cid, -1); };
+  pl.onclick = function () { lcInput("turn", cid, 1); };
+  row.appendChild(mi); row.appendChild(pl);
+  w.appendChild(cap); w.appendChild(lab); w.appendChild(val); w.appendChild(row);
+  cap.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    lcInput("turn", cid, e.deltaY < 0 ? 1 : -1);
+  }, false);
+  cap.addEventListener("keydown", function (e) {
+    var k = e.keyCode;
+    if (k === 38 || k === 39) { e.preventDefault(); lcInput("turn", cid, 1); }
+    if (k === 40 || k === 37) { e.preventDefault(); lcInput("turn", cid, -1); }
+  }, false);
+  /* træk op og ned: 6 px pr. trin */
+  var drag = null;
+  function yOf(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+  function dDown(e) {
+    if (e.type === "mousedown" && e.button !== 0) return;
+    e.preventDefault();
+    drag = { y: yOf(e), sent: 0 };
+  }
+  function dMove(e) {
+    if (!drag) return;
+    var steps = Math.floor((drag.y - yOf(e)) / 6);
+    if (steps !== drag.sent) { lcInput("turn", cid, steps - drag.sent); drag.sent = steps; }
+    if (e.cancelable) e.preventDefault();
+  }
+  function dUp() { drag = null; }
+  cap.addEventListener("mousedown", dDown, false);
+  cap.addEventListener("touchstart", dDown, false);
+  window.addEventListener("mousemove", dMove, false);
+  window.addEventListener("touchmove", dMove, false);
+  window.addEventListener("mouseup", dUp, false);
+  window.addEventListener("touchend", dUp, false);
+  lcKnobEls[cid] = { lab: lab, val: val, cap: cap, w: w };
+  return w;
+}
+function lcTbarEl() {
+  var box = el("div", "lcv-tb");
+  var tr = el("div", "lcv-track");
+  tr.setAttribute("role", "slider");
+  tr.setAttribute("aria-label", "T-bar");
+  tr.tabIndex = 0;
+  var h = el("div", "lcv-handle");
+  tr.appendChild(h);
+  var lab = el("div", "lcv-sl", "T-bar");
+  box.appendChild(tr); box.appendChild(lab);
+  lcTb = { track: tr, handle: h, lab: lab, pos: 0, drag: false };
+  function place() { h.style.top = Math.round((1 - lcTb.pos) * 100) + "%"; }
+  function setFrom(e) {
+    var r = tr.getBoundingClientRect();
+    var y = e.touches ? e.touches[0].clientY : e.clientY;
+    var p = 1 - (y - r.top) / Math.max(1, r.height);
+    p = Math.max(0, Math.min(1, p));
+    lcTb.pos = p; place();
+    lcInput("abs", "tbar", Math.round(p * 1000) / 1000);
+  }
+  function down(e) {
+    if (e.type === "mousedown" && e.button !== 0) return;
+    e.preventDefault(); lcTb.drag = true; setFrom(e);
+  }
+  function move(e) { if (lcTb.drag) { if (e.cancelable) e.preventDefault(); setFrom(e); } }
+  function up() { lcTb.drag = false; }
+  tr.addEventListener("mousedown", down, false);
+  tr.addEventListener("touchstart", down, false);
+  window.addEventListener("mousemove", move, false);
+  window.addEventListener("touchmove", move, false);
+  window.addEventListener("mouseup", up, false);
+  window.addEventListener("touchend", up, false);
+  tr.addEventListener("keydown", function (e) {
+    var d = (e.keyCode === 38) ? 0.05 : (e.keyCode === 40 ? -0.05 : 0);
+    if (e.keyCode === 36) d = 1; if (e.keyCode === 35) d = -1;
+    if (!d) return;
+    e.preventDefault();
+    lcTb.pos = Math.max(0, Math.min(1, lcTb.pos + d)); place();
+    lcInput("abs", "tbar", Math.round(lcTb.pos * 1000) / 1000);
+  }, false);
+  place();
+  return box;
+}
+function lcBuildVirt() {
+  var box = id("lc11-virt"); if (!box) return;
+  box.innerHTML = ""; lcKeyEls = {}; lcKnobEls = {};
+  var p = el("div", "lcv"); p.id = "lcv";
+  var bus = el("div", "lcv-bus");
+  var nums = el("div", "lcv-row lcv-nums");
+  nums.appendChild(el("span", "lcv-rl", ""));
+  for (var i = 1; i <= 11; i++) nums.appendChild(el("span", "lcv-no", String(i)));
+  bus.appendChild(nums);
+  function row(label, ids) {
+    var r = el("div", "lcv-row");
+    r.appendChild(el("span", "lcv-rl", label));
+    ids.forEach(function (k) { r.appendChild(lcKey(k)); });
+    bus.appendChild(r);
+  }
+  var e = [], pr = [], pv = [];
+  for (i = 1; i <= 11; i++) { e.push("e" + i); pr.push("p" + i); }
+  for (i = 1; i <= 9; i++) pv.push("v" + i);
+  pv.push("auto"); pv.push("take");
+  row("Effects", e); row("Program", pr); row("Preview", pv);
+  p.appendChild(bus);
+  p.appendChild(lcTbarEl());
+  function pair(a, b, cls) {
+    var r = el("div", "lcv-pair");
+    r.appendChild(lcKey(a, cls)); r.appendChild(lcKey(b, cls));
+    return r;
+  }
+  var tsec = el("div", "lcv-sec lcv-trans");
+  tsec.appendChild(pair("tap", "styr"));
+  var kn = el("div", "lcv-knobs"); kn.appendChild(lcKnob("grand")); tsec.appendChild(kn);
+  tsec.appendChild(pair("ftb", "frys"));
+  tsec.appendChild(pair("side_prev", "side_next"));
+  tsec.appendChild(el("span", "lcv-silk", "Transition"));
+  p.appendChild(tsec);
+  var osec = el("div", "lcv-sec lcv-ovl");
+  var k3 = el("div", "lcv-knobs");
+  k3.appendChild(lcKnob("k1")); k3.appendChild(lcKnob("k2")); k3.appendChild(lcKnob("k3"));
+  osec.appendChild(k3);
+  var mk = el("div", "lcv-pair");
+  ["m_scener", "m_afvikling", "m_enkel", "m_pult"].forEach(function (k) { mk.appendChild(lcKey(k)); });
+  osec.appendChild(mk);
+  osec.appendChild(pair("gem", "mork", "wide"));
+  osec.appendChild(el("span", "lcv-silk", "Overlay"));
+  p.appendChild(osec);
+  box.appendChild(p);
+  var off = el("div", "lcv-offmsg", "Slå LC-11 til for at bruge panelet");
+  off.id = "lcv-off";
+  box.appendChild(off);
+  lcVirtOn = null;
+}
+function lcPaintVirt(L) {
+  var p = id("lcv"); if (!p) return;
+  var on = !!(L && L.on && L.keys);
+  if (on !== lcVirtOn) {
+    lcVirtOn = on;
+    p.className = "lcv" + (on ? "" : " off");
+    id("lcv-off").style.display = on ? "none" : "";
+  }
+  for (var cid in lcKeyEls) {
+    var b = lcKeyEls[cid], k = on ? L.keys[cid] : null;
+    var lbl = k ? k[0] : "", hx = k ? k[1] : "";
+    var sig = lbl + "|" + hx;
+    if (b._sig === sig) continue;
+    b._sig = sig;
+    var parts = lbl.split("\n");
+    b.firstChild.textContent = parts.length > 1 ? parts[0] : "";
+    b.lastChild.textContent = parts.length > 1 ? parts[1] : parts[0];
+    if (hx) {
+      b.style.background = hx; b.style.color = lcInk(hx);
+      b.className = b._base + " lit";
+    } else {
+      b.style.background = ""; b.style.color = "";
+      b.className = b._base;
+    }
+    b.setAttribute("aria-label", (lbl.replace("\n", " ") || "Tom tast") + (hx ? "" : " (slukket)"));
+  }
+  for (var kc in lcKnobEls) {
+    var o = lcKnobEls[kc], kd = on && L.knobs ? L.knobs[kc] : null;
+    var t1 = kd ? (kd.label || "—") : "", t2 = kd ? (kd.need ? "før til " + kd.need : kd.txt) : "";
+    if (o._sig === t1 + "|" + t2) continue;
+    o._sig = t1 + "|" + t2;
+    o.lab.textContent = t1;
+    o.val.textContent = t2.replace(/ (%|s|°)$/, "\u00a0$1");
+    o.val.className = "lcv-kv" + (kd && kd.need ? " need" : "");
+    o.cap.setAttribute("aria-label", "Drejeknap " + (t1 || "") + " " + t2);
+    o.w.className = "lcv-knob" + (kd && kd.label ? "" : " unused");
+  }
+  if (lcTb) {
+    var tl = on && L.tbar ? (L.tbar.label + (L.tbar.txt ? " · " + L.tbar.txt : "") +
+                             (L.tbar.need ? " — før til " + L.tbar.need : "")) : "T-bar";
+    tl = tl.replace(/ %/g, "\u00a0%").replace(/ s\b/g, "\u00a0s");
+    if (lcTb.lab.textContent !== tl) lcTb.lab.textContent = tl;
+  }
+}
+
+/* ---- indstillinger ---- */
+function lcHwText(L) {
+  if (!L) return ["Henter status…", ""];
+  if (L.missing) return ["LC-11 kan ikke bruges: " + L.missing, "bad"];
+  var hw = L.hw || {};
+  if (!L.on) return ["Slået fra", ""];
+  if (hw.state === "ok") return ["Panelet er tilsluttet", "ok"];
+  if (hw.state === "fejl") return [hw.text, "bad"];
+  return [hw.text || "", "warn"];
+}
+function lcPaintSettings(L) {
+  var on = !!(L && L.on), s = (L && L.settings) || {};
+  var b = id("lc11-on"); if (!b) return;
+  press(b, on);
+  b.textContent = on ? "LC-11 er slået til" : "Brug LC-11";
+  b.disabled = !!(L && L.missing);
+  var ht = lcHwText(L), hw = id("lc11-hw");
+  if (hw.textContent !== ht[0]) hw.textContent = ht[0];
+  hw.className = "lc11-hw" + (ht[1] ? " " + ht[1] : "");
+  if (L && L.settings) {
+    var a = document.activeElement;
+    if (a !== id("lc11-start")) id("lc11-start").value = s.start;
+    id("lc11-pickup").checked = !!s.pickup;
+    id("lc11-invert").checked = !!s.tbar_invert;
+    id("lc11-own").checked = !!s.own_colours;
+    if (a !== id("lc11-sens")) id("lc11-sens").value = s.sens;
+    if (a !== id("lc11-led")) id("lc11-led").value = s.led_level;
+  }
+  id("lc11-sens-v").textContent = id("lc11-sens").value;
+  id("lc11-led-v").textContent = id("lc11-led").value + " %";
+  id("lc11-bar").checked = lcPref("bar");
+  id("lc11-marks").checked = lcPref("marks");
+  id("lc11-follow").checked = lcPref("follow");
+  var last = (L && L.last) ? "Sidste input: " + L.last : "";
+  if (id("lc11-last").textContent !== last) id("lc11-last").textContent = last;
+  id("lc11-test").disabled = !on;
+}
+function lcWire() {
+  if (!id("lc11-on")) return;
+  id("lc11-on").onclick = function () { lcSettings({ on: !(LC && LC.on) }); };
+  id("lc11-start").onchange = function () { lcSettings({ start: this.value }); };
+  id("lc11-pickup").onchange = function () { lcSettings({ pickup: this.checked }); };
+  id("lc11-invert").onchange = function () { lcSettings({ tbar_invert: this.checked }); };
+  id("lc11-own").onchange = function () { lcSettings({ own_colours: this.checked }); };
+  id("lc11-sens").onchange = function () { lcSettings({ sens: parseInt(this.value, 10) }); };
+  id("lc11-sens").oninput = function () { id("lc11-sens-v").textContent = this.value; };
+  id("lc11-led").onchange = function () { lcSettings({ led_level: parseInt(this.value, 10) }); };
+  id("lc11-led").oninput = function () { id("lc11-led-v").textContent = this.value + " %"; };
+  id("lc11-bar").onchange = function () { lcSetPref("bar", this.checked); lcBar(LC); };
+  id("lc11-marks").onchange = function () { lcSetPref("marks", this.checked); lcMark(LC); };
+  id("lc11-follow").onchange = function () { lcSetPref("follow", this.checked); };
+  id("lc11-test").onclick = function () { req("POST", "/api", { op: "lc11_test" }, null); };
+  lcBuildVirt();
+}
+
+/* ---- bjælken nederst ---- */
+function lcBar(L) {
+  var bar = id("lc11bar"); if (!bar) return;
+  if (!(L && L.on && L.mode && lcPref("bar"))) {
+    if (bar._sig !== "") { bar._sig = ""; bar.className = ""; bar.innerHTML = ""; }
+    return;
+  }
+  var e = escapeHtml, h = [];
+  h.push('<span class="lcb-tag">LC-11</span>');
+  h.push('<span class="lcb-mode">' + e(L.mode_name) + (L.pages > 1 ? ' <i>side ' + L.page + ' af ' + L.pages + '</i>' : '') + '</span>');
+  if (L.ctl === true) h.push('<span class="lcb-ctl on">styrer lyset</span>');
+  else if (L.ctl === false) h.push('<span class="lcb-ctl off">styrer ikke lyset — tryk Lad styre</span>');
+  else h.push('<span class="lcb-ctl">' + (L.armed ? 'næste: <b>' + e(L.armed) + '</b>' : 'ingen scene klar') + '</span>');
+  var kn = L.knobs || {};
+  [["k1", "Knap 1"], ["k2", "Knap 2"], ["k3", "Knap 3"], ["grand", "Grand"]].forEach(function (k) {
+    var d = kn[k[0]];
+    if (!d || !d.label) return;
+    h.push('<span class="lcb-k"><i>' + k[1] + '</i> ' + (k[0] === "grand" ? "" : e(d.label) + ' ') + '<b>' + e(d.txt) + '</b>' +
+           (d.need ? ' <span class="lcb-need">før til ' + e(d.need) + '</span>' : '') + '</span>');
+  });
+  if (L.tbar && L.tbar.label) {
+    h.push('<span class="lcb-k"><i>T-bar</i> ' + e(L.tbar.label) + ' <b>' + e(L.tbar.txt) + '</b>' +
+           (L.tbar.need ? ' <span class="lcb-need">før til ' + e(L.tbar.need) + '</span>' : '') + '</span>');
+  }
+  var msg = L.msg || L.empty || "";
+  if (msg) h.push('<span class="lcb-msg">' + e(msg) + '</span>');
+  var html = h.join("");
+  if (bar._sig === html) return;
+  bar._sig = html;
+  bar.className = "on";
+  bar.innerHTML = html;
+}
+
+/* ---- søjlenumre på det panelet styrer ---- */
+function lcTargets(L) {
+  var out = [];
+  if (!L || !L.on || !L.marks || !L.marks.length || !lcPref("marks") || !S) return out;
+  var by = {};
+  L.marks.forEach(function (m) { by[String(m.ref)] = m; });
+  function add(e, ref, inline) { var m = by[String(ref)]; if (e && m) out.push({ el: e, m: m, inline: !!inline }); }
+  var k, box;
+  if (L.mode === "enkel" && viewCur === "v-enkel" && id("ek-lamps")) {
+    var ts = id("ek-lamps").getElementsByClassName("ek-tile");
+    for (k = 0; k < ts.length; k++) add(ts[k], parseInt(ts[k].getAttribute("data-i"), 10));
+  } else if (L.mode === "pult" && viewCur === "v-pult" && id("layerlist")) {
+    var rows = id("layerlist").children;
+    for (k = 0; k < rows.length; k++) add(rows[k].firstChild, k);
+  } else if (L.mode === "afvikling" && viewCur === "v-afvikling" && id("af-icons")) {
+    var ics = id("af-icons").getElementsByClassName("af-ic"), gs = S.group_labels || [];
+    for (k = 0; k < ics.length; k++) add(ics[k], gs[k] && gs[k].id);
+  } else if (L.mode === "scener" && viewCur === "v-scene" && (box = id("scenelist"))) {
+    var rs = scenesInTab();
+    if (box.className === "matrix") {
+      var cs = box.getElementsByClassName("scard");
+      for (k = 0; k < cs.length && k < rs.length; k++) add(cs[k], S.scenes[rs[k].i] && S.scenes[rs[k].i].id);
+    } else {
+      var trs = box.getElementsByTagName("tr");
+      for (k = 0; k < rs.length && k + 1 < trs.length; k++)
+        add(trs[k + 1].cells[1], S.scenes[rs[k].i] && S.scenes[rs[k].i].id, true);
+    }
+  }
+  return out;
+}
+function lcMark(L) {
+  var want = lcTargets(L), keep = [];
+  want.forEach(function (w) {
+    var e = w.el, m = w.m;
+    var sig = m.col + (m.sel ? "s" : "") + (m.on ? "o" : "");
+    var b = e._lcBadge;
+    if (e._lcSig !== sig || !b || b.parentNode !== e) {
+      if (!b || b.parentNode !== e) {
+        b = el("span", "lc11-no");
+        b.setAttribute("aria-hidden", "true");
+        e.insertBefore(b, e.firstChild);
+        e._lcBadge = b;
+      }
+      b.textContent = String(m.col);
+      b.className = "lc11-no" + (w.inline ? " inl" : "") + (m.sel ? " sel" : (m.on ? " on" : ""));
+      if (!w.inline && e.className.indexOf("lc11-host") < 0) e.className += " lc11-host";
+      e._lcSig = sig;
+    }
+    keep.push(e);
+  });
+  lcMarked.forEach(function (e) {
+    if (keep.indexOf(e) >= 0) return;
+    if (e._lcBadge && e._lcBadge.parentNode === e) e.removeChild(e._lcBadge);
+    e._lcBadge = null; e._lcSig = null;
+    e.className = e.className.replace(/\s*lc11-host/g, "");
+  });
+  lcMarked = keep;
+}
+
+/* kaldes fra poll() med /frame's lc11-del */
+function lc11Frame(L) {
+  LC = L || null;
+  if (L && L.on && L.mode) {
+    var follow = lcPref("follow");
+    if (lcSeq !== null && L.seq !== lcSeq && follow && viewCur !== "v-help" && !liveOn) {
+      var t = LC_TAB[L.mode];
+      if (t && t !== viewCur) gotoTab(t);
+    }
+    lcSeq = L.seq;
+    if (L.mode === "pult" && lcEdit !== null && L.edit_layer !== lcEdit && follow && !busy &&
+        S && L.edit_layer < S.layers.length && layer !== L.edit_layer) {
+      layer = L.edit_layer;
+      buildLayerList(); buildLayerForm(); buildStrips();
+    }
+    lcEdit = L.edit_layer;
+  } else {
+    lcSeq = null; lcEdit = null;
+  }
+  lcBar(L);
+  lcMark(L);
+  if (viewCur === "v-help") { lcPaintSettings(L); lcPaintVirt(L); }
 }
 
 var H = {};   /* handles til de faste skydere, saa rebuild kan saette dem */
@@ -6081,6 +6540,7 @@ initOtherPanels();
 wireTabDrag();
 initHelp();
 wire();
+lcWire();
 refresh(function () {
   /* den fane der er aaben ved start skal have sin opsaetning koert, nu
      hvor showet er hentet (fx Afviklings tilpas-zoom) */

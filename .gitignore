@@ -13,6 +13,7 @@ dist/
 # Brugerdata der laves når pulten kører
 shows/*.json
 temaer.json
+lc11.json
 
 # OS-skrald
 .DS_Store

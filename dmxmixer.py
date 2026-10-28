@@ -43,6 +43,19 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
+# NewTek LiveControl LC-11 som fysisk styring (lc11.py ved siden af
+# denne fil). Mangler filen, koerer pulten som foer - bare uden LC-11.
+try:
+    import lc11
+    LC11_ERR = ""
+except ImportError as _e:
+    lc11 = None
+    LC11_ERR = ("lc11.py mangler ved siden af dmxmixer.py" if "lc11" in str(_e)
+                else "%s: %s" % (type(_e).__name__, _e))
+except Exception as _e:
+    lc11 = None
+    LC11_ERR = "%s: %s" % (type(_e).__name__, _e)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 # PyInstaller pakker filer ind i _MEIPASS; falder tilbage til __file__ naar
 # man koerer scriptet normalt.
@@ -1179,6 +1192,7 @@ class Engine:
         self.lamptest = None              # lampetest paa en adresse (se lamptest_channels)
         self.lamptest_now = None          # hvad testen sender lige nu - til fladen
         self.fps_real = 0.0
+        self.scene_live = None            # id paa den scene der sidst blev kaldt frem
         self.outputs = {"artnet": ArtNetOut(), "sacn": SacnOut(),
                         "enttec": EnttecOut()}
         self.running = True
@@ -1686,7 +1700,12 @@ class Engine:
                     px = self.pixels
                 else:
                     px = self.render(now - self.t0, beats=self.beats)
-                    if self.fade:
+                    if self.fade and self.fade.get("manual"):
+                        # LC-11's T-bar: overtoningen foelger haandtaget
+                        k = min(1.0, max(0.0, float(self.fade.get("k", 0.0))))
+                        self.fade_k = k
+                        px = self._blend_fade(px, self.fade["from"], k)
+                    elif self.fade:
                         k = (now - self.fade["t0"]) / max(1e-6, self.fade["dur"])
                         self.fade_k = min(1.0, max(0.0, k))
                         if k >= 1.0:
@@ -2482,6 +2501,7 @@ def ui_source():
 
 class Handler(BaseHTTPRequestHandler):
     engine = None
+    lc11 = None                     # LC-11-styringen (lc11.Controller), hvis den findes
     protocol_version = "HTTP/1.1"
 
     def log_message(self, *a):
@@ -2539,6 +2559,8 @@ class Handler(BaseHTTPRequestHandler):
                     "lt": eng.lamptest_now,
                     "probe": (eng.probe["type"] if eng.probe and
                               time.monotonic() < eng.probe.get("until", 0) else None),
+                    "lc11": (Handler.lc11.frame() if Handler.lc11 is not None
+                             else {"missing": LC11_ERR or "lc11.py mangler"}),
                     "dmx": dmx_peek}))
 
         if path == "/scenepx":
@@ -2625,6 +2647,9 @@ class Handler(BaseHTTPRequestHandler):
         op = m.get("op", "")
         with eng.lock:
             show = eng.show
+            if op in ("load", "new", "import", "reset_setup", "wizard_resume") \
+                    and Handler.lc11 is not None:
+                Handler.lc11.forget()     # LC-11 slipper sine valg foer showet skiftes
 
             if op == "set":
                 # {"op":"set","path":["layers",0,"speed"],"value":40}
@@ -2779,6 +2804,7 @@ class Handler(BaseHTTPRequestHandler):
                 sc = show["scenes"][idx]
                 eng.start_fade(float(m.get("fade", sc.get("fade", 0))))
                 apply_scene(show, sc)
+                eng.scene_live = sc.get("id")
                 eng.touch()
                 return {"ok": True}
 
@@ -3450,6 +3476,20 @@ class Handler(BaseHTTPRequestHandler):
                     return {"ok": True}
                 return {"ok": False, "err": "Ukendt palette-indeks"}
 
+            # --- LC-11 ---
+            if op.startswith("lc11_"):
+                ctl = Handler.lc11
+                if ctl is None:
+                    return {"ok": False, "err": "LC-11-modulet mangler (lc11.py) " + LC11_ERR}
+                if op == "lc11_input":
+                    ctl.event(str(m.get("kind", "")), str(m.get("id", "")), m.get("value"))
+                    return {"ok": True}
+                if op == "lc11_settings":
+                    return {"ok": True, "settings": ctl.set_settings(m.get("values") or {})}
+                if op == "lc11_test":
+                    ctl.test_leds()
+                    return {"ok": True}
+
             # --- fanebladsraekkefoelge ---
             if op == "tab_order":
                 order = m.get("order", [])
@@ -3525,6 +3565,7 @@ def lan_ip():
 #  et fast tema (skrift og hjoerner) med egne farver ovenpaa, og gemmes i
 #  temaer.json ved siden af shows-mappen - saa det findes paa alle skaerme.
 THEME_FILE = os.path.join(os.path.dirname(SHOW_DIR), "temaer.json")
+LC11_FILE = os.path.join(os.path.dirname(SHOW_DIR), "lc11.json")   # LC-11's indstillinger
 BUILTIN_THEMES = [("rav", "Rav"), ("nat", "Nat"), ("lys", "Lys"), ("kontrast", "Kontrast"),
                   ("scope", "Scope"), ("fluent", "Windows 11"), ("macos", "macOS"),
                   ("material", "Material (Google, lys)"), ("office", "Office (lys)"),
@@ -3730,6 +3771,10 @@ def build_server(args):
                 merge_show(show, json.load(f))
 
     Handler.engine = Engine(show)
+    if lc11 is not None:
+        Handler.lc11 = lc11.Controller(Handler.engine,
+                                       lambda msg: Handler.dispatch(None, msg),
+                                       sys.modules[__name__], LC11_FILE)
     server = open_server(args.bind, args.port, Handler)
     port = server.server_address[1]
     url = "http://%s:%d" % (lan_ip(), port) if args.bind == "0.0.0.0" else None

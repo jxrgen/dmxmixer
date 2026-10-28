@@ -574,6 +574,50 @@
       <div id="theme-adv" class="theme-adv" style="display:none"></div>
     </div>
 
+    <div class="pan" id="lc11-pan">
+      <h2>LC-11 <span>NewTek LiveControl som styring af pulten</span></h2>
+      <div class="lc11-top">
+        <button id="lc11-on" aria-pressed="false">Brug LC-11</button>
+        <span id="lc11-hw" class="lc11-hw">Henter status…</span>
+      </div>
+      <div class="lc11-cols">
+        <div class="lc11-col">
+          <div class="lc11-sub">Panelet <span>gælder alle skærme</span></div>
+          <div class="rowline"><span class="k">Starter i</span>
+            <select id="lc11-start" aria-label="Starttilstand">
+              <option value="styrer">Den der styrer lyset</option>
+              <option value="scener">Scener</option>
+              <option value="afvikling">Afvikling</option>
+              <option value="enkel">Enkel</option>
+              <option value="pult">Pult</option>
+            </select></div>
+          <label class="chk"><input type="checkbox" id="lc11-pickup"><span><b>Blød overtagelse</b> — T-baren og drejeknapper med anslag griber først fat, når de passerer den værdi, der står nu</span></label>
+          <label class="chk"><input type="checkbox" id="lc11-invert"><span><b>T-baren er vendt om</b> — bund er fuldt lys</span></label>
+          <label class="chk"><input type="checkbox" id="lc11-own"><span><b>Farvetaster i egen farve</b> — slå fra, hvis tasterne kun kan vise få farver</span></label>
+          <div class="rowline"><span class="k">Drejeknapper</span>
+            <input type="range" id="lc11-sens" min="1" max="10" step="1" aria-label="Følsomhed for drejeknapper">
+            <span class="v" id="lc11-sens-v"></span></div>
+          <div class="rowline"><span class="k">Lys i taster</span>
+            <input type="range" id="lc11-led" min="10" max="100" step="10" aria-label="Lysstyrke i tasterne">
+            <span class="v" id="lc11-led-v"></span></div>
+        </div>
+        <div class="lc11-col">
+          <div class="lc11-sub">Denne skærm <span>gemmes i browseren</span></div>
+          <label class="chk"><input type="checkbox" id="lc11-bar"><span><b>Vis LC-11-bjælken</b> nederst på skærmen med tilstand, side og hvad knapperne gør</span></label>
+          <label class="chk"><input type="checkbox" id="lc11-marks"><span><b>Vis søjlenumre</b> 1–8 på det, panelet styrer</span></label>
+          <label class="chk"><input type="checkbox" id="lc11-follow"><span><b>Skift fane sammen med panelet</b> — fx når du trykker Enkel på panelet</span></label>
+        </div>
+      </div>
+      <div class="lc11-vhead">
+        <span class="lc11-sub">Panelet på skærmen</span>
+        <button id="lc11-test" class="sm">Lystest af tasterne</button>
+        <span id="lc11-last" class="lc11-last"></span>
+      </div>
+      <div class="hint">Virker præcis som det rigtige panel. Tryk på tasterne, træk i T-baren, og
+        drej knapperne med <b>−</b> og <b>+</b>, musehjulet eller ved at trække op og ned.</div>
+      <div id="lc11-virt" class="lc11-virt"></div>
+    </div>
+
     <div class="pan help">
       <h2>Hjælp <span>tryk på en fane for at hoppe derhen</span></h2>
       <div class="help-toc" id="help-toc"></div>
@@ -848,6 +892,41 @@
           ved siden af <code>shows</code>), så alle skærme kan vælge dem.</li>
       </ul>
 
+      <h3 id="h-lc11" data-ico="lc11">LC-11</h3>
+      <p>En NewTek LiveControl LC-11 kan styre det meste af pulten. Slå den til i fanen
+        <b>Indstillinger</b> under <b>LC-11</b>. Panelet skal sidde i den computer, der kører pulten;
+        sætter du det i, mens pulten kører, finder den det selv. Samme sted er der et
+        panel på skærmen, som virker præcis som det rigtige.</p>
+      <ul>
+        <li><b>Fire tilstande:</b> tasterne <b>Scener</b>, <b>Afvikling</b>, <b>Enkel</b> og
+          <b>Pult</b> i Overlay vælger, hvad panelet arbejder med. Tilstandstasten lyser
+          blåt for den, du står i, og rødt for den, der styrer lyset. Et skift af tilstand
+          ændrer aldrig selv lyset.</li>
+        <li><b>Hver søjle er én ting</b> — et lag, en lampe, en gruppe eller en scene.
+          <b>Preview</b> (grøn) vælger, <b>Program</b> (rød = lyser) tænder og slukker, og
+          <b>Effects</b> giver mønster eller farve. Er der flere end otte, blader
+          <b>Side ◀ ▶</b>.</li>
+        <li><b>Pult:</b> Program tænder lag, Preview vælger laget du retter i (søjle 9 er
+          Solo), Effects giver mønster. T-baren er lagets styrke; knapperne er fart,
+          størrelse og farvetone.</li>
+        <li><b>Enkel:</b> Preview vælger lamper (søjle 9 vælger hele siden), Effects og
+          søjle 9–11 på Program er palettens farver. T-baren er lysstyrke; knapperne er
+          farvetone, mætning og overgangstid.</li>
+        <li><b>Afvikling:</b> som Enkel, men med grupperne fra Layout og mønstre på
+          Effects. Knapperne er fart, forskydning og farvetone.</li>
+        <li><b>Scener:</b> Effects vælger scene-faneblad, Program kalder en scene med det
+          samme, og Preview lægger den næste klar (søjle 9 tager næste cue). <b>Auto</b>
+          toner over, <b>Take</b> klipper, og <b>T-baren</b> toner manuelt — den kan
+          føres tilbage for at fortryde. Auto og Take virker fra alle tilstande.</li>
+        <li><b>Altid:</b> drejeknappen i Transition er Grand. <b>FTB</b> er blackout og
+          blinker rødt, så længe det er mørkt. <b>Lad styre</b> blinker, når tilstanden
+          ikke styrer lyset; tryk, så tager den over. Tap blinker i takt.</li>
+        <li><b>Lys i tasterne:</b> rød = lyser nu, grøn = valgt, blå = slået til, rav =
+          kan vælges, slukket = bruges ikke. Bjælken nederst på skærmen viser tilstand,
+          side og hvad knapperne gør lige nu, og hvor T-baren skal hen, før den griber
+          fat.</li>
+      </ul>
+
       <h3 id="h-ipad" data-ico="ipad">På iPad og telefon</h3>
       <p>Pulten er en webserver, så der skal ikke installeres noget på iPad eller
         telefon. Flere skærme kan være koblet på samtidig og ser det samme.</p>
@@ -873,6 +952,9 @@
     </div>
   </div>
 </div>
+
+<!-- LC-11: hvad panelet styrer lige nu (vises kun når LC-11 er slået til) -->
+<div id="lc11bar" aria-live="polite"></div>
 
 <!-- ============ LIVE-MATRIX ============ -->
 <div id="live">
