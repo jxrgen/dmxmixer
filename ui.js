@@ -614,7 +614,11 @@ var TABS = [["v-guide", "Guide"], ["v-pult", "Pult"], ["v-layout", "Layout"],
             ["v-pat", "Mønstre"], ["v-scene", "Scener"], ["v-out", "Output"],
             ["v-show", "Show"], ["v-help", "Indstillinger"]];
 var viewCur = "v-pult";
-function enterAfvikling() { afFit(); afSelChanged(); }
+function enterAfvikling() {
+  /* låst visning: behold zoom og placering (første gang tilpasses dog) */
+  if (!(viewLock.af && afFitted)) afFit(); else drawAfStage();
+  afSelChanged();
+}
 
 /* kaldes når en visning bliver synlig - tegn/byg det den har brug for */
 function enterView(vid) {
@@ -1515,6 +1519,104 @@ function buildStrips() {
     box.appendChild(s);
   });
   buildManual();
+  buildPultGroups();
+}
+
+/* ------------------------------------------------------ grupper i Pult */
+/* Grupperne fra Layout med samme knapper som lamperne: lysstyrke og
+   tænd/sluk for hele gruppen, og I lag / Kun her for det lag du redigerer. */
+function grpMembers(gid) {
+  var n = S.modules.length;
+  return groupLeaves(gid).filter(function (i) { return i >= 0 && i < n; });
+}
+function buildPultGroups() {
+  var box = id("pgroups"); if (!box || !S) return;
+  box.innerHTML = "";
+  var gs = S.group_labels || [];
+  if (!gs.length) {
+    var e = el("div", "hint", "Ingen grupper endnu. ");
+    var b = el("button", "sm", "Lav grupper under Layout");
+    b.onclick = function () { gotoTab("v-layout"); };
+    e.appendChild(b); box.appendChild(e); return;
+  }
+  box.className = stripsCompact ? "compact" : "";
+  var mask = S.layers[layer].mask;
+  gs.forEach(function (gr) {
+    var mem = grpMembers(gr.id);
+    var inMask = function (i) { return mask.length === 0 || mask.indexOf(i) >= 0; };
+    var nIn = mem.filter(inMask).length;
+    var allIn = mem.length > 0 && nIn === mem.length;
+    var s = el("div", "strip gstrip" + (allIn ? " inmask" : (nIn ? " part" : "")));
+    s.setAttribute("data-gid", gr.id);
+    var hd = el("div", "hd");
+    hd.appendChild(el("span", "no", "▣"));
+    hd.appendChild(el("span", "nm", gr.name || "Gruppe"));
+    hd.appendChild(el("span", "ad", mem.length + (mem.length === 1 ? " lampe" : " lamper")));
+    s.appendChild(hd);
+    var sw = el("div", "gsw");
+    mem.forEach(function (i) { var d = el("span", ""); d.setAttribute("data-i", i); sw.appendChild(d); });
+    s.appendChild(sw);
+
+    var lvl = mem.length ? Math.round(mem.reduce(function (a, i) { return a + S.modules[i].level; }, 0) / mem.length) : 0;
+    var lv = el("div", "lv");
+    var f = document.createElement("input");
+    f.type = "range"; f.min = 0; f.max = 255; f.value = lvl; f.disabled = !mem.length;
+    f.setAttribute("aria-label", "Lysstyrke for " + (gr.name || "gruppen"));
+    var vv = el("span", "", String(lvl));
+    f.oninput = function () {
+      var v = parseInt(f.value, 10); vv.textContent = v;
+      markBusy(); clearBusy();
+      throttledPatch("grp:" + gr.id, mem.map(function (i) { S.modules[i].level = v; return { path: ["modules", i, "level"], value: v }; }));
+    };
+    f.onchange = function () { buildStrips(); };
+    lv.appendChild(f); lv.appendChild(vv);
+    s.appendChild(lv);
+
+    var allOn = mem.length > 0 && mem.every(function (i) { return S.modules[i].on; });
+    var bt = el("div", "bt");
+    var bo = el("button", "", stripsCompact ? (allOn ? "På" : "Af") : (allOn ? "Tændt" : "Slukket"));
+    bo.title = "Tænd eller sluk alle lamper i gruppen";
+    press(bo, allOn); bo.disabled = !mem.length;
+    bo.onclick = function () {
+      var v = !allOn;
+      api({ op: "patch", items: mem.map(function (i) { S.modules[i].on = v; return { path: ["modules", i, "on"], value: v }; }) });
+      buildStrips();
+    };
+    var bv = el("button", "", stripsCompact ? "Lag" : "I lag");
+    bv.title = "Tag hele gruppen med i det lag du redigerer - eller ud igen";
+    press(bv, allIn); bv.disabled = !mem.length;
+    bv.onclick = function () {
+      var cur = S.layers[layer].mask.slice();
+      if (cur.length === 0) { cur = []; for (var k = 0; k < S.modules.length; k++) cur.push(k); }
+      if (allIn) cur = cur.filter(function (i) { return mem.indexOf(i) < 0; });
+      else mem.forEach(function (i) { if (cur.indexOf(i) < 0) cur.push(i); });
+      S.layers[layer].mask = cur;
+      setv(["layers", layer, "mask"], cur, function () { buildStrips(); });
+    };
+    var bs = el("button", "", stripsCompact ? "Kun" : "Kun her");
+    bs.title = "Lad laget ramme kun gruppens lamper";
+    bs.disabled = !mem.length;
+    bs.onclick = function () {
+      S.layers[layer].mask = mem.slice();
+      setv(["layers", layer, "mask"], mem.slice(), function () { buildStrips(); });
+    };
+    bt.appendChild(bo); bt.appendChild(bv); bt.appendChild(bs);
+    s.appendChild(bt);
+    box.appendChild(s);
+  });
+  paintGroupSwatches(lastFrame);
+}
+/* gruppernes farveprikker følger lampernes rigtige farve (Pult og Enkel) */
+function paintGroupSwatches(px) {
+  if (!px) return;
+  var dots = document.querySelectorAll("#pgroups .gsw span, #ek-groups .gsw span");
+  for (var k = 0; k < dots.length; k++) {
+    var i = parseInt(dots[k].getAttribute("data-i"), 10);
+    var hx = (px[i] || "000000").substr(0, 6);
+    if (dots[k]._hx === hx) continue;
+    dots[k]._hx = hx;
+    dots[k].style.background = hx === "000000" ? "" : "#" + hx;
+  }
 }
 
 /* ------------------------------------------------------- faste kanaler */
@@ -1583,7 +1685,36 @@ var LAY_HANDLE = 8;              /* haandtagets stoerrelse i px */
 var laySel = [];                 /* valgte lampe-indekser i Layout (til gruppe) */
 var laySelG = [];                /* valgte gruppe-id'er i Layout */
 var layGDrag = null;             /* igangvaerende traek af en gruppe-label */
-var layMarq = null;              /* markeringsrektangel */
+var layMarq = null;              /* markeringsrektangel (zoom:true = zoom-område) */
+/* Zoom område og Lås visning (Layout og Afvikling). Låsen huskes pr. skærm. */
+function lsGet(k) { try { return localStorage.getItem(k) === "1"; } catch (e) { return false; } }
+function lsSet(k, on) { try { localStorage.setItem(k, on ? "1" : "0"); } catch (e) {} }
+var viewLock = { lay: lsGet("lyspult.lock.lay"), af: lsGet("lyspult.lock.af") };
+var zoomArea = { lay: false, af: false };
+var afFitted = false;
+function lockedToast() { toast("Visningen er låst — fjern fluebenet ved Lås visning"); }
+function setZoomArea(k, on) {
+  zoomArea[k] = on && !viewLock[k];
+  var b = id(k === "lay" ? "le-zarea" : "af-zarea"); if (b) press(b, zoomArea[k]);
+}
+function setViewLock(k, on) {
+  viewLock[k] = on; lsSet("lyspult.lock." + k, on);
+  var c = id(k === "lay" ? "le-lock" : "af-lock"); if (c) c.checked = on;
+  if (on) setZoomArea(k, false);
+  [k === "lay" ? ["le-zin", "le-zout", "le-zfit", "le-zarea", "le-pan"] : ["af-zin", "af-zout", "af-zfit", "af-zarea", "af-pan"]][0]
+    .forEach(function (bid) { var b = id(bid); if (b) b.disabled = on; });
+  if (k === "lay" && id("lay-scale")) id("lay-scale").disabled = on;
+  if (on && k === "lay" && layEdTool === "pan" && window.__layEdSet) window.__layEdSet("lamp");
+  if (on && k === "af" && afPanMode) { afPanMode = false; press(id("af-pan"), false); }
+}
+/* zoom så det trukne rektangel fylder visningen */
+function zoomToRect(mq, cv, s2lx, s2ly, cur, lo, hi) {
+  if (mq.w < 8 || mq.h < 8) return null;
+  var x0 = s2lx(mq.l), x1 = s2lx(mq.l + mq.w), y0 = s2ly(mq.t + mq.h), y1 = s2ly(mq.t);
+  var sc = Math.min(cv.width / Math.max(1e-6, Math.abs(x1 - x0)), cv.height / Math.max(1e-6, Math.abs(y1 - y0))) * 0.95;
+  sc = Math.max(lo, Math.min(hi, sc));
+  return { scale: sc, panX: -((x0 + x1) / 2) * sc, panY: ((y0 + y1) / 2) * sc };
+}
 var gBoxesLay = [];              /* label-kasser i Layout (til klik) */
 
 /* ---------------------------------------------------- grupper (fælles) */
@@ -2004,6 +2135,14 @@ function stageDown(ev) {
   var p = stagePos(ev);
   var sobs = S.stage_objects || [];
 
+  /* zoom område: træk et rektangel */
+  if (zoomArea.lay) {
+    layMarq = { sx: p.sx, sy: p.sy, l: p.sx, t: p.sy, w: 0, h: 0, zoom: true };
+    return;
+  }
+  /* låst visning: ingen panorering */
+  if (viewLock.lay && (layEdTool === "pan" || ev.button === 1 || (ev.altKey && ev.button === 0))) return;
+
   /* panorering: eget værktøj, midterste museknap eller Alt */
   if (layEdTool === "pan" || ev.button === 1 || (ev.altKey && ev.button === 0)) {
     layPan = { sx: p.sx, sy: p.sy, px: panX, py: panY };
@@ -2145,6 +2284,12 @@ function stageUp(ev) {
       toggleArr(laySelG, gd.id); updateGrpInfo(); drawStage();
     }
     return;
+  }
+  if (layMarq && layMarq.zoom) {
+    var zq = layMarq; layMarq = null; setZoomArea("lay", false);
+    var zr = zoomToRect(zq, id("stage"), S2LX, S2LY, scale, 8, 240);
+    if (zr) { scale = zr.scale; panX = zr.panX; panY = zr.panY; if (H.scale) H.scale.set(Math.round(scale)); }
+    drawStage(); return;
   }
   if (layMarq) {
     var mq = layMarq; layMarq = null;
@@ -2427,28 +2572,29 @@ function ctlPick(c) {
   ctlRefresh();
   toast(nl.length > 1 ? "Nu styrer " + ctlNames(nl) + " sammen" : "Nu styrer " + ctlName(nl[0]) + " lyset");
 }
-function buildCtrlBar() {
-  var bar = id("ctlsel"); if (!bar) return;
-  bar.innerHTML = "";
+/* knapperne Pult / Afvikling / Enkel + "Flere". Bruges i topbjælken
+   (kun ikoner) og i live-matrixens bjælke (ikon + navn). */
+function ctlGroup(box, idp, withText) {
   var multi = ctlNow().length > 1;
-  var g = el("span", "cb-ctrls" + (multi ? " multi" : ""));
+  var g = el("span", "cb-ctrls" + (multi ? " multi" : "") + (withText ? " txt" : ""));
   g.setAttribute("role", "group");
   g.setAttribute("aria-label", "Hvem styrer lyset");
   CTRL.forEach(function (c) {
     var on = ctlOn(c[0]);
     var b = el("button", "cb-btn" + (on ? " on" : ""));
-    b.id = "cb-" + c[0];
+    b.id = idp + c[0];
     b.appendChild(icon(c[2]));
+    if (withText) b.appendChild(el("span", "t", c[1]));
     press(b, on);
     b.title = on ? c[1] + " styrer lyset" : "Lad " + c[1] + " styre lyset";
     b.setAttribute("aria-label", b.title);
     b.onclick = function () { ctlPick(c[0]); };
     g.appendChild(b);
   });
-  bar.appendChild(g);
+  box.appendChild(g);
   var lb = el("label", "cb-multi");
   lb.title = "Flere på én gang: tryk på de styringer der skal styre sammen";
-  var ck = el("input"); ck.type = "checkbox"; ck.id = "cb-multi"; ck.checked = ctlMulti;
+  var ck = el("input"); ck.type = "checkbox"; ck.id = idp + "multi"; ck.checked = ctlMulti;
   ck.onchange = function () {
     ctlMulti = ck.checked;
     try { localStorage.setItem("lyspult.ctlmulti", ctlMulti ? "1" : "0"); } catch (e) {}
@@ -2456,7 +2602,18 @@ function buildCtrlBar() {
     buildCtrlBar(); ctlBanners();
   };
   lb.appendChild(ck); lb.appendChild(el("span", "t", "Flere"));
-  bar.appendChild(lb);
+  box.appendChild(lb);
+}
+function buildCtrlBar() {
+  var lv = id("lv-ctl");
+  if (lv) {                       /* live-matrixen: samme styring som topbjælken */
+    lv.innerHTML = "";
+    lv.appendChild(el("span", "k", "Styrer"));
+    ctlGroup(lv, "lv-cb-", true);
+  }
+  var bar = id("ctlsel"); if (!bar) return;
+  bar.innerHTML = "";
+  ctlGroup(bar, "cb-", false);
   ctlSig = "";
   ctlStatus();
   fitTabs();
@@ -2593,6 +2750,7 @@ function ekLevel(v) {
 }
 function ekInfo() {
   var b = id("ek-selinfo"); if (!b) return;
+  ekGroupsMark();
   var n = ekSel.length;
   b.textContent = n ? (n === 1 ? "1 lampe valgt" : n + " lamper valgt")
                     : "Ingen lamper valgt — tryk på dem til venstre";
@@ -2650,7 +2808,51 @@ function buildEnkel() {
   off.onclick = ekOff;
   pb.appendChild(off);
   ekInfo();
+  buildEkGroups();
   ekPaint(lastFrame);
+}
+/* Enkel: grupperne i deres egen ramme - et tryk vælger (eller fravælger)
+   alle gruppens lamper */
+function buildEkGroups() {
+  var box = id("ek-groups"); if (!box || !S) return;
+  box.innerHTML = "";
+  var gs = S.group_labels || [];
+  if (!gs.length) {
+    box.appendChild(el("div", "ek-gnone", "Ingen grupper endnu — lav dem under Layout."));
+    return;
+  }
+  gs.forEach(function (gr) {
+    var mem = grpMembers(gr.id);
+    var t = el("button", "ek-gtile");
+    t.setAttribute("data-gid", gr.id);
+    t.appendChild(el("span", "nm", gr.name || "Gruppe"));
+    t.appendChild(el("span", "ct", mem.length + (mem.length === 1 ? " lampe" : " lamper")));
+    var sw = el("span", "gsw");
+    mem.forEach(function (i) { var d = el("span", ""); d.setAttribute("data-i", i); sw.appendChild(d); });
+    t.appendChild(sw);
+    t.disabled = !mem.length;
+    t.onclick = function () {
+      var all = mem.length && mem.every(function (i) { return ekSel.indexOf(i) >= 0; });
+      if (all) ekSel = ekSel.filter(function (i) { return mem.indexOf(i) < 0; });
+      else mem.forEach(function (i) { if (ekSel.indexOf(i) < 0) ekSel.push(i); });
+      var ts = id("ek-lamps").getElementsByClassName("ek-tile");
+      for (var k = 0; k < ts.length; k++)
+        ts[k].classList.toggle("sel", ekSel.indexOf(parseInt(ts[k].getAttribute("data-i"), 10)) >= 0);
+      ekInfo();
+    };
+    box.appendChild(t);
+  });
+  ekGroupsMark();
+}
+function ekGroupsMark() {
+  var ts = document.querySelectorAll("#ek-groups .ek-gtile");
+  for (var k = 0; k < ts.length; k++) {
+    var mem = grpMembers(ts[k].getAttribute("data-gid"));
+    var n = mem.filter(function (i) { return ekSel.indexOf(i) >= 0; }).length;
+    ts[k].classList.toggle("sel", mem.length > 0 && n === mem.length);
+    ts[k].classList.toggle("part", n > 0 && n < mem.length);
+    press(ts[k], mem.length > 0 && n === mem.length);
+  }
 }
 /* fliserne følger lampernes rigtige farve - kaldes fra poll() */
 function ekPaint(px) {
@@ -2666,6 +2868,7 @@ function ekPaint(px) {
     ts[k].style.color = dark ? "" : ekTextCol(hx);
     ts[k].lastChild.textContent = dark ? "slukket" : "";
   }
+  paintGroupSwatches(px);
 }
 
 /* ------------------------------------------------------- Lampetest */
@@ -3672,7 +3875,11 @@ function drawAfStage() {
 function afRaw(ev) { var cv = id("afstage"), r = cv.getBoundingClientRect(); var t = ev.touches && ev.touches[0] ? ev.touches[0] : ev; return { sx: t.clientX - r.left, sy: t.clientY - r.top }; }
 function afDown(ev) {
   ev.preventDefault(); var p = afRaw(ev);
-  if (afPanMode || ev.button === 1 || (ev.altKey && ev.button === 0)) { afPan = { sx: p.sx, sy: p.sy, px: afPanX, py: afPanY }; return; }
+  if (zoomArea.af) { afMarq = { sx: p.sx, sy: p.sy, l: p.sx, t: p.sy, w: 0, h: 0, zoom: true }; return; }
+  if (afPanMode || ev.button === 1 || (ev.altKey && ev.button === 0)) {
+    if (viewLock.af) return;
+    afPan = { sx: p.sx, sy: p.sy, px: afPanX, py: afPanY }; return;
+  }
   var gid = hitGroupBox(gBoxesAf, p.sx, p.sy);
   if (gid) { toggleArr(afSelG, gid); afSelChanged(); return; }
   var wx = afSX2L(p.sx), wy = afSY2L(p.sy), hl = lampNear(wx, wy, 1.3);
@@ -3685,6 +3892,12 @@ function afMove(ev) {
 }
 function afUp(ev) {
   if (afPan) { afPan = null; return; }
+  if (afMarq && afMarq.zoom) {
+    var zq = afMarq; afMarq = null; setZoomArea("af", false);
+    var zr = zoomToRect(zq, id("afstage"), afSX2L, afSY2L, afScale, 10, 200);
+    if (zr) { afScale = zr.scale; afPanX = zr.panX; afPanY = zr.panY; }
+    drawAfStage(); return;
+  }
   if (afMarq) {
     var mq = afMarq; afMarq = null;
     if (mq.w > 3 || mq.h > 3) {
@@ -3707,6 +3920,7 @@ function afFit() {
   var sw = Math.max(1, x1 - x0 + 2), sh = Math.max(1, y1 - y0 + 2);
   afScale = Math.max(12, Math.min(120, Math.min((cv.width - 40) / sw, (cv.height - 40) / sh)));
   afPanX = -((x0 + x1) / 2) * afScale; afPanY = ((y0 + y1) / 2) * afScale;
+  afFitted = true;
   drawAfStage();
 }
 
@@ -4629,7 +4843,23 @@ function recallScene(i) {
   if (!sc) return;
   activeSceneId = sc.id;
   markActiveTile();
-  api({ op: "scene_recall", index: i }, function () { if (!liveOn) refresh(); });
+  api({ op: "scene_recall", index: i }, function () { if (!liveOn) refresh(); else liveSync(); });
+}
+/* I live-matrixen bygges fladen ikke om ved hvert scenekald (fliserne skal
+   stå stille), men showet hentes, så styringen, grand og blackout i
+   bjælken viser det scenen satte. Resten bygges om, når man går ud. */
+function liveSync() {
+  var mySeq = ++refreshSeq;
+  req("GET", "/state", null, function (d) {
+    if (!d || !liveOn || mySeq < refreshSeen) return;
+    refreshSeen = mySeq;
+    S = d.show; META = d.meta; rev = d.rev;
+    buildCtrlBar(); ctlBanners();
+    press(id("lv-black"), S.master.blackout);
+    if (H.lvgrand) H.lvgrand.set(S.master.grand);
+    id("lv-bpm").textContent = S.master.bpm;
+    markActiveTile();
+  });
 }
 
 /* animate-tilstand pr. scene-id, husket i browseren saa den overlever
@@ -5147,7 +5377,7 @@ function cueGo(step) {
   activeSceneId = sc.id;
   if (liveOn) markActiveTile();
   api({ op: "scene_recall", id: sc.id, fade: c.fade },
-      function () { if (!liveOn) refresh(); else buildScenes(); });
+      function () { if (!liveOn) refresh(); else { buildScenes(); liveSync(); } });
   if (cueAuto && c.follow > 0)
     cueTimer = setTimeout(function () { cueGo(1); }, (c.fade + c.follow) * 1000);
 }
@@ -5236,6 +5466,36 @@ function loadShowList() {
       r.appendChild(lb); r.appendChild(db);
       box.appendChild(r);
     });
+    buildPlanList(d.plans || []);
+  });
+}
+/* sceneplaner: 2D (formerne) og 3D (rummet) - tydeligt mærket */
+function buildPlanList(plans) {
+  var box = id("planlist"); if (!box) return;
+  box.innerHTML = "";
+  if (!plans.length) { box.appendChild(el("div", "hint", "Ingen sceneplaner gemt endnu.")); return; }
+  plans.forEach(function (pl) {
+    var r = el("div", "btns plrow");
+    r.style.marginBottom = "4px";
+    var tag = el("span", "pltag pl" + pl.kind, pl.kind === "3d" ? "3D" : "2D");
+    tag.title = pl.kind === "3d" ? "3D-sceneplan: rummet med ting og modeller" : "2D-sceneplan: formerne på gulvet";
+    var nm = el("span", "plname", pl.name);
+    var tm = el("span", "plsaved", pl.saved);
+    var lb = el("button", "", "Hent");
+    lb.onclick = function () {
+      if (!confirm("Hent " + (pl.kind === "3d" ? "3D" : "2D") + "-sceneplanen “" + pl.name + "” ind i showet? " +
+                   (pl.kind === "3d" ? "Rummet i 3D-simulatoren erstattes." : "Formerne på gulvet erstattes."))) return;
+      api({ op: "plan_load", kind: pl.kind, name: pl.name }, function (d) {
+        if (d && d.ok) { refresh(); toast("Hentet: " + pl.name); } else toast((d && d.err) || "Kunne ikke hente");
+      });
+    };
+    var db = el("button", "ghost", "Slet");
+    db.onclick = function () {
+      if (confirm("Slet " + (pl.kind === "3d" ? "3D" : "2D") + "-sceneplanen “" + pl.name + "”?"))
+        api({ op: "plan_delete", kind: pl.kind, name: pl.name }, loadShowList);
+    };
+    r.appendChild(tag); r.appendChild(nm); r.appendChild(tm); r.appendChild(lb); r.appendChild(db);
+    box.appendChild(r);
   });
 }
 
@@ -5333,6 +5593,7 @@ function poll() {
 }
 function drawStrips(px, meta) {
   if (!px) return;
+  paintGroupSwatches(px);
   for (var i = 0; i < stripCv.length && i < px.length; i++) {
     var cv = stripCv[i];
     if (!cv.width || cv._w !== cv.clientWidth) {
@@ -6050,12 +6311,15 @@ function wire() {
                  "le-circ":"circle", "le-tri":"tri", "le-sel":"sel", "le-grpsel":"grpsel" };
   var _leIds = ["le-lamp","le-pan","le-grpsel","le-rect","le-circ","le-tri","le-sel"];
   function layEdSet(tool){
+    if (tool === "pan" && viewLock.lay) { lockedToast(); tool = "lamp"; }
     layEdTool = tool;
     _leIds.forEach(function(bid){ var b = id(bid); if (b) press(b, _leMap[bid] === tool); });
   }
   _leIds.forEach(function(bid){
     var b = id(bid); if (b) b.onclick = function(){ layEdSet(_leMap[bid]); };
   });
+  window.__layEdSet = layEdSet;
+  window.__views = function () { return { lay: [scale, panX, panY], af: [afScale, afPanX, afPanY] }; };
   /* grupper */
   id("le-grpadd").onclick = function(){ if (laySel.length + laySelG.length) openGroupDialog(null); };
   id("le-grpedit").onclick = function(){ if (laySelG.length === 1 && laySel.length === 0) openGroupDialog(laySelG[0]); };
@@ -6082,6 +6346,7 @@ function wire() {
     af.addEventListener("touchmove", afMove, false);
     af.addEventListener("touchend", afUp, false);
     af.addEventListener("wheel", function(e){
+      if (viewLock.af) return;
       e.preventDefault();
       var r = af.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
       var wx = afSX2L(mx), wy = afSY2L(my);
@@ -6090,10 +6355,13 @@ function wire() {
       afPanY += my - (af.height / 2 + afPanY - wy * afScale);
       drawAfStage();
     }, false);
-    id("af-zin").onclick = function(){ afScale = Math.min(200, afScale * 1.25); drawAfStage(); };
-    id("af-zout").onclick = function(){ afScale = Math.max(10, afScale * 0.8); drawAfStage(); };
-    id("af-zfit").onclick = afFit;
-    id("af-pan").onclick = function(){ afPanMode = !afPanMode; press(id("af-pan"), afPanMode); };
+    id("af-zin").onclick = function(){ if (viewLock.af) return lockedToast(); afScale = Math.min(200, afScale * 1.25); drawAfStage(); };
+    id("af-zout").onclick = function(){ if (viewLock.af) return lockedToast(); afScale = Math.max(10, afScale * 0.8); drawAfStage(); };
+    id("af-zfit").onclick = function(){ if (viewLock.af) return lockedToast(); afFit(); };
+    id("af-pan").onclick = function(){ if (viewLock.af) return lockedToast(); afPanMode = !afPanMode; press(id("af-pan"), afPanMode); };
+    id("af-zarea").onclick = function(){ if (viewLock.af) return lockedToast(); setZoomArea("af", !zoomArea.af); };
+    id("af-lock").onchange = function(){ setViewLock("af", this.checked); };
+    setViewLock("af", viewLock.af);
     id("af-clearsel").onclick = function(){ afSel = []; afSelG = []; afSelChanged(); };
     /* 1-9 og 0 vælger en gruppe direkte. Virker kun mens Afvikling er
        fremme, ikke i live-matrixen (den har tallene til scener) og ikke
@@ -6175,6 +6443,7 @@ function wire() {
 
   /* zoom med musehjul over scenegulvet */
   st.addEventListener("wheel", function (e) {
+    if (viewLock.lay) return;            /* låst: hjulet ruller bare siden */
     e.preventDefault();
     var r = st.getBoundingClientRect();
     var mx = e.clientX - r.left, my = e.clientY - r.top;
@@ -6218,12 +6487,17 @@ function wire() {
     api({ op: "patch", items: items }, function () { refresh(drawStage); });
   };
   id("le-zin").onclick = function () {
+    if (viewLock.lay) return lockedToast();
     scale = Math.min(240, scale * 1.25); if (H.scale) H.scale.set(Math.round(scale)); drawStage();
   };
   id("le-zout").onclick = function () {
+    if (viewLock.lay) return lockedToast();
     scale = Math.max(8, scale * 0.8); if (H.scale) H.scale.set(Math.round(scale)); drawStage();
   };
-  id("le-zfit").onclick = function () { layFit(); };
+  id("le-zfit").onclick = function () { if (viewLock.lay) return lockedToast(); layFit(); };
+  id("le-zarea").onclick = function () { if (viewLock.lay) return lockedToast(); setZoomArea("lay", !zoomArea.lay); };
+  id("le-lock").onchange = function () { setViewLock("lay", this.checked); };
+  setViewLock("lay", viewLock.lay);
 
   /* visningsskydere - deles med simulatoren */
   function vwSlider(sid, key, vid) {
@@ -6616,7 +6890,18 @@ function makePanels(box, key) {
         if (sv.collapsed) p.classList.add("collapsed");
       }
     });
-    panels.forEach(function (p) { if (!seen[p.dataset.panel]) order.push(p); });
+    /* nye rammer sættes ind efter den ramme, de står efter i standardrækkefølgen */
+    panels.forEach(function (p, k) {
+      if (seen[p.dataset.panel]) return;
+      var at = order.length;
+      for (var j = k - 1; j >= 0; j--) {
+        var q = order.indexOf(panels[j]);
+        if (q >= 0) { at = q + 1; break; }
+        if (j === 0) at = 0;
+      }
+      if (k === 0) at = 0;
+      order.splice(at, 0, p); seen[p.dataset.panel] = 1;
+    });
     var mark = document.createComment("paneler");
     box.insertBefore(mark, panels[0]);
     order.forEach(function (p) { box.insertBefore(p, mark); });

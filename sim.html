@@ -22,6 +22,10 @@ button{font:inherit;font-size:.82rem;font-weight:700;color:#f4f6fb;background:#1
 button.on{background:#ffb200;color:#181206;border-color:#ffd166}
 button:hover{border-color:#9aa4b6}
 input[type=range]{width:90px;vertical-align:middle}
+label.lock{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:#f4f6fb;
+  background:#1b1e26;border:1px solid #3a4150;border-radius:7px;padding:.3rem .6rem;cursor:pointer}
+label.lock input{width:18px;height:18px;accent-color:#ffb200;margin:0}
+button:disabled{opacity:.4;cursor:default}
 .grow{flex:1}
 #msg{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
   background:#3a1418;border:1px solid #7a2830;color:#ffb3b8;padding:.6rem 1rem;
@@ -77,6 +81,8 @@ a.btn:hover{border-color:#9aa4b6}
     <button id="tEdit">Editor</button>
     <button id="tCfg">Indstillinger</button>
     <button id="zIn">+</button><button id="zOut">−</button><button id="zFit">Tilpas</button>
+    <button id="zArea" title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
+    <label class="lock" title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="zLock"> Lås visning</label>
     <button id="tFull">Fuldskærm</button>
     <a class="btn" href="sim3d" target="_blank" rel="noopener">◳ 3D-simulator</a>
   </div>
@@ -131,13 +137,22 @@ a.btn:hover{border-color:#9aa4b6}
   </div>
   <div id="edlist"></div>
   <div class="edrow" style="margin-top:6px">
-    <button id="edSave">Gem sceneplan</button>
-    <button id="edLoad">Indlæs</button>
-    <button id="edClear" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8">Ryd alt</button>
+    <button id="edClear" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8">Ryd alle former</button>
   </div>
+  <h4 style="margin-top:10px">2D-sceneplaner</h4>
+  <div class="edrow">
+    <input type="text" id="plName" placeholder="Navn på sceneplanen" style="flex:1;min-width:120px;font:inherit;font-size:.82rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:4px 6px">
+    <button id="plSave">Gem 2D-sceneplan</button>
+  </div>
+  <div class="edrow">
+    <select id="plList" style="flex:1;min-width:120px;font:inherit;font-size:.82rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:4px"></select>
+    <button id="plLoad">Hent</button>
+    <button id="plDel" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8">Slet</button>
+  </div>
+  <div class="tip" id="plTip">Gemmes i Show-mappen ved siden af dine shows som
+    «navn.sceneplan-2d.json» — en 2D-sceneplan er formerne på gulvet.</div>
   <div class="tip">Træk i et navn for at flytte det væk fra lampen — så tegnes
     der en henvisningsstreg. Træk på tom baggrund for at panorere.</div>
-  <input type="file" id="edFile" accept=".json" style="display:none">
 </div>
 
 <script>
@@ -169,6 +184,9 @@ var baseScale = 40, baseCx = 0, baseCy = 0;
 /* editor */
 var ED = { tool:"sel", objs:[], sel:-1, drag:null, drawStart:null, preview:null, resize:null };
 var panDrag = null, lblDrag = null;
+/* zoom område og lås visning (huskes i browseren) */
+var zoomAreaOn = false, zDrag = null, viewLocked = false;
+try { viewLocked = localStorage.getItem("sim2d.lock") === "1"; } catch (e) {}
 
 function computeBase(){
   if (!mods.length){ baseScale=44; baseCx=W/2; baseCy=H*0.55; return; }
@@ -223,7 +241,7 @@ function loadState(){
       newmods.some(function(m,i){ return !mods[i] || mods[i].x!==m.x || mods[i].y!==m.y || mods[i].type!==m.type; });
     /* lad igangværende træk i fred */
     if (!(ED.drag && ED.drag.type === "lamp") && !lblDrag) mods = newmods;
-    if (geomChanged && autoFit) doAutoFit();
+    if (geomChanged && autoFit && !viewLocked) doAutoFit();
 
     /* visningsindstillinger fra showet - men ikke hen over en lokal ændring */
     if (s.view && Date.now() - vTouch > 1500){
@@ -298,6 +316,11 @@ function draw(){
     }
   }
   drawGroupLabels();
+  if (zDrag){
+    g.save(); g.fillStyle = "rgba(255,178,0,.12)"; g.fillRect(zDrag.l, zDrag.t, zDrag.w, zDrag.h);
+    g.strokeStyle = "#ffb200"; g.lineWidth = 1.5; if (g.setLineDash) g.setLineDash([5,4]);
+    g.strokeRect(zDrag.l, zDrag.t, zDrag.w, zDrag.h); g.restore();
+  }
   requestAnimationFrame(draw);
 }
 
@@ -579,6 +602,13 @@ function evPos(e){
 cv.addEventListener("pointerdown", function(e){
   var p = evPos(e), mx = p.x, my = p.y;
 
+  if (zoomAreaOn){
+    zDrag = { sx: mx, sy: my, l: mx, t: my, w: 0, h: 0 };
+    cv.setPointerCapture(e.pointerId); e.preventDefault(); return;
+  }
+  /* låst visning: midterknap/Alt/Flyt visning panorerer ikke */
+  if (viewLocked && (ED.tool === "pan" || e.button === 1 || (e.button === 0 && e.altKey))) return;
+
   /* panorering: værktøj, midterste knap eller Alt */
   if (ED.tool === "pan" || e.button === 1 || (e.button === 0 && e.altKey)){
     panDrag = { sx: mx, sy: my, px: panX, py: panY };
@@ -642,6 +672,11 @@ cv.addEventListener("pointerdown", function(e){
 });
 cv.addEventListener("pointermove", function(e){
   var p = evPos(e), mx = p.x, my = p.y;
+  if (zDrag){
+    zDrag.l = Math.min(zDrag.sx, mx); zDrag.t = Math.min(zDrag.sy, my);
+    zDrag.w = Math.abs(mx - zDrag.sx); zDrag.h = Math.abs(my - zDrag.sy); return;
+  }
+  if (panDrag && viewLocked) return;
   if (panDrag){
     panX = panDrag.px + (mx - panDrag.sx);
     panY = panDrag.py + (my - panDrag.sy);
@@ -682,6 +717,7 @@ cv.addEventListener("pointermove", function(e){
   }
 });
 cv.addEventListener("pointerup", function(e){
+  if (zDrag){ var z = zDrag; zDrag = null; setZoomArea(false); zoomToRect(z); return; }
   if (panDrag){
     var pu = evPos(e);
     if (panDrag.click && Math.abs(pu.x - panDrag.sx) < 4 && Math.abs(pu.y - panDrag.sy) < 4) selectLamp(-1);
@@ -731,6 +767,7 @@ function doZoom(factor, cx2, cy2){
 }
 cv.addEventListener("wheel", function(e){
   e.preventDefault();
+  if (viewLocked) return;
   var p = evPos(e);
   doZoom(e.deltaY < 0 ? 1.12 : 0.89, p.x, p.y);
 }, {passive:false});
@@ -753,9 +790,32 @@ byId("tFull").onclick = function(){
   if (!document.fullscreenElement) (document.documentElement.requestFullscreen||function(){})();
   else (document.exitFullscreen||function(){})();
 };
-byId("zIn").onclick = function(){ doZoom(1.3); };
-byId("zOut").onclick = function(){ doZoom(0.7); };
-byId("zFit").onclick = function(){ autoFit = true; doAutoFit(); };
+byId("zIn").onclick = function(){ if (!viewLocked) doZoom(1.3); };
+byId("zOut").onclick = function(){ if (!viewLocked) doZoom(0.7); };
+byId("zFit").onclick = function(){ if (viewLocked) return; autoFit = true; doAutoFit(); };
+byId("zArea").onclick = function(){ if (!viewLocked) setZoomArea(!zoomAreaOn); };
+byId("zLock").onchange = function(){ setLock(this.checked); };
+function setZoomArea(on){
+  zoomAreaOn = on && !viewLocked;
+  byId("zArea").classList.toggle("on", zoomAreaOn);
+  cv.style.cursor = zoomAreaOn ? "crosshair" : "";
+}
+function setLock(on){
+  viewLocked = on;
+  try { localStorage.setItem("sim2d.lock", on ? "1" : "0"); } catch (e) {}
+  byId("zLock").checked = on;
+  ["zIn","zOut","zFit","zArea","edPan"].forEach(function(b){ byId(b).disabled = on; });
+  if (on){ setZoomArea(false); autoFit = false; if (ED.tool === "pan"){ ED.tool = "sel"; edMark("edSel"); } }
+}
+/* zoom så rektanglet fylder skærmen */
+function zoomToRect(z){
+  if (z.w < 8 || z.h < 8) return;
+  var cx = toWorldX(z.l + z.w/2), cy = toWorldY(z.t + z.h/2);
+  var nz = Math.max(0.15, Math.min(12, zoom * Math.min(W / z.w, H / z.h) * 0.95));
+  zoom = nz; autoFit = false;
+  panX = W/2 - (baseCx + cx*baseScale)*zoom;
+  panY = H/2 - (baseCy - cy*baseScale)*zoom;
+}
 
 /* indstillinger - skriver til showet så Layout følger med */
 function cfgSlider(sid, key, vid){
@@ -809,18 +869,52 @@ byId("edDel").onclick = function(){
   if (ED.sel >= 0){ ED.objs.splice(ED.sel, 1); ED.sel = -1; renderEdList(); pushObjs(); }
 };
 byId("edClear").onclick = function(){ ED.objs = []; ED.sel = -1; renderEdList(); pushObjs(); };
-byId("edSave").onclick = function(){
-  var blob = new Blob([JSON.stringify(ED.objs, null, 2)], {type:"application/json"});
-  var a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = "sceneplan.json"; a.click();
+/* 2D-sceneplaner: gemmes med navn i Show-mappen */
+var plans = [];
+function postCb(msg, cb){
+  var x = new XMLHttpRequest(); x.open("POST","api",true);
+  x.setRequestHeader("Content-Type","application/json");
+  x.onreadystatechange = function(){ if (x.readyState === 4){ var d = null; try { d = JSON.parse(x.responseText); } catch(e){} cb(d || {}); } };
+  x.send(JSON.stringify(msg));
+}
+function planList(d){
+  if (d && d.plans) plans = d.plans.filter(function(p){ return p.kind === "2d"; });
+  var sel = byId("plList"), cur = sel.value; sel.innerHTML = "";
+  if (!plans.length){ var o = document.createElement("option"); o.value = ""; o.textContent = "Ingen 2D-sceneplaner gemt"; sel.appendChild(o); }
+  plans.forEach(function(p){ var o = document.createElement("option"); o.value = p.name; o.textContent = "2D · " + p.name + "  (" + p.saved + ")"; sel.appendChild(o); });
+  if (cur) sel.value = cur;
+  byId("plLoad").disabled = byId("plDel").disabled = !plans.length;
+}
+function planTip(t){ var e = byId("plTip"); e.textContent = t; e.style.color = "#ffd166"; }
+function planRefresh(){ postCb({ op:"plan_list" }, planList); }
+byId("plSave").onclick = function(){
+  var name = byId("plName").value.trim();
+  if (!name){ planTip("Skriv et navn på sceneplanen først."); byId("plName").focus(); return; }
+  clearTimeout(_pushTimer);
+  function save(over){
+    postCb({ op:"plan_save", kind:"2d", name:name, objects: ED.objs, overwrite: !!over }, function(d){
+      if (d.exists){ if (confirm("Der findes allerede en 2D-sceneplan, der hedder “" + d.name + "”. Skal den overskrives?")) save(true); return; }
+      if (!d.ok){ planTip("Kunne ikke gemme: " + (d.err || "ukendt fejl")); return; }
+      planList(d); byId("plList").value = d.name; planTip("Gemt som 2D-sceneplanen “" + d.name + "”.");
+    });
+  }
+  save(false);
 };
-byId("edLoad").onclick = function(){ byId("edFile").click(); };
-byId("edFile").onchange = function(){
-  var f = this.files[0]; if (!f) return; this.value = "";
-  var r = new FileReader(); r.onload = function(){
-    try { ED.objs = JSON.parse(r.result); ED.sel = -1; renderEdList(); pushObjs(); } catch(e){}
-  }; r.readAsText(f);
+byId("plLoad").onclick = function(){
+  var name = byId("plList").value; if (!name) return;
+  if (ED.objs.length && !confirm("Hent 2D-sceneplanen “" + name + "”? Formerne, der står nu, erstattes.")) return;
+  postCb({ op:"plan_load", kind:"2d", name:name }, function(d){
+    if (!d.ok){ planTip(d.err || "Kunne ikke hente sceneplanen."); return; }
+    byId("plName").value = name; planTip("Hentet: 2D-sceneplanen “" + name + "”."); loadState();
+  });
 };
+byId("plDel").onclick = function(){
+  var name = byId("plList").value; if (!name) return;
+  if (!confirm("Slet 2D-sceneplanen “" + name + "”?")) return;
+  postCb({ op:"plan_delete", kind:"2d", name:name }, function(d){ planList(d); planTip("Slettet."); });
+};
+planRefresh();
+byId("tEdit").addEventListener("click", planRefresh);
 
 /* ---- valgt lampe: lysstyrke og tænd/sluk (lampens rigtige niveau) ---- */
 var lampSel = -1, levelTouch = 0, levelT = null;
@@ -855,7 +949,7 @@ byId("lbClose").onclick = function(){ selectLamp(-1); };
 window.addEventListener("keydown", function(e){ if (e.key === "Escape") selectLamp(-1); });
 
 /* ---- start ---- */
-resize(); doAutoFit(); syncCfgUI();
+resize(); doAutoFit(); syncCfgUI(); setLock(viewLocked);
 loadState(); loadFrame();
 setInterval(loadState, 600);
 setInterval(loadFrame, 80);

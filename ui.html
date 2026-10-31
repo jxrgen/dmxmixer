@@ -110,6 +110,17 @@
       </div>
     </div>
 
+    <div class="pan" data-panel="groups">
+      <h2>Grupper <span>gul kant = hele gruppen er med i det lag du redigerer</span></h2>
+      <div class="pan-body">
+      <div id="pgroups"></div>
+      <div class="hint">Grupperne laves under <b>Layout</b>. <b>Lysstyrke</b> og
+        <b>Tændt/Slukket</b> rammer alle gruppens lamper. <b>I lag</b> tager hele gruppen
+        med i det lag du redigerer (eller ud igen), og <b>Kun her</b> lader laget ramme
+        netop gruppens lamper.</div>
+      </div>
+    </div>
+
     <div class="pan" data-panel="fixtures">
       <h2>Lamper <span>gul kant = med i det lag du redigerer</span></h2>
       <div class="pan-body">
@@ -176,6 +187,8 @@
         <button id="le-zin">+</button>
         <button id="le-zout">−</button>
         <button id="le-zfit">Tilpas</button>
+        <button id="le-zarea" title="Træk et område op på scenen, så zoomes der ind på det">⬚ Zoom område</button>
+        <label class="chk lockchk" title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="le-lock"> Lås visning</label>
         <a href="/sim" target="_blank" rel="noopener" class="simbtn"
            style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
                   padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
@@ -229,6 +242,8 @@
             <button id="af-zin">+</button>
             <button id="af-zout">−</button>
             <button id="af-zfit">Tilpas</button>
+            <button id="af-zarea" title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
+            <label class="chk lockchk" title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="af-lock"> Lås visning</label>
             <button id="af-pan" title="Træk for at flytte visningen">✋ Flyt visning</button>
             <button id="af-clearsel" class="sm">Ryd markering</button>
             <button id="af-savescene" class="wz-primary">Gem som scene</button>
@@ -258,7 +273,16 @@
     <div class="pan ek">
       <h2>Enkel <span>tryk på lamperne, og så på en farve</span></h2>
       <div class="ek-wrap">
-        <div class="ek-lamps" id="ek-lamps"></div>
+        <div class="ek-left">
+          <div class="ek-frame">
+            <div class="ek-fh">Grupper <span>tryk for at vælge hele gruppen</span></div>
+            <div class="ek-groups" id="ek-groups"></div>
+          </div>
+          <div class="ek-frame">
+            <div class="ek-fh">Lamper</div>
+            <div class="ek-lamps" id="ek-lamps"></div>
+          </div>
+        </div>
         <div class="ek-side">
           <div class="ek-selinfo" id="ek-selinfo"></div>
           <div class="ek-pal" id="ek-pal"></div>
@@ -273,8 +297,8 @@
             <button id="ek-dark" class="alarm">Alt mørkt</button>
             <button id="ek-scene" class="wz-primary">Gem som scene</button>
           </div>
-          <div class="hint">Tryk på en eller flere lamper, så de bliver markeret, og tryk
-            så på en farve — eller brug bogstavet på tastaturet. <b>Sluk</b> slukker de
+          <div class="hint">Tryk på en eller flere lamper — eller en hel gruppe — så de bliver
+            markeret, og tryk så på en farve — eller brug bogstavet på tastaturet. <b>Sluk</b> slukker de
             valgte. Fliserne viser den farve lamperne har lige nu. Det du gør her, er
             det samme som i <b>Afvikling</b> og vises også dér og i simulatoren.</div>
         </div>
@@ -546,6 +570,14 @@
       <h2>Gemte shows</h2>
       <div id="showlist"></div>
     </div>
+    <div class="pan" data-panel="plans">
+      <h2>Sceneplaner <span>2D: formerne på gulvet · 3D: rummet med ting og modeller</span></h2>
+      <div id="planlist"></div>
+      <div class="hint">Sceneplaner gemmes med navn fra 2D-simulatorens editor og fra
+        3D-simulatoren (Rediger → Rum). De ligger i samme mappe som dine shows, som
+        <code>navn.sceneplan-2d.json</code> og <code>navn.sceneplan-3d.json</code>.
+        <b>Hent</b> lægger planen ind i det show, der er åbent.</div>
+    </div>
   </div>
 
   <!-- ============ HJÆLP ============ -->
@@ -722,6 +754,10 @@
           (slukker lampen helt), <b>I lag</b> (med i det lag du redigerer) og
           <b>Kun her</b> (laget rammer kun den lampe). Gul kant betyder, at lampen er
           med i lagets maske.</li>
+        <li><b>Grupper</b>: grupperne fra Layout har deres egen ramme med de samme
+          knapper. Skyderen og <b>Tændt</b> rammer alle gruppens lamper, <b>I lag</b> tager
+          hele gruppen med i laget (eller ud igen), og <b>Kun her</b> lader laget ramme
+          netop gruppens lamper. Gul kant: hele gruppen er med i masken; stiplet kant: en del af den.</li>
         <li><b>Paletter</b>: når et lag har fast farve, viser Pult de 14 palettefarver
           med bogstaverne <b>A S D F G H J Z X C V B N M</b>. Tryk på en farve eller
           tasten. <b>Redigér…</b>, <b>Gem som ny…</b> og vælgeren skifter og retter
@@ -798,7 +834,9 @@
       <p>Den nemmeste styring: én stor flise pr. lampe, der viser lampens farve lige
         nu.</p>
       <ol class="steps">
-        <li>Tryk på de lamper, du vil styre. De får et flueben.</li>
+        <li>Tryk på de lamper, du vil styre. De får et flueben. I rammen
+          <b>Grupper</b> vælger et tryk alle gruppens lamper på én gang — et tryk mere
+          fravælger dem igen. Stiplet kant betyder, at kun nogle af gruppens lamper er valgt.</li>
         <li>Tryk på en farve, eller tasten A–M. <b>Sluk</b> slukker de valgte.</li>
         <li>Skyderen sætter lysstyrken. <b>Alt mørkt</b> slukker alle lamper.</li>
       </ol>
@@ -854,7 +892,9 @@
         <li><b>Cuelisten</b> kæder scener sammen: <b>GO</b> går videre,
           <b>Auto-følg</b> kører videre af sig selv.</li>
         <li><b>Live-matrix</b> fylder skærmen med én flise pr. scene — til at køre
-          showet. Øverst: blackout, grand, <b>◀ Forrige</b> / <b>GO ▶</b>, <b>TAP</b>
+          showet. Øverst: <b>Styrer</b> (Pult, Afvikling, Enkel og <b>Flere</b> — den samme
+          styring som i topbjælken, så du kan tage kontrollen uden at gå ud af
+          live-matrixen), blackout, grand, <b>◀ Forrige</b> / <b>GO ▶</b>, <b>TAP</b>
           og <b>Animér</b>. Tasterne: <b>1–9</b> kalder, <b>mellemrum</b> er GO,
           <b>T</b> tapper, <b>B</b> er blackout og <b>Esc</b> går ud.</li>
       </ul>
@@ -989,6 +1029,7 @@
   <div id="livebar">
     <button id="lv-exit">Afslut live</button>
     <select id="lv-tab" aria-label="Vis scener fra faneblad" title="Hvilke scener live-matrixen viser"></select>
+    <span id="lv-ctl" title="Hvem styrer lyset"></span>
     <button id="lv-black" class="alarm">Blackout</button>
     <div id="lv-grandwrap">
       <span class="k">Grand</span>

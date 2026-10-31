@@ -32,6 +32,10 @@ button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
 button:disabled{opacity:.45;cursor:default}
 button.bad{background:#3a1418;border-color:#8a2e36;color:#ffc9cc}
 .sep{width:2px;height:26px;background:var(--rule);margin:0 2px}
+label.lock{display:inline-flex;align-items:center;gap:6px;font-size:.9rem;font-weight:700;background:#1d2029;
+  border:2px solid var(--rule);border-radius:7px;padding:.3rem .6rem;min-height:36px;cursor:pointer}
+label.lock input{margin:0}
+#zrect{position:fixed;border:2px dashed var(--acc);background:rgba(255,178,0,.12);display:none;z-index:4;pointer-events:none}
 .panel{position:fixed;background:var(--pan);border:2px solid var(--rule);border-radius:10px;z-index:6;
   padding:12px 14px;font-size:.95rem}
 .panel h3{margin:0 0 8px;font-size:1rem;color:var(--acc);letter-spacing:.03em}
@@ -89,6 +93,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
   <button id="camSal" title="Se scenen fra salen">Salen</button>
   <button id="camTop" title="Se rummet ovenfra">Ovenfra</button>
   <button id="camSide" title="Se scenen fra siden">Siden</button>
+  <button id="zArea" title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
+  <label class="lock" title="Lås kameraet, så visningen bliver stående"><input type="checkbox" id="zLock"> Lås visning</label>
   <span class="sep"></span>
   <button id="tBeams" class="on">Stråler</button>
   <button id="tLabels">Navne</button>
@@ -175,6 +181,13 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
     <div class="row"><label for="rmWall">Vægfarve</label><input type="color" id="rmWall"></div>
     <div class="hint">Målene er i meter og passer med Layout: x til siden, y ind mod scenens bagkant
       (salen er på minus-siden). Væggene er gennemsigtige udefra, så du kan se ind fra alle sider.</div>
+    <h4>3D-sceneplaner</h4>
+    <div class="row"><input type="text" id="plName" placeholder="Navn på sceneplanen" style="flex:1;width:auto">
+      <button id="plSave">Gem 3D-sceneplan</button></div>
+    <div class="row"><select id="plList" style="flex:1;width:auto"></select>
+      <button id="plLoad">Hent</button><button id="plDel" class="bad">Slet</button></div>
+    <div class="hint" id="plTip">En 3D-sceneplan er rummet med alle ting og modeller (ikke lamperne).
+      Den gemmes i Show-mappen ved siden af dine shows som «navn.sceneplan-3d.json».</div>
   </div>
 </div>
 
@@ -183,6 +196,7 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
   <div class="row"><label for="lbLevel">Lysstyrke</label><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
   <div class="row"><span class="k"></span><button id="lbOn">Tændt</button></div>
 </div>
+<div id="zrect"></div>
 <div id="msg"></div>
 <div id="toast"></div>
 <div id="aimtip">Klik på det sted, lampen skal pege på — Esc fortryder</div>
@@ -234,7 +248,7 @@ scene.add(hemi);
 const tc = new T.TransformControls(camera, renderer.domElement);
 tc.setSize(0.9);
 scene.add(tc.getHelper());
-tc.addEventListener("dragging-changed", (e) => { orbit.enabled = !e.value; S.dragging = e.value; });
+tc.addEventListener("dragging-changed", (e) => { orbit.enabled = !e.value && !S.view.lock; S.dragging = e.value; });
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -655,6 +669,55 @@ function buildRoomIfChanged() {
 /* klik i 3D: vælg lampe/ting, eller peg en lampe på et punkt */
 const ray = new T.Raycaster(), ndc = new T.Vector2();
 let downAt = null;
+/* zoom område: træk et rektangel; kameraet flytter tættere på det, der er i midten af det */
+let zArea = false, zDrag = null;
+function setZoomArea(on) {
+  zArea = on && !S.view.lock;
+  $("zArea").classList.toggle("on", zArea);
+  renderer.domElement.style.cursor = zArea ? "crosshair" : "";
+  orbit.enabled = !zArea && !S.view.lock;
+}
+function setLock(on) {
+  S.view.lock = on; saveView();
+  $("zLock").checked = on;
+  orbit.enabled = !on && !zArea;
+  ["camSal", "camTop", "camSide", "zArea"].forEach((b) => { $(b).disabled = on; });
+  if (on) setZoomArea(false);
+}
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (!zArea) return;
+  zDrag = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY };
+  renderer.domElement.setPointerCapture(e.pointerId);
+}, true);
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (!zDrag) return;
+  zDrag.x1 = e.clientX; zDrag.y1 = e.clientY;
+  const r = $("zrect"), l = Math.min(zDrag.x0, zDrag.x1), t = Math.min(zDrag.y0, zDrag.y1);
+  Object.assign(r.style, { display: "block", left: l + "px", top: t + "px",
+    width: Math.abs(zDrag.x1 - zDrag.x0) + "px", height: Math.abs(zDrag.y1 - zDrag.y0) + "px" });
+});
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (!zDrag) return;
+  const z = zDrag; zDrag = null; $("zrect").style.display = "none"; setZoomArea(false);
+  zoomToRect(z); e.stopImmediatePropagation(); downAt = null;
+}, true);
+function zoomToRect(z) {
+  const w = Math.abs(z.x1 - z.x0), h = Math.abs(z.y1 - z.y0);
+  if (w < 10 || h < 10) return;
+  const cx = (z.x0 + z.x1) / 2, cy = (z.y0 + z.y1) / 2, r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const pickable = [];
+  roomGroup.traverse((o) => { if (o.isMesh) pickable.push(o); });
+  objGroup.traverse((o) => { if (o.isMesh) pickable.push(o); });
+  const hit = ray.intersectObjects(pickable, false)[0];
+  const p = hit ? hit.point.clone() : ray.ray.at(camera.position.distanceTo(orbit.target), new T.Vector3());
+  const frac = Math.max(w / r.width, h / r.height);
+  const dist = Math.max(0.6, camera.position.distanceTo(p) * frac * 1.05);
+  const dir = camera.position.clone().sub(p).normalize();
+  camera.position.copy(p).addScaledVector(dir, dist);
+  orbit.target.copy(p); orbit.update(); saveCam();
+}
 renderer.domElement.addEventListener("pointerdown", (e) => { downAt = { x: e.clientX, y: e.clientY }; });
 renderer.domElement.addEventListener("pointerup", (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 5 || S.dragging) return;
@@ -919,6 +982,44 @@ $("rmFloor").oninput = () => { S.room.room.floor = $("rmFloor").value; pushRoom(
 $("rmWall").oninput = () => { S.room.room.wall = $("rmWall").value; pushRoom(); };
 $("cAmb").oninput = () => { S.room.room.ambient = +$("cAmb").value; $("cAmbV").textContent = $("cAmb").value; pushRoom(); };
 
+/* 3D-sceneplaner: gemmes med navn i Show-mappen */
+let plans = [];
+function planList(d) {
+  if (d && d.plans) plans = d.plans.filter((p) => p.kind === "3d");
+  const sel = $("plList"), cur = sel.value; sel.innerHTML = "";
+  if (!plans.length) { const o = document.createElement("option"); o.value = ""; o.textContent = "Ingen 3D-sceneplaner gemt"; sel.appendChild(o); }
+  for (const p of plans) { const o = document.createElement("option"); o.value = p.name; o.textContent = "3D · " + p.name + "  (" + p.saved + ")"; sel.appendChild(o); }
+  if (cur) sel.value = cur;
+  $("plLoad").disabled = $("plDel").disabled = !plans.length;
+}
+function planTip(t) { $("plTip").textContent = t; $("plTip").style.color = "#ffd166"; }
+const planRefresh = () => post({ op: "plan_list" }).then(planList);
+$("plSave").onclick = async () => {
+  const name = $("plName").value.trim();
+  if (!name) { planTip("Skriv et navn på sceneplanen først."); $("plName").focus(); return; }
+  let d = await post({ op: "plan_save", kind: "3d", name, room3d: S.room });
+  if (d.exists) {
+    if (!confirm("Der findes allerede en 3D-sceneplan, der hedder “" + d.name + "”. Skal den overskrives?")) return;
+    d = await post({ op: "plan_save", kind: "3d", name, room3d: S.room, overwrite: true });
+  }
+  if (!d.ok) { planTip("Kunne ikke gemme: " + (d.err || "ukendt fejl")); return; }
+  planList(d); $("plList").value = d.name; planTip("Gemt som 3D-sceneplanen “" + d.name + "”.");
+};
+$("plLoad").onclick = async () => {
+  const name = $("plList").value; if (!name) return;
+  if (!confirm("Hent 3D-sceneplanen “" + name + "”? Rummet, der står nu, erstattes.")) return;
+  const d = await post({ op: "plan_load", kind: "3d", name });
+  if (!d.ok) { planTip(d.err || "Kunne ikke hente sceneplanen."); return; }
+  $("plName").value = name; planTip("Hentet: 3D-sceneplanen “" + name + "”.");
+  select(null); await loadState();
+};
+$("plDel").onclick = async () => {
+  const name = $("plList").value; if (!name) return;
+  if (!confirm("Slet 3D-sceneplanen “" + name + "”?")) return;
+  planList(await post({ op: "plan_delete", kind: "3d", name })); planTip("Slettet.");
+};
+$("tabRoom").addEventListener("click", planRefresh);
+
 /* ------------------------------------------------------------ knapper */
 function syncButtons() {
   $("tBeams").classList.toggle("on", S.view.beams);
@@ -944,6 +1045,8 @@ $("tFull").onclick = () => {
   if (!document.fullscreenElement) (document.documentElement.requestFullscreen || (() => {})).call(document.documentElement);
   else document.exitFullscreen();
 };
+$("zArea").onclick = () => setZoomArea(!zArea);
+$("zLock").onchange = () => setLock($("zLock").checked);
 $("camSal").onclick = () => camPreset("sal");
 $("camTop").onclick = () => camPreset("top");
 $("camSide").onclick = () => camPreset("side");
@@ -1012,6 +1115,7 @@ function loop() {
 }
 
 syncButtons();
+setLock(!!S.view.lock);
 await loadState();
 loadFrame();
 setInterval(loadState, 700);

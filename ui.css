@@ -1199,3 +1199,70 @@ button.lcv-key.wide{-webkit-flex:0 0 109px;flex:0 0 109px;width:109px}
 .lcv-ovl .lcv-pair button.lcv-key{-webkit-flex:0 0 63px;flex:0 0 63px;width:63px}
 .lcv-ovl .lcv-pair button.lcv-key.wide{-webkit-flex:0 0 131px;flex:0 0 131px;width:131px}
 button.lcv-key .l2{max-height:24px;overflow:hidden}
+
+/* sceneplaner i Show-fanen: 2D og 3D tydeligt mærket */
+.plrow{-webkit-align-items:center;align-items:center}
+.pltag{display:inline-block;min-width:38px;text-align:center;font-weight:800;font-size:13px;padding:5px 7px;
+  border-radius:4px;letter-spacing:.06em}
+.pltag.pl2d{background:var(--ok);color:#06210F}
+.pltag.pl3d{background:var(--accent);color:var(--accent-ink)}
+.plname{font-weight:700;font-size:14px;color:var(--ink);min-width:160px}
+.plsaved{color:var(--muted);font-size:12px}
+
+/* Lås visning ved zoomknapperne */
+label.lockchk{margin:0;padding:0 6px;font-weight:700;color:var(--ink);white-space:nowrap}
+label.lockchk input{width:20px;height:20px}
+
+/* grupper i Pult (samme kort som lamperne) og i Enkel (egen ramme) */
+#pgroups{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:9px;margin-bottom:6px}
+html.nogap #pgroups>*{margin:0 9px 9px 0}
+#pgroups.compact{gap:5px}
+#pgroups.compact .strip{-webkit-flex:1 1 104px;flex:1 1 104px;max-width:140px;padding:5px 6px}
+#pgroups.compact .strip .bt button{padding:4px 2px;font-size:10px;min-height:28px}
+.gstrip .no{color:var(--accent)}
+.gstrip.part{border-color:var(--accent);border-style:dashed}
+.gsw{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:3px;margin:8px 0;min-height:14px}
+.gsw span{display:block;width:14px;height:14px;border-radius:3px;background:#0c0e13;border:1px solid var(--rule)}
+.ek-left{-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;gap:14px}
+html.nogap .ek-left>*{margin-bottom:14px}
+.ek-frame{border:2px solid var(--rule);border-radius:12px;padding:10px 12px 12px}
+.ek-fh{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);margin-bottom:9px}
+.ek-fh span{font-weight:400;letter-spacing:.02em;text-transform:none;color:var(--muted);margin-left:8px}
+.ek-groups{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:10px}
+html.nogap .ek-groups>*{margin:0 10px 10px 0}
+.ek-gnone{color:var(--muted);font-size:14px}
+button.ek-gtile{width:186px;min-height:84px;padding:8px 10px;border:3px solid var(--rule);border-radius:12px;
+  background:var(--panel2);color:var(--ink);display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:flex-start;align-items:flex-start;text-align:left;position:relative}
+button.ek-gtile .nm{font-size:17px;font-weight:800;line-height:1.15}
+button.ek-gtile .ct{font-size:12px;font-weight:700;color:var(--muted);margin-top:2px}
+button.ek-gtile .gsw{margin:7px 0 0}
+button.ek-gtile[aria-pressed="true"]{background:var(--panel2);color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)}
+button.ek-gtile[aria-pressed="true"] .ct{color:var(--muted)}
+button.ek-gtile.part{border-color:var(--accent);border-style:dashed}
+button.ek-gtile[aria-pressed="true"]::after{content:"✓";position:absolute;top:6px;right:9px;font-size:18px;font-weight:900;
+  color:var(--accent-ink);background:var(--accent);border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center}
+@media (max-width:900px){ .ek-left{width:100%} }
+@media (max-width:500px){
+  button.ek-gtile{width:calc(50% - 5px);min-height:72px}
+  button.ek-gtile .nm{font-size:15px}
+  .ek-frame{padding:8px}
+}
+
+/* styringen i live-matrixens bjælke: ikon + navn, store knapper */
+#lv-ctl{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;gap:8px;
+  -webkit-flex:0 0 auto;flex:0 0 auto}
+#lv-ctl .k{color:var(--muted);font-size:12px;font-weight:700}
+#lv-ctl .cb-ctrls{padding:3px}
+#livebar #lv-ctl .cb-btn{width:auto;min-width:0;height:auto;min-height:40px;padding:6px 11px;gap:7px;
+  font-size:14px;font-weight:800;color:var(--ink);border-color:transparent}
+#livebar #lv-ctl .cb-btn.on{color:var(--accent-ink);border-color:var(--accent)}
+#lv-ctl .cb-btn .ico svg{width:22px;height:22px}
+#lv-ctl .cb-multi{font-size:13px;color:var(--ink)}
+#lv-ctl .cb-multi input{width:18px;height:18px}
+html.nogap #lv-ctl>*,html.nogap #lv-ctl .cb-ctrls>*{margin-right:6px}
+@media (max-width:620px){
+  #lv-ctl{-webkit-flex:1 1 100%;flex:1 1 100%;-webkit-flex-wrap:wrap;flex-wrap:wrap;order:1}
+  #livebar #lv-ctl .cb-btn{padding:5px 8px;font-size:13px}
+}

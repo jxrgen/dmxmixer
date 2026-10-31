@@ -61,9 +61,11 @@ over riggen direkte på donglen, til at tjekke at timingen og kablingen virker.
 |-----|---------|
 | `dmxmixer.py` | Backend: effektmotor, outputdrivere, showlagring og HTTP-API |
 | `ui.html` / `ui.css` / `ui.js` | Brugerfladen (ingen byggeproces, ren ES5) |
-| `sim.html` | Simulatoren, der viser riggen live ud fra DMX-data |
+| `sim.html` | 2D-simulatoren, der viser riggen live ud fra DMX-data |
+| `sim3d.html` / `three/` | 3D-simulatoren (three.js) med rum, ting og modeller |
+| `lc11.py` / `lc11_driver.py` | Styring fra NewTek Live Control LC-11 |
 | `enttec_test.py` | Selvstændig DMX-test af Enttec Open DMX USB |
-| `shows/` | Gemte shows (JSON) — lægges her ved siden af programmet |
+| `shows/` | Gemte shows (JSON) og sceneplaner (`navn.sceneplan-2d.json` / `navn.sceneplan-3d.json`) |
 
 ## Krav
 

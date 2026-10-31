@@ -2745,7 +2745,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(json.dumps({"library": FIXTURE_LIBRARY}))
 
         if path == "/shows":
-            return self._send(json.dumps({"shows": list_shows(),
+            return self._send(json.dumps({"shows": list_shows(), "plans": list_plans(),
                                           "ports": EnttecOut.ports()}))
         self.send_error(404)
 
@@ -3241,6 +3241,53 @@ class Handler(BaseHTTPRequestHandler):
                 show["room3d"] = clean_room3d(m.get("room3d"))
                 eng.rev += 1
                 return {"ok": True, "room3d": show["room3d"]}
+
+            # -- sceneplaner (gemmes i Show-mappen) -------------------------
+            if op == "plan_list":
+                return {"ok": True, "plans": list_plans()}
+
+            if op == "plan_save":
+                kind = m.get("kind")
+                try:
+                    path, name = plan_path(kind, m.get("name"))
+                except ValueError as e:
+                    return {"ok": False, "err": str(e)}
+                if os.path.exists(path) and not m.get("overwrite"):
+                    return {"ok": False, "exists": True, "name": name}
+                if kind == "2d":
+                    data = clean_stage_objects(m["objects"] if "objects" in m else show.get("stage_objects"))
+                    doc = {"type": "sceneplan-2d", "name": name, "objects": data}
+                else:
+                    data = clean_room3d(m["room3d"] if "room3d" in m else show.get("room3d"))
+                    doc = {"type": "sceneplan-3d", "name": name, "room3d": data}
+                os.makedirs(SHOW_DIR, exist_ok=True)
+                with open(path, "w") as f:
+                    json.dump(doc, f, indent=1)
+                return {"ok": True, "name": name, "plans": list_plans()}
+
+            if op == "plan_load":
+                kind = m.get("kind")
+                try:
+                    path, name = plan_path(kind, m.get("name"))
+                    with open(path) as f:
+                        doc = json.load(f)
+                except (ValueError, OSError) as e:
+                    return {"ok": False, "err": "kunne ikke hente sceneplanen: %s" % e}
+                if kind == "2d":
+                    show["stage_objects"] = clean_stage_objects(doc.get("objects"))
+                else:
+                    show["room3d"] = clean_room3d(doc.get("room3d"))
+                eng.rev += 1
+                return {"ok": True, "name": name}
+
+            if op == "plan_delete":
+                try:
+                    path, name = plan_path(m.get("kind"), m.get("name"))
+                except ValueError as e:
+                    return {"ok": False, "err": str(e)}
+                if os.path.exists(path):
+                    os.remove(path)
+                return {"ok": True, "plans": list_plans()}
 
             if op == "stage_objects":
                 show["stage_objects"] = m.get("objects") or []
@@ -3828,10 +3875,60 @@ def safe_name(s):
     return "".join(c for c in str(s) if c.isalnum() or c in " -_")[:60] or "show"
 
 
+# Sceneplaner ligger i samme mappe som shows, men med en endelse der siger
+# om det er en 2D-plan (formerne fra Layout/2D-simulatoren) eller en
+# 3D-plan (rummet fra 3D-simulatoren): "Navn.sceneplan-2d.json".
+PLAN_EXT = {"2d": ".sceneplan-2d.json", "3d": ".sceneplan-3d.json"}
+
+
 def list_shows():
     if not os.path.isdir(SHOW_DIR):
         return []
-    return sorted(f[:-5] for f in os.listdir(SHOW_DIR) if f.endswith(".json"))
+    return sorted(f[:-5] for f in os.listdir(SHOW_DIR)
+                  if f.endswith(".json") and not any(f.endswith(e) for e in PLAN_EXT.values()))
+
+
+def list_plans():
+    out = []
+    if not os.path.isdir(SHOW_DIR):
+        return out
+    for f in sorted(os.listdir(SHOW_DIR), key=lambda x: x.lower()):
+        for kind, ext in PLAN_EXT.items():
+            if f.endswith(ext):
+                st = os.stat(os.path.join(SHOW_DIR, f))
+                out.append({"name": f[:-len(ext)], "kind": kind, "file": f,
+                            "saved": time.strftime("%d.%m.%Y %H:%M", time.localtime(st.st_mtime))})
+    return out
+
+
+def plan_path(kind, name):
+    if kind not in PLAN_EXT:
+        raise ValueError("ukendt slags sceneplan")
+    raw = str(name or "").strip()
+    if not any(c.isalnum() for c in raw):
+        raise ValueError("giv sceneplanen et navn")
+    n = safe_name(raw).strip()
+    return os.path.join(SHOW_DIR, n + PLAN_EXT[kind]), n
+
+
+def clean_stage_objects(objs):
+    """2D-sceneplanens former (rektangel, cirkel, trekant) - kun gyldige felter."""
+    out = []
+    for o in (objs if isinstance(objs, list) else [])[:400]:
+        if not isinstance(o, dict) or o.get("shape") not in ("rect", "circle", "tri"):
+            continue
+        c = {"shape": o["shape"]}
+        for k in ("x", "y", "w", "h", "r"):
+            if k in o:
+                try:
+                    v = float(o[k])
+                    c[k] = round(max(-1000.0, min(1000.0, v)), 3) if v == v else 0.0
+                except (TypeError, ValueError):
+                    c[k] = 0.0
+        c["color"] = o.get("color") if isinstance(o.get("color"), str) and _HEX_RE.match(o.get("color")) else "#2a3040"
+        c["label"] = str(o.get("label") or "")[:40]
+        out.append(c)
+    return out
 
 
 def migrate_show(show):
