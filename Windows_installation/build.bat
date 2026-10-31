@@ -23,6 +23,8 @@ python -m PyInstaller --noconfirm --clean ^
   --add-data "ui.css;." ^
   --add-data "ui.js;." ^
   --add-data "sim.html;." ^
+  --add-data "sim3d.html;." ^
+  --add-data "three;three" ^
   --collect-submodules pyftdi ^
   --collect-submodules usb ^
   --hidden-import usb.backend.libusb1 ^

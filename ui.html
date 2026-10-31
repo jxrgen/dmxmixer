@@ -179,7 +179,11 @@
         <a href="/sim" target="_blank" rel="noopener" class="simbtn"
            style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
                   padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
-                  color:var(--accent);font-weight:800;font-size:13px">◱ Simulator</a>
+                  color:var(--accent);font-weight:800;font-size:13px">◱ 2D-simulator</a>
+        <a href="/sim3d" target="_blank" rel="noopener" class="simbtn"
+           style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
+                  padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
+                  color:var(--accent);font-weight:800;font-size:13px">◳ 3D-simulator</a>
       </div>
       <div class="hint">Træk i et <b>navn</b> for at flytte det væk fra lampen — så
         tegnes der en henvisningsstreg til den. <b>✋ Flyt visning</b> (eller musehjul
@@ -206,7 +210,7 @@
         </div>
       </div>
       <div class="hint">Lamperne lyser i deres aktuelle farve, så du kan se
-        riggen som den står. Indstillingerne her deles med scene-simulatoren.
+        riggen som den står. Indstillingerne her deles med 2D-simulatoren.
         Placeringen bruges af lag der kører <b>i rummet</b> — så en bølge eller
         et chase fejer hen over scenen efter hvor lamperne fysisk hænger, ikke
         efter deres DMX-adresse.</div>
@@ -232,7 +236,11 @@
             <a href="/sim" target="_blank" rel="noopener" class="simbtn"
                style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
                       padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
-                      color:var(--accent);font-weight:800;font-size:13px">◱ Simulator</a>
+                      color:var(--accent);font-weight:800;font-size:13px">◱ 2D-simulator</a>
+            <a href="/sim3d" target="_blank" rel="noopener" class="simbtn"
+               style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
+                      padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
+                      color:var(--accent);font-weight:800;font-size:13px">◳ 3D-simulator</a>
           </div>
           <div class="hint" id="af-selinfo" style="margin-top:6px"></div>
           <div class="hint">Tryk på en lampe eller en gruppe for at vælge den — vælg lige
@@ -750,6 +758,19 @@
         <li><b>Grupper i grupper:</b> en gruppe kan indeholde andre grupper, fx «Alt»
           med «Sidelys» og «Bagvæg». En gruppe kan aldrig komme til at indeholde sig
           selv — den slags vises slet ikke i listen.</li>
+        <li><b>◱ 2D-simulator</b> viser riggen ovenfra i et nyt vindue. Tryk på en lampe
+          for at skrue på dens lysstyrke eller tænde/slukke den — det er lampens rigtige
+          niveau, det samme som under Pult → Lamper.</li>
+        <li><b>◳ 3D-simulator</b> viser rummet i 3D med scene, musikere og lamper, der
+          lyser på det hele. Drej med musen, zoom med hjulet, og vælg <b>Salen</b>,
+          <b>Ovenfra</b> eller <b>Siden</b>. Tryk på en lampe for at skrue på dens
+          lysstyrke. Under <b>Rediger</b> flytter du lamper (også i højden) og lader dem
+          <b>pege på</b> et punkt, sætter ting ind fra kataloget — scenepodie, personer,
+          trommer, forstærkere, travers og mere — eller henter en 3D-model ind som
+          <b>.glb</b>-fil (fx eksporteret fra Blender eller SketchUp). Rummet gemmes i
+          showet; modellerne ligger i mappen <code>modeller</code> ved siden af
+          <code>shows</code>. 3D-simulatoren kræver en nyere browser; en gammel iPad
+          bruger 2D-simulatoren.</li>
       </ul>
 
       <h3 id="h-afvikling" data-ico="v-afvikling">Afvikling</h3>
@@ -769,7 +790,8 @@
           skifter, og huskes for netop det, du har valgt. Grupper uden egen tid bruger
           <b>Standard overgangstid</b> øverst i panelet.</li>
         <li><b>Gem som scene</b> gemmer det hele som en scene. <b>Alt mørkt</b> rydder
-          al Afviklings styring. <b>◱ Simulator</b> åbner simulatoren i et nyt vindue.</li>
+          al Afviklings styring. <b>◱ 2D-simulator</b> og <b>◳ 3D-simulator</b> åbner
+          simulatorerne i et nyt vindue.</li>
       </ul>
 
       <h3 id="h-enkel" data-ico="v-enkel">Enkel</h3>

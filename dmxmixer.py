@@ -33,6 +33,7 @@ import json
 import math
 import os
 import random
+import re
 import socket
 import struct
 import sys
@@ -41,7 +42,7 @@ import time
 import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 # NewTek LiveControl LC-11 som fysisk styring (lc11.py ved siden af
 # denne fil). Mangler filen, koerer pulten som foer - bare uden LC-11.
@@ -744,6 +745,97 @@ def lamptest_channels(prof, step):
     return bytes(buf)
 
 
+# ======================================================================
+#  3D-simulatorens rum
+# ======================================================================
+#  Koordinater som i Layout: x til siden, y ind mod scenens bagkant (salen
+#  er negativ y), z er hoejden over gulvet. Alt i meter, rot i grader om
+#  den lodrette akse. Lampernes hoejde og retning ligger paa lamperne
+#  ("z" og "aim" = [x, y, z]); mangler de, regner 3D-siden dem selv ud.
+ROOM3D_KINDS = ("stage", "box", "wall", "cyl", "truss", "person", "drums", "amp",
+                "speaker", "mic", "keys", "model")
+ROOM3D_SIZE = {   # standardmaal (b, d, h) naar en ting saettes ind
+    "stage": (6.0, 3.0, 0.5), "box": (1.0, 1.0, 1.0), "wall": (4.0, 0.2, 3.0),
+    "cyl": (0.6, 0.6, 1.0), "truss": (6.0, 0.3, 0.3), "person": (0.5, 0.3, 1.8),
+    "drums": (2.0, 1.6, 1.1), "amp": (0.7, 0.35, 0.6), "speaker": (0.6, 0.5, 1.0),
+    "mic": (0.3, 0.3, 1.6), "keys": (1.3, 0.5, 1.0), "model": (1.0, 1.0, 1.0)}
+_HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def default_room3d():
+    def o(i, kind, name, x, y, z, color, rot=0, **kw):
+        w, d, h = ROOM3D_SIZE[kind]
+        ob = {"id": "r%d" % i, "kind": kind, "name": name, "x": x, "y": y, "z": z,
+              "rot": rot, "w": w, "d": d, "h": h, "color": color}
+        ob.update(kw)
+        return ob
+    return {
+        "room": {"w": 16.0, "d": 14.0, "h": 6.0, "cx": 0.0, "cy": -2.0, "walls": True,
+                 "floor": "#2a2b30", "wall": "#1d1e23", "ambient": 8},
+        "objects": [
+            o(1, "stage", "Scene", 0.0, 0.8, 0.0, "#3a3532", w=10.0, d=4.0, h=0.5),
+            o(2, "drums", "Trommer", 0.0, 2.0, 0.5, "#8c2f2f"),
+            o(3, "person", "Sanger", 0.0, -0.2, 0.5, "#c9c2b8"),
+            o(4, "mic", "Mikrofon", 0.0, -0.6, 0.5, "#9aa0a8"),
+            o(5, "person", "Guitar", -2.6, 0.6, 0.5, "#b8c4cf"),
+            o(6, "person", "Bas", 2.6, 0.6, 0.5, "#cfc3b0"),
+            o(7, "amp", "Guitarforstærker", -2.6, 1.8, 0.5, "#24262b"),
+            o(8, "amp", "Basforstærker", 2.6, 1.8, 0.5, "#24262b", w=0.8, h=1.0),
+            o(9, "truss", "Fronttravers", 0.0, -2.6, 4.55, "#9aa0a8", w=7.0),
+        ],
+    }
+
+
+def clean_room3d(src):
+    """Gyldigt 3D-rum - tal klemmes, ukendte felter og ting smides ud."""
+    base = default_room3d()
+    if not isinstance(src, dict):
+        return base
+
+    def num(v, lo, hi, dv):
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return dv
+        if v != v:                          # NaN
+            return dv
+        return round(max(lo, min(hi, v)), 3)
+
+    def col(v, dv):
+        return v if isinstance(v, str) and _HEX_RE.match(v) else dv
+
+    r = src.get("room") if isinstance(src.get("room"), dict) else {}
+    br = base["room"]
+    room = {"w": num(r.get("w"), 2, 80, br["w"]), "d": num(r.get("d"), 2, 80, br["d"]),
+            "h": num(r.get("h"), 2, 30, br["h"]), "cx": num(r.get("cx"), -100, 100, br["cx"]),
+            "cy": num(r.get("cy"), -100, 100, br["cy"]), "walls": bool(r.get("walls", True)),
+            "floor": col(r.get("floor"), br["floor"]), "wall": col(r.get("wall"), br["wall"]),
+            "ambient": num(r.get("ambient"), 0, 100, br["ambient"])}
+    objs, seen = [], set()
+    for ob in (src.get("objects") if isinstance(src.get("objects"), list) else [])[:400]:
+        if not isinstance(ob, dict) or ob.get("kind") not in ROOM3D_KINDS:
+            continue
+        kind = ob["kind"]
+        w, d, h = ROOM3D_SIZE[kind]
+        oid = str(ob.get("id") or "")[:24] or uuid.uuid4().hex[:8]
+        while oid in seen:
+            oid = uuid.uuid4().hex[:8]
+        seen.add(oid)
+        c = {"id": oid, "kind": kind, "name": str(ob.get("name") or "")[:40],
+             "x": num(ob.get("x"), -100, 100, 0.0), "y": num(ob.get("y"), -100, 100, 0.0),
+             "z": num(ob.get("z"), -10, 50, 0.0), "rot": num(ob.get("rot"), -360, 360, 0.0),
+             "w": num(ob.get("w"), 0.02, 100, w), "d": num(ob.get("d"), 0.02, 100, d),
+             "h": num(ob.get("h"), 0.02, 100, h), "color": col(ob.get("color"), "#808080")}
+        if kind == "model":
+            f = os.path.basename(str(ob.get("file") or ""))
+            if not re.match(r"^[\w\- ]+\.(glb|gltf)$", f, re.UNICODE):
+                continue
+            c["file"] = f
+            c["scale"] = num(ob.get("scale"), 0.001, 1000, 1.0)
+        objs.append(c)
+    return {"room": room, "objects": objs}
+
+
 def default_show(n_modules=20, n_layers=6):
     n_layers = n_layers or 6
     show = {
@@ -774,6 +866,7 @@ def default_show(n_modules=20, n_layers=6):
         "active_palette": 0,
         "tab_order": list(TAB_IDS),
         "control": ["pult"],         # hvem der styrer lyset (se CONTROLLERS)
+        "room3d": default_room3d(),  # 3D-simulatorens rum
         "view": default_view(),
         "scene_tabs": [{"id": "main", "name": "Scener"}],
         "outputs": {
@@ -2565,6 +2658,24 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(path[1:])
         if path in ("/sim", "/sim.html"):
             return self._file("sim.html")
+        if path in ("/sim3d", "/sim3d.html"):
+            return self._file("sim3d.html")
+        if path.startswith("/three/"):
+            # 3D-biblioteket (three.js) ligger i mappen three ved siden af scriptet
+            name = path[len("/three/"):]
+            d = os.path.join(HERE, "three")
+            if name in (os.listdir(d) if os.path.isdir(d) else []):
+                with open(os.path.join(d, name), "rb") as f:
+                    return self._send_static(f.read(), MIME.get(os.path.splitext(name)[1], "text/plain"))
+            return self.send_error(404)
+        if path.startswith("/modeller/"):
+            name = os.path.basename(unquote(path[len("/modeller/"):]))
+            fp = os.path.join(MODEL_DIR, name)
+            if name and os.path.isfile(fp):
+                with open(fp, "rb") as f:
+                    return self._send_static(f.read(), "model/gltf-binary" if name.lower().endswith(".glb")
+                                             else "model/gltf+json")
+            return self.send_error(404)
 
         if path == "/state":
             with eng.lock:
@@ -2638,6 +2749,16 @@ class Handler(BaseHTTPRequestHandler):
                                           "ports": EnttecOut.ports()}))
         self.send_error(404)
 
+    def _send_static(self, body, ctype):
+        """Store filer der ikke aendrer sig (3D-bibliotek og modeller) maa
+        browseren gemme et stykke tid."""
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "max-age=3600")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _file(self, name):
         data = ui_bytes(name)
         if data is None:
@@ -2665,6 +2786,8 @@ class Handler(BaseHTTPRequestHandler):
                                   for k in GENERIC_ORDER]}
 
     def do_POST(self):
+        if urlparse(self.path).path == "/upload3d":
+            return self._upload3d()
         if urlparse(self.path).path != "/api":
             return self.send_error(404)
         n = int(self.headers.get("Content-Length", 0))
@@ -2678,6 +2801,47 @@ class Handler(BaseHTTPRequestHandler):
             res = {"ok": False, "err": str(e)}
         res["rev"] = Handler.engine.rev
         return self._send(json.dumps(res))
+
+    def _upload3d(self):
+        """En 3D-model (glTF/GLB) til 3D-simulatoren. Gemmes i mappen
+        modeller ved siden af shows, saa showet blot peger paa filnavnet."""
+        q = parse_qs(urlparse(self.path).query)
+        n = int(self.headers.get("Content-Length", 0))
+        if n <= 0 or n > MODEL_MAX:
+            self.rfile.read(n) if 0 < n <= 4 * MODEL_MAX else None
+            return self._send(json.dumps({"ok": False, "err": "filen er tom eller større end %d MB"
+                                          % (MODEL_MAX // 1000000)}))
+        data = self.rfile.read(n)
+        name = os.path.basename(q.get("name", ["model.glb"])[0])
+        stem, ext = os.path.splitext(name)
+        ext = ext.lower()
+        stem = re.sub(r"[^\w\- ]+", "", stem, flags=re.UNICODE).strip()[:60] or "model"
+        if ext == ".glb" and data[:4] != b"glTF":
+            return self._send(json.dumps({"ok": False, "err": "det er ikke en GLB-fil"}))
+        if ext == ".gltf":
+            try:
+                gj = json.loads(data.decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                return self._send(json.dumps({"ok": False, "err": "det er ikke en gyldig glTF-fil"}))
+            ext_files = [b.get("uri", "") for b in gj.get("buffers", []) + gj.get("images", [])
+                         if b.get("uri") and not str(b.get("uri")).startswith("data:")]
+            if ext_files:
+                return self._send(json.dumps({"ok": False, "err":
+                    "glTF-filen peger på andre filer (%s). Gem modellen som én .glb-fil i stedet."
+                    % ", ".join(ext_files[:3])}))
+        elif ext != ".glb":
+            return self._send(json.dumps({"ok": False, "err": "kun .glb og .gltf kan hentes ind"}))
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        fname, k = stem + ext, 2
+        while os.path.exists(os.path.join(MODEL_DIR, fname)):
+            with open(os.path.join(MODEL_DIR, fname), "rb") as f:
+                if f.read() == data:
+                    break                    # samme fil er hentet ind foer
+            fname = "%s %d%s" % (stem, k, ext)
+            k += 1
+        with open(os.path.join(MODEL_DIR, fname), "wb") as f:
+            f.write(data)
+        return self._send(json.dumps({"ok": True, "file": fname}))
 
     # ------------------------------------------------------------------
     def dispatch(self, m):
@@ -3072,6 +3236,12 @@ class Handler(BaseHTTPRequestHandler):
                 eng.rev += 1
                 return {"ok": True}
 
+            if op == "room3d_set":
+                # 3D-simulatorens rum: gulv, vaegge, scene, figurer og modeller
+                show["room3d"] = clean_room3d(m.get("room3d"))
+                eng.rev += 1
+                return {"ok": True, "room3d": show["room3d"]}
+
             if op == "stage_objects":
                 show["stage_objects"] = m.get("objects") or []
                 eng.rev += 1
@@ -3399,10 +3569,10 @@ class Handler(BaseHTTPRequestHandler):
                         json.dump(cp, f, indent=1)
                 # Det der beskriver udstyret og fladen - ikke selve setuppet -
                 # bliver: DMX-udgange, indstillinger, egne lampetyper,
-                # farvepaletter og fanernes raekkefoelge.
+                # farvepaletter, fanernes raekkefoelge og 3D-rummet.
                 keep = {k: json.loads(json.dumps(show[k]))
                         for k in ("outputs", "settings", "profiles", "palettes",
-                                  "active_palette", "tab_order") if k in show}
+                                  "active_palette", "tab_order", "room3d") if k in show}
                 fresh = default_show(0, len(show["layers"]) or 6)
                 fresh.update(keep)
                 merge_show(show, fresh)
@@ -3603,6 +3773,8 @@ def lan_ip():
 #  et fast tema (skrift og hjoerner) med egne farver ovenpaa, og gemmes i
 #  temaer.json ved siden af shows-mappen - saa det findes paa alle skaerme.
 THEME_FILE = os.path.join(os.path.dirname(SHOW_DIR), "temaer.json")
+MODEL_DIR = os.path.join(os.path.dirname(SHOW_DIR), "modeller")   # 3D-modeller (glTF/GLB)
+MODEL_MAX = 80 * 1000 * 1000
 LC11_FILE = os.path.join(os.path.dirname(SHOW_DIR), "lc11.json")   # LC-11's indstillinger
 BUILTIN_THEMES = [("rav", "Rav"), ("nat", "Nat"), ("lys", "Lys"), ("kontrast", "Kontrast"),
                   ("scope", "Scope"), ("fluent", "Windows 11"), ("macos", "macOS"),
@@ -3757,6 +3929,9 @@ def migrate_show(show):
     # (shows fra den tid fanerne var samlet i fem grupper har en anden liste
     # og faar standardraekkefoelgen)
     show["tab_order"] = fix_tab_order(show.get("tab_order"))
+
+    # --- 3D-rummet ---
+    show["room3d"] = clean_room3d(show.get("room3d") if "room3d" in show else default_room3d())
 
     # --- hvem styrer lyset ---
     # Shows fra foer der var en styrings-linje, faar de styringer der faktisk

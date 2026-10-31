@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D-simulator</title>
+<link rel="icon" href="data:,">
+<style>
+/* 3D-simulator. Fast mørkt look som et mørkt spillested; høj kontrast og
+   stor tekst. Kræver en moderne browser med WebGL 2 (ikke den gamle iPad -
+   den bruger 2D-simulatoren). */
+:root{font-size:16px;--ink:#f4f6fb;--mut:#b4bcc8;--acc:#ffb200;--acc-ink:#181206;--pan:#14161bf2;
+  --rule:#4a5263;--bad:#ff8a8f}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#05060a;color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+#view{position:fixed;inset:0}
+#view canvas{display:block;touch-action:none}
+#bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 12px;background:linear-gradient(#0b0d12f2,#0b0d1200);pointer-events:none;z-index:5}
+#bar>*{pointer-events:auto}
+#bar b{font-size:1.05rem}
+.grow{flex:1}
+.dot{width:.7rem;height:.7rem;border-radius:50%;background:#ff5560;box-shadow:0 0 8px #ff5560;display:inline-block}
+.dot.live{background:#39d98a;box-shadow:0 0 8px #39d98a}
+.mut{color:var(--mut);font-size:.9rem}
+button,.btn{font:inherit;font-size:.9rem;font-weight:700;color:var(--ink);background:#1d2029;
+  border:2px solid var(--rule);border-radius:7px;padding:.4rem .7rem;cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:6px;min-height:36px}
+button:hover,.btn:hover{border-color:var(--acc)}
+button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+button:disabled{opacity:.45;cursor:default}
+button.bad{background:#3a1418;border-color:#8a2e36;color:#ffc9cc}
+.sep{width:2px;height:26px;background:var(--rule);margin:0 2px}
+.panel{position:fixed;background:var(--pan);border:2px solid var(--rule);border-radius:10px;z-index:6;
+  padding:12px 14px;font-size:.95rem}
+.panel h3{margin:0 0 8px;font-size:1rem;color:var(--acc);letter-spacing:.03em}
+.panel h4{margin:12px 0 6px;font-size:.92rem;color:var(--ink);border-top:2px solid #2c313c;padding-top:10px}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+.row>label,.row>.k{flex:0 0 96px;color:var(--mut)}
+.row input[type=range]{flex:1;min-width:120px;accent-color:var(--acc)}
+.row .v{min-width:4.2ch;text-align:right;font-weight:800}
+input[type=number],input[type=text],select{font:inherit;font-size:.95rem;color:var(--ink);background:#0b0d12;
+  border:2px solid var(--rule);border-radius:6px;padding:4px 6px;width:86px}
+input[type=text]{width:100%}
+input[type=color]{width:44px;height:32px;border:2px solid var(--rule);background:none;padding:0;border-radius:6px}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
+#cfg{top:60px;right:12px;width:330px;display:none}
+#cfg.on{display:block}
+#side{top:60px;left:12px;bottom:12px;width:360px;display:none;overflow-y:auto}
+#side.on{display:block}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{flex:1;justify-content:center}
+.list{max-height:220px;overflow-y:auto;border:2px solid #2c313c;border-radius:7px}
+.item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #2c313c;cursor:pointer}
+.item:last-child{border-bottom:0}
+.item.sel{background:#3a2f12;outline:2px solid var(--acc);outline-offset:-2px}
+.item .sw{width:16px;height:16px;border-radius:4px;border:1px solid #666;flex:none}
+.item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .no{color:var(--mut);font-weight:800;min-width:2.2ch}
+.cat{display:flex;flex-wrap:wrap;gap:6px}
+.cat button{font-size:.85rem}
+.hint{color:var(--mut);font-size:.85rem;line-height:1.45;margin-top:8px}
+#lampbox{left:50%;bottom:16px;transform:translateX(-50%);min-width:340px;display:none}
+#lampbox.on{display:block}
+#msg{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:#3a1418;border:2px solid #8a2e36;
+  color:#ffd0d3;padding:.6rem 1rem;border-radius:9px;font-size:.95rem;display:none;z-index:9;max-width:90vw}
+#toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:#14161b;border:2px solid var(--acc);
+  color:var(--ink);padding:.55rem 1rem;border-radius:9px;font-size:.95rem;display:none;z-index:9}
+#aimtip{position:fixed;left:50%;top:110px;transform:translateX(-50%);background:var(--acc);color:var(--acc-ink);
+  font-weight:800;padding:.5rem .9rem;border-radius:8px;display:none;z-index:9}
+.lbl3d{color:#e8ecf4;font:700 12px system-ui,sans-serif;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:4px;
+  white-space:nowrap;pointer-events:none}
+#nogl{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
+  font-size:1.1rem;line-height:1.5}
+@media (max-width:760px){#side{width:auto;right:12px;top:auto;height:55vh}#cfg{left:12px;width:auto}
+  #lampbox{min-width:0;left:12px;right:12px;transform:none}}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="nogl"><div><b>3D-simulatoren kan ikke køre i denne browser.</b><br>Den kræver WebGL 2.
+  Brug <a href="sim" style="color:#ffb200">2D-simulatoren</a> i stedet.</div></div>
+
+<div id="bar">
+  <span class="dot" id="dot"></span><b>3D-simulator</b>
+  <span class="mut" id="stat">forbinder…</span>
+  <span class="grow"></span>
+  <button id="camSal" title="Se scenen fra salen">Salen</button>
+  <button id="camTop" title="Se rummet ovenfra">Ovenfra</button>
+  <button id="camSide" title="Se scenen fra siden">Siden</button>
+  <span class="sep"></span>
+  <button id="tBeams" class="on">Stråler</button>
+  <button id="tLabels">Navne</button>
+  <button id="tShadows" title="Skygger fra op til 8 lamper (kræver en hurtig computer)">Skygger</button>
+  <span class="sep"></span>
+  <button id="tEdit">Rediger</button>
+  <button id="tCfg">Indstillinger</button>
+  <button id="tFull">Fuldskærm</button>
+  <a class="btn" href="sim" target="_blank" rel="noopener">◱ 2D-simulator</a>
+</div>
+
+<div class="panel" id="cfg">
+  <h3>Visning <span class="mut" style="font-weight:400">gælder denne skærm</span></h3>
+  <div class="row"><label for="cGain">Lysstyrke</label><input type="range" id="cGain" min="10" max="300" value="100"><span class="v" id="cGainV"></span></div>
+  <div class="row"><label for="cSmoke">Røg</label><input type="range" id="cSmoke" min="0" max="100" value="35"><span class="v" id="cSmokeV"></span></div>
+  <div class="row"><label for="cExpo">Eksponering</label><input type="range" id="cExpo" min="20" max="300" value="100"><span class="v" id="cExpoV"></span></div>
+  <h4>Rummet <span class="mut" style="font-weight:400">gemmes i showet</span></h4>
+  <div class="row"><label for="cAmb">Rumlys</label><input type="range" id="cAmb" min="0" max="100" value="8"><span class="v" id="cAmbV"></span></div>
+  <div class="hint">Rumlys er det svage lys, der gør rummet synligt, selv om lamperne er slukket.
+    Røg bestemmer, hvor tydelige lysstrålerne er.</div>
+</div>
+
+<div class="panel" id="side">
+  <div class="tabs">
+    <button id="tabLamps" class="on">Lamper</button>
+    <button id="tabObjs">Ting</button>
+    <button id="tabRoom">Rum</button>
+  </div>
+
+  <div id="pgLamps">
+    <div class="list" id="lampList"></div>
+    <div id="lampEd" style="display:none">
+      <h4 id="leName">Lampe</h4>
+      <div class="row"><label for="leLevel">Lysstyrke</label><input type="range" id="leLevel" min="0" max="100"><span class="v" id="leLevelV"></span></div>
+      <div class="row"><span class="k"></span><button id="leOn">Tændt</button></div>
+      <div class="row"><label for="leX">Til siden</label><input type="number" id="leX" step="0.1"> m</div>
+      <div class="row"><label for="leY">Ind/ud</label><input type="number" id="leY" step="0.1"> m</div>
+      <div class="row"><label for="leZ">Højde</label><input type="number" id="leZ" step="0.1" min="0"> m</div>
+      <div class="row"><span class="k">Retning</span><button id="leAim">Peg på…</button><button id="leAuto">Automatisk</button></div>
+      <div class="hint" id="leAimTxt"></div>
+      <div class="hint">Træk i pilene på lampen for at flytte den. <b>Peg på…</b>: klik derefter på det sted
+        i rummet, lampen skal lyse på — fx en person eller et punkt på scenen.
+        Lysstyrken er lampens rigtige niveau (det samme som under Pult → Lamper).</div>
+    </div>
+  </div>
+
+  <div id="pgObjs" style="display:none">
+    <div class="cat" id="catalog"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="obImport">Hent 3D-model (.glb)…</button>
+      <input type="file" id="obFile" accept=".glb,.gltf" style="display:none">
+    </div>
+    <h4>I rummet</h4>
+    <div class="list" id="objList"></div>
+    <div id="objEd" style="display:none">
+      <h4 id="oeTitle">Ting</h4>
+      <div class="row"><label for="oeName">Navn</label><input type="text" id="oeName" style="flex:1;width:auto"></div>
+      <div class="row"><label for="oeColor">Farve</label><input type="color" id="oeColor"></div>
+      <div class="row"><span class="k">Træk</span>
+        <button id="tmMove" class="on">Flyt</button><button id="tmRot">Drej</button><button id="tmScale">Størrelse</button></div>
+      <div class="row"><label for="oeX">Til siden</label><input type="number" id="oeX" step="0.1"> m</div>
+      <div class="row"><label for="oeY">Ind/ud</label><input type="number" id="oeY" step="0.1"> m</div>
+      <div class="row"><label for="oeZ">Står i højde</label><input type="number" id="oeZ" step="0.1"> m</div>
+      <div class="row" id="oeSizeRow"><label>Bredde/dybde/højde</label>
+        <input type="number" id="oeW" step="0.1" min="0.02" style="width:70px">
+        <input type="number" id="oeD" step="0.1" min="0.02" style="width:70px">
+        <input type="number" id="oeH" step="0.1" min="0.02" style="width:70px"></div>
+      <div class="row" id="oeScaleRow"><label for="oeScale">Skala</label><input type="number" id="oeScale" step="0.1" min="0.001"></div>
+      <div class="row"><label for="oeRot">Drejet</label><input type="number" id="oeRot" step="5"> °</div>
+      <div class="row"><span class="k"></span><button id="oeFloor">Stil på gulv/scene</button></div>
+      <div class="row"><span class="k"></span><button id="oeDup">Kopiér</button><button id="oeDel" class="bad">Slet</button></div>
+      <div class="hint" id="oeHint"></div>
+    </div>
+  </div>
+
+  <div id="pgRoom" style="display:none">
+    <div class="row"><label for="rmW">Bredde</label><input type="number" id="rmW" step="0.5" min="2"> m</div>
+    <div class="row"><label for="rmD">Dybde</label><input type="number" id="rmD" step="0.5" min="2"> m</div>
+    <div class="row"><label for="rmH">Loftshøjde</label><input type="number" id="rmH" step="0.5" min="2"> m</div>
+    <div class="row"><label for="rmCx">Midte til siden</label><input type="number" id="rmCx" step="0.5"> m</div>
+    <div class="row"><label for="rmCy">Midte ind/ud</label><input type="number" id="rmCy" step="0.5"> m</div>
+    <div class="row"><label for="rmWalls">Vægge</label><input type="checkbox" id="rmWalls"></div>
+    <div class="row"><label for="rmFloor">Gulvfarve</label><input type="color" id="rmFloor"></div>
+    <div class="row"><label for="rmWall">Vægfarve</label><input type="color" id="rmWall"></div>
+    <div class="hint">Målene er i meter og passer med Layout: x til siden, y ind mod scenens bagkant
+      (salen er på minus-siden). Væggene er gennemsigtige udefra, så du kan se ind fra alle sider.</div>
+  </div>
+</div>
+
+<div class="panel" id="lampbox">
+  <div class="row" style="margin:0 0 6px"><b id="lbName" style="flex:1">Lampe</b><button id="lbClose" aria-label="Luk">✕</button></div>
+  <div class="row"><label for="lbLevel">Lysstyrke</label><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
+  <div class="row"><span class="k"></span><button id="lbOn">Tændt</button></div>
+</div>
+<div id="msg"></div>
+<div id="toast"></div>
+<div id="aimtip">Klik på det sted, lampen skal pege på — Esc fortryder</div>
+
+<script type="module">
+import * as T from "/three/three3d.min.js";
+
+const $ = (s) => document.getElementById(s);
+
+/* -------------------------------------------------------------- tilstand */
+const S = {
+  mods: [], shapes: {}, room: null, px: [], connected: false, sig: { mods: "", room: "" },
+  edit: false, sel: null, aiming: null, dragging: false, lampBox: -1,
+  view: { gain: 100, smoke: 35, expo: 100, beams: true, labels: false, shadows: false, cam: null },
+};
+try { Object.assign(S.view, JSON.parse(localStorage.getItem("sim3d.view") || "{}")); } catch (e) {}
+function saveView() { try { localStorage.setItem("sim3d.view", JSON.stringify(S.view)); } catch (e) {} }
+
+/* pult-koordinater (x til siden, y ind mod bagkant, z højde) -> three (x, z, -y) */
+const P = (x, y, z) => new T.Vector3(x, z, -y);
+const DEG = Math.PI / 180;
+
+/* --------------------------------------------------------------- renderer */
+let renderer;
+try {
+  renderer = new T.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+} catch (e) {
+  $("nogl").style.display = "flex"; $("bar").style.display = "none";
+  throw e;
+}
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.shadowMap.type = T.PCFShadowMap;
+$("view").appendChild(renderer.domElement);
+const labels = new T.CSS2DRenderer();
+labels.domElement.style.position = "fixed"; labels.domElement.style.inset = "0";
+labels.domElement.style.pointerEvents = "none";
+$("view").appendChild(labels.domElement);
+
+const scene = new T.Scene();
+scene.background = new T.Color(0x040508);
+const camera = new T.PerspectiveCamera(50, 1, 0.05, 400);
+const orbit = new T.OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true; orbit.dampingFactor = 0.12;
+orbit.maxPolarAngle = Math.PI * 0.495;
+const hemi = new T.HemisphereLight(0xbcc6ff, 0x302820, 0.4);
+scene.add(hemi);
+
+const tc = new T.TransformControls(camera, renderer.domElement);
+tc.setSize(0.9);
+scene.add(tc.getHelper());
+tc.addEventListener("dragging-changed", (e) => { orbit.enabled = !e.value; S.dragging = e.value; });
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h); labels.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ----------------------------------------------------------------- server */
+async function getJSON(u) { const r = await fetch(u, { cache: "no-store" }); return r.json(); }
+function post(msg) {
+  return fetch("api", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) })
+    .then((r) => r.json()).catch(() => ({ ok: false }));
+}
+function toast(t) {
+  const e = $("toast"); e.textContent = t; e.style.display = "block";
+  clearTimeout(toast._t); toast._t = setTimeout(() => { e.style.display = "none"; }, 2600);
+}
+
+/* --------------------------------------------------------------- materialer */
+const matCache = {};
+function mat(color, rough = 0.85, metal = 0.0) {
+  const k = color + rough + metal;
+  if (!matCache[k]) matCache[k] = new T.MeshStandardMaterial({ color: new T.Color(color), roughness: rough, metalness: metal });
+  return matCache[k];
+}
+function shade(hex, f) {
+  const c = new T.Color(hex); c.multiplyScalar(f); return "#" + c.getHexString();
+}
+
+/* ------------------------------------------------------------- rummet */
+const roomGroup = new T.Group(); scene.add(roomGroup);
+function buildRoom(r) {
+  roomGroup.clear();
+  const floor = new T.Mesh(new T.PlaneGeometry(r.w, r.d), mat(r.floor, 0.95));
+  floor.rotation.x = -Math.PI / 2; floor.position.copy(P(r.cx, r.cy, 0));
+  floor.receiveShadow = true; floor.userData.pick = { type: "floor" };
+  roomGroup.add(floor);
+  if (r.walls) {
+    const wm = new T.MeshStandardMaterial({ color: new T.Color(r.wall), roughness: 0.95, side: T.FrontSide });
+    const mk = (w, h, pos, ry, rx = 0) => {
+      const m = new T.Mesh(new T.PlaneGeometry(w, h), wm);
+      m.position.copy(pos); m.rotation.set(rx, ry, 0, "YXZ"); m.receiveShadow = true;
+      m.userData.pick = { type: "wall" }; roomGroup.add(m);
+    };
+    const x0 = r.cx - r.w / 2, x1 = r.cx + r.w / 2, yb = r.cy + r.d / 2, yf = r.cy - r.d / 2;
+    mk(r.w, r.h, P(r.cx, yb, r.h / 2), 0);                 // bagvæg (vender mod salen)
+    mk(r.w, r.h, P(r.cx, yf, r.h / 2), Math.PI);           // væg bag salen
+    mk(r.d, r.h, P(x0, r.cy, r.h / 2), Math.PI / 2);       // venstre
+    mk(r.d, r.h, P(x1, r.cy, r.h / 2), -Math.PI / 2);      // højre
+    mk(r.w, r.d, P(r.cx, r.cy, r.h), 0, Math.PI / 2);      // loft
+  }
+  hemi.intensity = 0.03 + (r.ambient / 100) * 2.2;
+}
+
+/* ------------------------------------------------------------- ting */
+const objGroup = new T.Group(); scene.add(objGroup);
+const objMap = {};            // id -> { node, sig }
+const gltfCache = {};         // fil -> Promise<scene>
+const loader = new T.GLTFLoader();
+
+function box(w, h, d, m, x = 0, y = 0, z = 0) {
+  const g = new T.Mesh(new T.BoxGeometry(w, h, d), m); g.position.set(x, y + h / 2, z); return g;
+}
+function cyl(r, h, m, x = 0, y = 0, z = 0, seg = 24, r2) {
+  const g = new T.Mesh(new T.CylinderGeometry(r2 == null ? r : r2, r, h, seg), m); g.position.set(x, y + h / 2, z); return g;
+}
+/* figurerne bygges i deres standardmål og skaleres til tingens b/d/h */
+const BUILD = {
+  person(o) {
+    const g = new T.Group(), cloth = mat(o.color, 0.9), dark = mat(shade(o.color, 0.45), 0.9), skin = mat("#c8a184", 0.8);
+    g.add(cyl(0.075, 0.82, dark, -0.1, 0, 0), cyl(0.075, 0.82, dark, 0.1, 0, 0));
+    const torso = cyl(0.17, 0.62, cloth, 0, 0.82, 0, 20, 0.2); torso.scale.z = 0.62; g.add(torso);
+    const aL = cyl(0.05, 0.62, cloth, -0.25, 0.82, 0.02), aR = cyl(0.05, 0.62, cloth, 0.25, 0.82, 0.02);
+    aL.rotation.z = 0.08; aR.rotation.z = -0.08; g.add(aL, aR);
+    g.add(cyl(0.05, 0.1, skin, 0, 1.44, 0));
+    const head = new T.Mesh(new T.SphereGeometry(0.115, 24, 16), skin); head.position.set(0, 1.64, 0); g.add(head);
+    return [g, [0.5, 0.3, 1.8]];
+  },
+  drums(o) {
+    const g = new T.Group(), shell = mat(o.color, 0.45, 0.1), head = mat("#e9e4d8", 0.7), metal = mat("#b8b0a0", 0.3, 0.9);
+    const kick = new T.Mesh(new T.CylinderGeometry(0.28, 0.28, 0.45, 32), shell); kick.rotation.x = Math.PI / 2; kick.position.set(0, 0.28, 0.1); g.add(kick);
+    const kf = new T.Mesh(new T.CircleGeometry(0.27, 32), head); kf.position.set(0, 0.28, 0.33); g.add(kf);
+    const drum = (r, h, x, y, z) => { g.add(cyl(r, h, shell, x, y, z, 28)); const t = new T.Mesh(new T.CircleGeometry(r * 0.98, 28), head); t.rotation.x = -Math.PI / 2; t.position.set(x, y + h + 0.002, z); g.add(t); };
+    drum(0.18, 0.16, -0.38, 0.55, 0.25);   // lilletromme
+    drum(0.15, 0.16, -0.15, 0.72, -0.05); drum(0.17, 0.18, 0.18, 0.72, -0.05);   // tammer
+    drum(0.22, 0.42, 0.55, 0.12, 0.2); g.add(cyl(0.02, 0.12, metal, 0.55, 0, 0.2));   // gulvtam
+    const cym = (x, z, y, r) => { g.add(cyl(0.012, y, metal, x, 0, z)); const c = cyl(r, 0.012, metal, x, y, z, 32, r * 0.2); g.add(c); };
+    cym(-0.75, 0.15, 0.85, 0.18); cym(-0.6, -0.4, 1.08, 0.22); cym(0.75, -0.35, 1.1, 0.24);
+    g.add(cyl(0.17, 0.48, mat("#202226", 0.9), 0, 0, -0.55));   // stol
+    return [g, [2.0, 1.6, 1.1]];
+  },
+  amp(o) {
+    const g = new T.Group();
+    g.add(box(0.7, 0.6, 0.35, mat(o.color, 0.8)));
+    const gr = new T.Mesh(new T.PlaneGeometry(0.62, 0.42), mat("#5a5550", 1.0)); gr.position.set(0, 0.25, 0.176); g.add(gr);
+    const pnl = new T.Mesh(new T.PlaneGeometry(0.62, 0.08), mat("#c9a96e", 0.4, 0.6)); pnl.position.set(0, 0.53, 0.176); g.add(pnl);
+    return [g, [0.7, 0.35, 0.6]];
+  },
+  speaker(o) {
+    const g = new T.Group(); g.add(box(0.6, 1.0, 0.5, mat(o.color, 0.9)));
+    const cone = mat("#141518", 0.6);
+    const c1 = new T.Mesh(new T.CircleGeometry(0.22, 32), cone); c1.position.set(0, 0.33, 0.251); g.add(c1);
+    const c2 = new T.Mesh(new T.CircleGeometry(0.09, 24), cone); c2.position.set(0, 0.78, 0.251); g.add(c2);
+    return [g, [0.6, 0.5, 1.0]];
+  },
+  mic(o) {
+    const g = new T.Group(), m = mat(o.color, 0.4, 0.8);
+    g.add(cyl(0.14, 0.02, m), cyl(0.012, 1.45, m, 0, 0.02, 0));
+    const boom = cyl(0.009, 0.32, m, 0, 0, 0); boom.rotation.x = Math.PI / 2 - 0.35; boom.position.set(0, 1.5, 0.12); g.add(boom);
+    const h = new T.Mesh(new T.SphereGeometry(0.03, 16, 12), mat("#2a2c30", 0.5, 0.5)); h.position.set(0, 1.55, 0.27); g.add(h);
+    return [g, [0.3, 0.3, 1.6]];
+  },
+  keys(o) {
+    const g = new T.Group(), m = mat("#2a2c30", 0.5, 0.6);
+    const l1 = box(0.04, 0.95, 0.04, m, -0.45, 0, 0), l2 = box(0.04, 0.95, 0.04, m, 0.45, 0, 0); g.add(l1, l2);
+    g.add(box(1.3, 0.1, 0.38, mat(o.color, 0.5), 0, 0.88, 0));
+    g.add(box(1.2, 0.02, 0.16, mat("#f2f0ea", 0.4), 0, 0.98, 0.09));
+    return [g, [1.3, 0.5, 1.0]];
+  },
+  truss(o) {
+    /* bygges i fuld længde, så stiverne ikke strækkes, når traversen gøres længere */
+    const g = new T.Group(), m = mat(o.color, 0.35, 0.85), L = o.w, s = 0.3, r = 0.012;
+    for (const [y, z] of [[0, -s / 2], [0, s / 2], [s, -s / 2], [s, s / 2]]) {
+      const t = new T.Mesh(new T.CylinderGeometry(r, r, L, 8), m); t.rotation.z = Math.PI / 2; t.position.set(0, y, z); g.add(t);
+    }
+    const n = Math.max(2, Math.round(L / 0.5));
+    for (let i = 0; i <= n; i++) {
+      const x = -L / 2 + (L * i) / n;
+      for (const [a, b] of [[[0, -s / 2], [s, s / 2]], [[0, s / 2], [s, -s / 2]], [[0, -s / 2], [0, s / 2]], [[s, -s / 2], [s, s / 2]]]) {
+        const p1 = new T.Vector3(x, a[0], a[1]), p2 = new T.Vector3(x, b[0], b[1]), len = p1.distanceTo(p2);
+        const c = new T.Mesh(new T.CylinderGeometry(r * 0.7, r * 0.7, len, 6), m);
+        c.position.copy(p1).add(p2).multiplyScalar(0.5);
+        c.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), p2.clone().sub(p1).normalize());
+        g.add(c);
+      }
+    }
+    return [g, [o.w, 0.3, 0.3]];
+  },
+};
+function buildObj(o) {
+  const outer = new T.Group();
+  outer.position.copy(P(o.x, o.y, o.z)); outer.rotation.y = o.rot * DEG;
+  outer.userData.obj = o.id;
+  let inner;
+  if (o.kind === "model") {
+    inner = new T.Group();
+    if (!gltfCache[o.file]) gltfCache[o.file] = new Promise((res, rej) => loader.load("modeller/" + encodeURIComponent(o.file), (g) => res(g.scene), undefined, rej));
+    gltfCache[o.file].then((src) => {
+      const m = src.clone(true);
+      m.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      /* modellen stilles med bunden på z og midten på x/y */
+      const bb = new T.Box3().setFromObject(m), ctr = bb.getCenter(new T.Vector3());
+      m.position.set(-ctr.x, -bb.min.y, -ctr.z);
+      inner.add(m);
+    }).catch(() => { showMsg("3D-modellen " + o.file + " findes ikke på denne computer (mappen modeller ved siden af shows)."); });
+    inner.scale.setScalar(o.scale || 1);
+  } else if (BUILD[o.kind]) {
+    const res = BUILD[o.kind](o), base = res[1];
+    inner = res[0];
+    inner.scale.set(o.w / base[0], o.h / base[2], o.d / base[1]);
+  } else {
+    const shapeMat = mat(o.color, o.kind === "stage" ? 0.9 : 0.85);
+    inner = new T.Group();
+    if (o.kind === "cyl") {
+      const c = cyl(0.5, 1, shapeMat, 0, 0, 0, 32); inner.add(c); inner.scale.set(o.w, o.h, o.d);
+    } else {
+      inner.add(box(1, 1, 1, shapeMat)); inner.scale.set(o.w, o.h, o.d);
+      if (o.kind === "stage") {          // forkant, så scenen kan ses
+        const e = box(1.001, 0.02, 0.01, mat(shade(o.color, 1.6), 0.6), 0, 0.98, 0.5); inner.add(e);
+      }
+    }
+  }
+  inner.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData.pick = { type: "obj", id: o.id }; } });
+  outer.add(inner);
+  outer.userData.inner = inner;
+  return outer;
+}
+function syncObjects(objs) {
+  const keep = {};
+  for (const o of objs) {
+    const sig = JSON.stringify(o);
+    keep[o.id] = true;
+    const ex = objMap[o.id];
+    if (ex && ex.sig === sig) continue;
+    if (ex) objGroup.remove(ex.node);
+    const node = buildObj(o);
+    objGroup.add(node);
+    objMap[o.id] = { node, sig };
+    if (S.sel && S.sel.type === "obj" && S.sel.id === o.id) attachSel();
+  }
+  for (const id in objMap) if (!keep[id]) {
+    objGroup.remove(objMap[id].node); delete objMap[id];
+    if (S.sel && S.sel.type === "obj" && S.sel.id === id) select(null);
+  }
+}
+
+/* ------------------------------------------------------------- lamper */
+const lampGroup = new T.Group(); scene.add(lampGroup);
+let lamps = [];               // [{ group, body, lens, spot, target, beam, label, shape }]
+const SHAPE = {               // halv strålevinkel, lysstyrke (candela ved fuldt), kropsform
+  par: { ang: 13, cd: 140 }, wash: { ang: 42, cd: 120 }, spot: { ang: 9, cd: 220 },
+  bar: { ang: 50, cd: 50 }, other: { ang: 20, cd: 120 },
+};
+const DEF_Z = { par: 4.0, wash: 2.2, spot: 4.4, bar: 0.3 };
+function shapeOf(m) { const s = S.shapes[m.type] || "par"; return SHAPE[s] ? s : "other"; }
+function lampZ(m) { return (m.z != null && isFinite(m.z)) ? m.z : (DEF_Z[shapeOf(m)] != null ? DEF_Z[shapeOf(m)] : 3.5); }
+function stageCentre() {
+  const st = (S.room && S.room.objects || []).find((o) => o.kind === "stage");
+  return st ? { x: st.x, y: st.y - 0.4, z: st.z + st.h + 1.0 } : { x: 0, y: 0.4, z: 1.5 };
+}
+/* retningen: det punkt lampen peger på; uden fast punkt mod scenen */
+function lampAim(m) {
+  if (Array.isArray(m.aim) && m.aim.length === 3) return { x: m.aim[0], y: m.aim[1], z: m.aim[2], auto: false };
+  const c = stageCentre();
+  return { x: m.x * 0.6 + c.x * 0.4, y: c.y, z: c.z, auto: true };
+}
+const beamVS = `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position,1.0);
+  vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
+const beamFS = `uniform vec3 col; uniform float k; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+void main(){ float along = pow(vUv.y, 1.6); float edge = pow(abs(dot(normalize(vN), normalize(vV))), 1.3);
+  gl_FragColor = vec4(col * k * along * edge, 1.0); }`;
+function makeLamp(m, i) {
+  const sh = shapeOf(m), cfg = SHAPE[sh];
+  const group = new T.Group(); group.userData.lamp = i;
+  const bodyMat = mat("#1a1b1f", 0.55, 0.5);
+  let body;
+  if (sh === "wash" || sh === "bar") {
+    body = new T.Mesh(new T.BoxGeometry(sh === "bar" ? 1.0 : 0.45, sh === "bar" ? 0.12 : 0.3, 0.16), bodyMat);
+  } else {
+    body = new T.Mesh(new T.CylinderGeometry(sh === "spot" ? 0.11 : 0.13, sh === "spot" ? 0.11 : 0.13, sh === "spot" ? 0.32 : 0.2, 24), bodyMat);
+    body.rotation.x = Math.PI / 2;
+  }
+  body.userData.pick = { type: "lamp", i };
+  group.add(body);
+  const lensGeo = (sh === "wash" || sh === "bar") ? new T.PlaneGeometry(sh === "bar" ? 0.94 : 0.4, sh === "bar" ? 0.08 : 0.24) : new T.CircleGeometry(sh === "spot" ? 0.09 : 0.11, 24);
+  const lens = new T.Mesh(lensGeo, new T.MeshBasicMaterial({ color: 0x000000, toneMapped: false }));
+  lens.position.z = (sh === "spot" ? 0.161 : (sh === "wash" || sh === "bar") ? 0.081 : 0.101);
+  lens.userData.pick = { type: "lamp", i };
+  group.add(lens);
+  /* bøjle */
+  const yoke = new T.Mesh(new T.TorusGeometry(0.17, 0.012, 6, 16, Math.PI), bodyMat);
+  yoke.rotation.z = Math.PI; group.add(yoke);
+
+  const spot = new T.SpotLight(0xffffff, 0, 0, cfg.ang * DEG, 0.45, 2);
+  spot.shadow.mapSize.set(512, 512); spot.shadow.bias = -0.0004; spot.shadow.camera.near = 0.2;
+  const target = new T.Object3D(); scene.add(target); spot.target = target;
+  lampGroup.add(spot);
+
+  const beamGeo = new T.ConeGeometry(1, 1, 40, 1, true);
+  beamGeo.translate(0, -0.5, 0); beamGeo.rotateX(-Math.PI / 2);   // spids i lampen, åbner langs +z
+  const beamMat = new T.ShaderMaterial({ uniforms: { col: { value: new T.Color(0, 0, 0) }, k: { value: 0 } },
+    vertexShader: beamVS, fragmentShader: beamFS, transparent: true, depthWrite: false,
+    blending: T.AdditiveBlending, side: T.DoubleSide });
+  const beam = new T.Mesh(beamGeo, beamMat);
+  beam.renderOrder = 10;
+  /* ConeGeometry har uv.y = 1 i spidsen - det er der, strålen er kraftigst */
+  group.add(beam);
+
+  const el = document.createElement("div"); el.className = "lbl3d"; el.textContent = m.name || ("Lampe " + (i + 1));
+  const label = new T.CSS2DObject(el); label.position.set(0, 0.32, 0); group.add(label);
+  lampGroup.add(group);
+  return { group, body, lens, spot, target, beam, label, shape: sh, cfg };
+}
+function placeLamp(L, m) {
+  const pos = P(m.x, m.y, lampZ(m)), a = lampAim(m), tgt = P(a.x, a.y, a.z);
+  L.group.position.copy(pos);
+  L.group.lookAt(tgt);
+  L.spot.position.copy(pos);
+  L.target.position.copy(tgt);
+  L.target.updateMatrixWorld();
+  /* strålens længde: til gulvet eller lidt forbi målet */
+  const dist = pos.distanceTo(tgt);
+  const len = Math.max(1.5, Math.min(14, dist * 1.35));
+  const rad = len * Math.tan(L.cfg.ang * DEG);
+  L.beam.scale.set(rad, rad, len);
+  L.label.element.textContent = m.name || "Lampe";
+}
+function syncLamps() {
+  const sig = JSON.stringify(S.mods.map((m) => [m.type, S.shapes[m.type]]));
+  if (sig !== S.sig.lampsKind) {
+    lamps.forEach((L) => { lampGroup.remove(L.group); lampGroup.remove(L.spot); scene.remove(L.target); });
+    lamps = S.mods.map(makeLamp);
+    S.sig.lampsKind = sig;
+    applyShadows();
+    if (S.sel && S.sel.type === "lamp") { if (S.sel.i < lamps.length) attachSel(); else select(null); }
+  }
+  S.mods.forEach((m, i) => { if (!(S.dragging && S.sel && S.sel.type === "lamp" && S.sel.i === i)) placeLamp(lamps[i], m); });
+  updLampList(); updLampEd(); updLampBox();
+}
+function applyShadows() {
+  renderer.shadowMap.enabled = !!S.view.shadows;
+  /* højst 8 lamper med skygger (grafikkortet har et begrænset antal pladser):
+     dem der hænger tættest på salen - det er dem, der kaster skygger på scenen */
+  const order = S.mods.map((m, i) => i).sort((a, b) => S.mods[a].y - S.mods[b].y);
+  const on = new Set(S.view.shadows ? order.slice(0, 8) : []);
+  lamps.forEach((L, i) => { L.spot.castShadow = on.has(i); });
+  scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+}
+
+/* lyset følger pulten */
+function updateLights() {
+  const gain = S.view.gain / 100, smoke = S.view.smoke / 100;
+  lamps.forEach((L, i) => {
+    const hx = (S.px[i] || "000000").substr(0, 6);
+    const c = new T.Color("#" + hx);                 // sRGB -> lineær
+    const mx = Math.max(c.r, c.g, c.b);
+    const on = mx > 0.002;
+    if (on) c.multiplyScalar(1 / mx);
+    L.spot.color.copy(c);
+    L.spot.intensity = on ? L.cfg.cd * mx * gain : 0;
+    L.spot.visible = on;
+    L.lens.material.color.setRGB(c.r * Math.sqrt(mx), c.g * Math.sqrt(mx), c.b * Math.sqrt(mx));
+    L.beam.visible = on && S.view.beams && smoke > 0;
+    L.beam.material.uniforms.col.value.copy(c);
+    L.beam.material.uniforms.k.value = smoke * 0.22 * Math.sqrt(mx) * Math.min(1.6, gain);
+  });
+  renderer.toneMappingExposure = S.view.expo / 100;
+}
+
+/* ------------------------------------------------------------- kamera */
+function camPreset(name) {
+  const r = S.room ? S.room.room : { w: 16, d: 14, h: 6, cx: 0, cy: -2 };
+  const c = stageCentre(), look = P(c.x, c.y, 1.3);
+  if (name === "top") camera.position.copy(P(r.cx, r.cy + 0.01, Math.max(r.w, r.d) * 1.25));
+  else if (name === "side") camera.position.copy(P(r.cx + r.w / 2 - 0.4, c.y - 1.5, 2.6));
+  else camera.position.copy(P(c.x, r.cy - r.d / 2 + 0.6, 2.4));
+  orbit.target.copy(name === "top" ? P(r.cx, r.cy, 0) : look);
+  orbit.update();
+  S.view.cam = null; saveView();
+}
+function saveCam() {
+  S.view.cam = { p: camera.position.toArray(), t: orbit.target.toArray() }; saveView();
+}
+orbit.addEventListener("end", saveCam);
+
+/* --------------------------------------------------------- valg og redigering */
+function select(sel) {
+  S.sel = sel;
+  attachSel();
+  updLampList(); updLampEd(); updObjList(); updObjEd();
+}
+function attachSel() {
+  tc.detach();
+  if (!S.edit || !S.sel) return;
+  if (S.sel.type === "lamp" && lamps[S.sel.i]) {
+    tc.setMode("translate"); tc.showX = tc.showY = tc.showZ = true;
+    tc.attach(lamps[S.sel.i].group);
+  } else if (S.sel.type === "obj" && objMap[S.sel.id]) {
+    tc.attach(objMap[S.sel.id].node);
+    setTcMode(S.tcMode || "translate");
+  }
+}
+function setTcMode(md) {
+  S.tcMode = md;
+  if (!(S.sel && S.sel.type === "obj")) return;
+  tc.setMode(md);
+  tc.showX = tc.showZ = md !== "rotate"; tc.showY = true;
+  ["tmMove", "tmRot", "tmScale"].forEach((b, k) => $(b).classList.toggle("on", ["translate", "rotate", "scale"][k] === md));
+}
+tc.addEventListener("mouseUp", () => {
+  const sel = S.sel; if (!sel) return;
+  if (sel.type === "lamp") {
+    const g = lamps[sel.i].group, m = S.mods[sel.i];
+    m.x = r2(g.position.x); m.y = r2(-g.position.z); m.z = r2(Math.max(0, g.position.y));
+    post({ op: "patch", items: [{ path: ["modules", sel.i, "x"], value: m.x },
+      { path: ["modules", sel.i, "y"], value: m.y }, { path: ["modules", sel.i, "z"], value: m.z }] });
+    placeLamp(lamps[sel.i], m); updLampEd();
+  } else {
+    const o = objById(sel.id), n = objMap[sel.id] && objMap[sel.id].node;
+    if (!o || !n) return;
+    o.x = r2(n.position.x); o.y = r2(-n.position.z); o.z = r2(n.position.y);
+    o.rot = Math.round(((n.rotation.y / DEG) % 360) * 10) / 10;
+    if (n.scale.x !== 1 || n.scale.y !== 1 || n.scale.z !== 1) {
+      if (o.kind === "model") o.scale = r3((o.scale || 1) * Math.max(n.scale.x, n.scale.y, n.scale.z));
+      else { o.w = r2(Math.max(0.02, o.w * n.scale.x)); o.h = r2(Math.max(0.02, o.h * n.scale.y)); o.d = r2(Math.max(0.02, o.d * n.scale.z)); }
+      n.scale.set(1, 1, 1);
+    }
+    if (objMap[sel.id]) objMap[sel.id].sig = "";     // byg altid om efter et træk
+    pushRoom(true);
+  }
+});
+tc.addEventListener("objectChange", () => {
+  if (S.sel && S.sel.type === "lamp") {      // strålen følger med, mens lampen trækkes
+    const g = lamps[S.sel.i].group, m = S.mods[S.sel.i];
+    const tmp = Object.assign({}, m, { x: g.position.x, y: -g.position.z, z: g.position.y });
+    placeLamp(lamps[S.sel.i], tmp);
+  }
+});
+const r2 = (v) => Math.round(v * 100) / 100, r3 = (v) => Math.round(v * 1000) / 1000;
+function objById(id) { return (S.room && S.room.objects || []).find((o) => o.id === id); }
+
+let pushT = null, pushBusy = 0;
+function pushRoom(now) {
+  clearTimeout(pushT); pushT = null;
+  const send = () => {
+    pushT = null; pushBusy++;
+    post({ op: "room3d_set", room3d: S.room }).then((d) => {
+      pushBusy--;
+      if (d && d.room3d && !pushT && !pushBusy) {
+        S.room = d.room3d; S.sig.room = JSON.stringify(S.room);
+        syncObjects(S.room.objects); buildRoomIfChanged(); updObjList(); updObjEd();
+      }
+    });
+  };
+  if (now) send(); else pushT = setTimeout(send, 250);
+  S.sig.room = JSON.stringify(S.room);
+  syncObjects(S.room.objects); buildRoomIfChanged(); updObjList(); updObjEd();
+}
+let roomSig = "";
+function buildRoomIfChanged() {
+  const s = JSON.stringify(S.room.room);
+  if (s !== roomSig) { roomSig = s; buildRoom(S.room.room); syncRoomUI(); }
+}
+
+/* klik i 3D: vælg lampe/ting, eller peg en lampe på et punkt */
+const ray = new T.Raycaster(), ndc = new T.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener("pointerdown", (e) => { downAt = { x: e.clientX, y: e.clientY }; });
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 5 || S.dragging) return;
+  downAt = null;
+  if (tc.dragging) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const pickable = [];
+  roomGroup.traverse((o) => { if (o.isMesh) pickable.push(o); });
+  objGroup.traverse((o) => { if (o.isMesh) pickable.push(o); });
+  lampGroup.traverse((o) => { if (o.isMesh && o.userData.pick) pickable.push(o); });
+  const hits = ray.intersectObjects(pickable, false).filter((h) => h.object.userData.pick);
+  if (S.aiming != null) {
+    const h = hits.find((x) => !(x.object.userData.pick.type === "lamp" && x.object.userData.pick.i === S.aiming));
+    if (h) {
+      const i = S.aiming, p = h.point, aim = [r2(p.x), r2(-p.z), r2(p.y)];
+      S.mods[i].aim = aim;
+      post({ op: "patch", items: [{ path: ["modules", i, "aim"], value: aim }] });
+      placeLamp(lamps[i], S.mods[i]); updLampEd();
+    }
+    stopAim(); return;
+  }
+  const h = hits[0];
+  const pk = h ? h.object.userData.pick : null;
+  if (!S.edit) {
+    if (pk && pk.type === "lamp") openLampBox(pk.i); else closeLampBox();
+    return;
+  }
+  if (pk && pk.type === "lamp") { showTab("lamps"); select({ type: "lamp", i: pk.i }); }
+  else if (pk && pk.type === "obj") { showTab("objs"); select({ type: "obj", id: pk.id }); }
+  else select(null);
+});
+function startAim(i) { S.aiming = i; $("aimtip").style.display = "block"; tc.detach(); }
+function stopAim() { S.aiming = null; $("aimtip").style.display = "none"; attachSel(); }
+window.addEventListener("keydown", (e) => {
+  const tag = (e.target && e.target.tagName) || "";
+  if (e.key === "Escape") { if (S.aiming != null) stopAim(); else if (S.edit) select(null); else closeLampBox(); }
+  if ((e.key === "Delete" || e.key === "Backspace") && S.edit && S.sel && S.sel.type === "obj" &&
+      !/INPUT|SELECT|TEXTAREA/.test(tag)) { e.preventDefault(); delObj(); }
+});
+
+/* ------------------------------------------------------- lampens lysstyrke */
+function setLevel(i, pct) {
+  const v = Math.round(Math.max(0, Math.min(100, pct)) * 2.55);
+  S.mods[i].level = v;
+  post({ op: "patch", items: [{ path: ["modules", i, "level"], value: v }] });
+}
+function toggleOn(i) {
+  const v = S.mods[i].on === false;
+  S.mods[i].on = v;
+  post({ op: "patch", items: [{ path: ["modules", i, "on"], value: v }] });
+  updLampEd(); updLampBox();
+}
+function lampTitle(m, i) { return (m.num != null && m.num !== "" ? m.num : i + 1) + " · " + (m.name || "Lampe"); }
+function pct(m) { return Math.round((m.level == null ? 255 : m.level) / 2.55); }
+function wireLevel(slider, out, getI) {
+  let t = null;
+  slider.oninput = () => {
+    out.textContent = slider.value + " %"; S.levelTouch = Date.now();
+    clearTimeout(t); const i = getI(); t = setTimeout(() => setLevel(i, +slider.value), 60);
+  };
+}
+function openLampBox(i) { S.lampBox = i; updLampBox(); }
+function closeLampBox() { S.lampBox = -1; updLampBox(); }
+function updLampBox() {
+  const b = $("lampbox"), i = S.lampBox, m = S.mods[i];
+  if (!m || S.edit) { b.classList.remove("on"); return; }
+  b.classList.add("on");
+  $("lbName").textContent = lampTitle(m, i);
+  if (document.activeElement !== $("lbLevel") && Date.now() - (S.levelTouch || 0) > 800) {
+    $("lbLevel").value = pct(m); $("lbLevelV").textContent = pct(m) + " %";
+  }
+  const on = m.on !== false;
+  $("lbOn").textContent = on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
+  $("lbOn").classList.toggle("on", on);
+}
+wireLevel($("lbLevel"), $("lbLevelV"), () => S.lampBox);
+$("lbOn").onclick = () => toggleOn(S.lampBox);
+$("lbClose").onclick = closeLampBox;
+
+/* ------------------------------------------------------------ sidepanel */
+function showTab(t) {
+  for (const [b, p, k] of [["tabLamps", "pgLamps", "lamps"], ["tabObjs", "pgObjs", "objs"], ["tabRoom", "pgRoom", "room"]]) {
+    $(b).classList.toggle("on", k === t); $(p).style.display = k === t ? "block" : "none";
+  }
+}
+$("tabLamps").onclick = () => showTab("lamps");
+$("tabObjs").onclick = () => showTab("objs");
+$("tabRoom").onclick = () => showTab("room");
+
+function updLampList() {
+  const box = $("lampList");
+  const sig = JSON.stringify(S.mods.map((m) => [m.name, m.num])) + "|" + (S.sel && S.sel.type === "lamp" ? S.sel.i : -1);
+  if (box._sig === sig) return; box._sig = sig;
+  box.innerHTML = "";
+  S.mods.forEach((m, i) => {
+    const d = document.createElement("div");
+    d.className = "item" + (S.sel && S.sel.type === "lamp" && S.sel.i === i ? " sel" : "");
+    d.innerHTML = '<span class="no"></span><span class="nm"></span>';
+    d.firstChild.textContent = m.num != null && m.num !== "" ? m.num : i + 1;
+    d.lastChild.textContent = m.name || "Lampe";
+    d.onclick = () => select({ type: "lamp", i });
+    box.appendChild(d);
+  });
+}
+function setNum(id, v) { const e = $(id); if (document.activeElement !== e) e.value = v; }
+function updLampEd() {
+  const ok = S.edit && S.sel && S.sel.type === "lamp" && S.mods[S.sel.i];
+  $("lampEd").style.display = ok ? "block" : "none";
+  if (!ok) return;
+  const i = S.sel.i, m = S.mods[i], a = lampAim(m);
+  $("leName").textContent = lampTitle(m, i);
+  if (document.activeElement !== $("leLevel") && Date.now() - (S.levelTouch || 0) > 800) {
+    $("leLevel").value = pct(m); $("leLevelV").textContent = pct(m) + " %";
+  }
+  const on = m.on !== false;
+  $("leOn").textContent = on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
+  $("leOn").classList.toggle("on", on);
+  setNum("leX", r2(m.x)); setNum("leY", r2(m.y)); setNum("leZ", r2(lampZ(m)));
+  $("leAimTxt").textContent = a.auto ? "Peger automatisk mod scenen." :
+    "Peger på punktet x " + a.x.toFixed(1) + ", y " + a.y.toFixed(1) + ", højde " + a.z.toFixed(1) + " m.";
+  $("leAuto").disabled = a.auto;
+}
+wireLevel($("leLevel"), $("leLevelV"), () => S.sel.i);
+$("leOn").onclick = () => toggleOn(S.sel.i);
+for (const [id, key] of [["leX", "x"], ["leY", "y"], ["leZ", "z"]]) {
+  $(id).onchange = () => {
+    const i = S.sel.i, v = parseFloat($(id).value); if (!isFinite(v)) return;
+    S.mods[i][key] = key === "z" ? Math.max(0, v) : v;
+    post({ op: "patch", items: [{ path: ["modules", i, key], value: S.mods[i][key] }] });
+    placeLamp(lamps[i], S.mods[i]);
+  };
+}
+$("leAim").onclick = () => startAim(S.sel.i);
+$("leAuto").onclick = () => {
+  const i = S.sel.i; S.mods[i].aim = null;
+  post({ op: "patch", items: [{ path: ["modules", i, "aim"], value: null }] });
+  placeLamp(lamps[i], S.mods[i]); updLampEd();
+};
+
+/* ting */
+const CATALOG = [["stage", "Scenepodie"], ["person", "Person"], ["drums", "Trommesæt"], ["amp", "Forstærker"],
+  ["speaker", "Højttaler"], ["mic", "Mikrofon"], ["keys", "Keyboard"], ["truss", "Travers"], ["wall", "Væg"],
+  ["box", "Klods"], ["cyl", "Cylinder"]];
+const KIND_NAME = Object.fromEntries(CATALOG.concat([["model", "3D-model"]]));
+const KIND_SIZE = { stage: [6, 3, 0.5], box: [1, 1, 1], wall: [4, 0.2, 3], cyl: [0.6, 0.6, 1], truss: [6, 0.3, 0.3],
+  person: [0.5, 0.3, 1.8], drums: [2, 1.6, 1.1], amp: [0.7, 0.35, 0.6], speaker: [0.6, 0.5, 1], mic: [0.3, 0.3, 1.6],
+  keys: [1.3, 0.5, 1.0], model: [1, 1, 1] };
+const KIND_COLOR = { stage: "#3a3532", person: "#c9c2b8", drums: "#8c2f2f", amp: "#24262b", speaker: "#1d1e22",
+  mic: "#9aa0a8", keys: "#202226", truss: "#9aa0a8", wall: "#4a4d55", box: "#6a6d75", cyl: "#6a6d75", model: "#808080" };
+CATALOG.forEach(([k, n]) => {
+  const b = document.createElement("button"); b.textContent = "+ " + n; b.onclick = () => addObj(k); $("catalog").appendChild(b);
+});
+/* ny ting: midt for kameraets blik, stillet på gulv eller scene */
+function dropPoint() {
+  ray.setFromCamera(new T.Vector2(0, -0.1), camera);
+  const hit = ray.intersectObjects(roomGroup.children.filter((o) => o.userData.pick && o.userData.pick.type === "floor"), false)[0];
+  const c = stageCentre();
+  return hit ? { x: r2(hit.point.x), y: r2(-hit.point.z) } : { x: c.x, y: c.y };
+}
+function surfaceZ(x, y, skipId) {
+  let z = 0;
+  for (const o of S.room.objects) {
+    if (o.id === skipId || o.kind !== "stage") continue;
+    const c = Math.cos(-o.rot * DEG), s = Math.sin(-o.rot * DEG), dx = x - o.x, dy = y - o.y;
+    const lx = dx * c - dy * s, ly = dx * s + dy * c;
+    if (Math.abs(lx) <= o.w / 2 && Math.abs(ly) <= o.d / 2) z = Math.max(z, o.z + o.h);
+  }
+  return z;
+}
+function newId() { return "o" + Math.random().toString(36).slice(2, 9); }
+function addObj(kind, extra) {
+  const p = dropPoint(), sz = KIND_SIZE[kind];
+  const o = Object.assign({ id: newId(), kind, name: KIND_NAME[kind], x: p.x, y: p.y, z: 0, rot: 0,
+    w: sz[0], d: sz[1], h: sz[2], color: KIND_COLOR[kind] }, extra || {});
+  if (kind === "truss") o.z = 4.5;
+  else if (kind !== "stage") o.z = surfaceZ(o.x, o.y);
+  S.room.objects.push(o);
+  pushRoom(true);
+  showTab("objs"); select({ type: "obj", id: o.id });
+}
+function updObjList() {
+  const box = $("objList"), objs = (S.room && S.room.objects) || [];
+  const sig = JSON.stringify(objs.map((o) => [o.id, o.name, o.color, o.kind])) + "|" + (S.sel && S.sel.type === "obj" ? S.sel.id : "");
+  if (box._sig === sig) return; box._sig = sig;
+  box.innerHTML = "";
+  if (!objs.length) { box.innerHTML = '<div class="item"><span class="nm mut">Ingen ting endnu</span></div>'; return; }
+  objs.forEach((o) => {
+    const d = document.createElement("div");
+    d.className = "item" + (S.sel && S.sel.type === "obj" && S.sel.id === o.id ? " sel" : "");
+    d.innerHTML = '<span class="sw"></span><span class="nm"></span><span class="mut"></span>';
+    d.children[0].style.background = o.color;
+    d.children[1].textContent = o.name || KIND_NAME[o.kind];
+    d.children[2].textContent = KIND_NAME[o.kind];
+    d.onclick = () => { select({ type: "obj", id: o.id }); };
+    box.appendChild(d);
+  });
+}
+function updObjEd() {
+  const o = S.edit && S.sel && S.sel.type === "obj" ? objById(S.sel.id) : null;
+  $("objEd").style.display = o ? "block" : "none";
+  if (!o) return;
+  $("oeTitle").textContent = KIND_NAME[o.kind] + (o.kind === "model" ? " · " + o.file : "");
+  if (document.activeElement !== $("oeName")) $("oeName").value = o.name;
+  $("oeColor").value = o.color;
+  $("oeColor").parentNode.style.display = o.kind === "model" ? "none" : "flex";
+  setNum("oeX", o.x); setNum("oeY", o.y); setNum("oeZ", o.z); setNum("oeRot", o.rot);
+  setNum("oeW", o.w); setNum("oeD", o.d); setNum("oeH", o.h); setNum("oeScale", o.scale || 1);
+  $("oeSizeRow").style.display = o.kind === "model" ? "none" : "flex";
+  $("oeScaleRow").style.display = o.kind === "model" ? "flex" : "none";
+  $("oeHint").textContent = o.kind === "model" ? "Skala 1 = modellens egne mål (glTF er i meter)." : "";
+}
+function editObj(fn) { const o = objById(S.sel.id); if (!o) return; fn(o); pushRoom(); }
+$("oeName").oninput = () => editObj((o) => { o.name = $("oeName").value.slice(0, 40); });
+$("oeColor").oninput = () => editObj((o) => { o.color = $("oeColor").value; });
+for (const [id, key, min] of [["oeX", "x"], ["oeY", "y"], ["oeZ", "z"], ["oeRot", "rot"], ["oeW", "w", 0.02], ["oeD", "d", 0.02], ["oeH", "h", 0.02], ["oeScale", "scale", 0.001]]) {
+  $(id).onchange = () => { const v = parseFloat($(id).value); if (!isFinite(v)) return; editObj((o) => { o[key] = min ? Math.max(min, v) : v; }); };
+}
+$("oeFloor").onclick = () => editObj((o) => { o.z = o.kind === "stage" ? 0 : surfaceZ(o.x, o.y, o.id); });
+$("oeDup").onclick = () => {
+  const o = objById(S.sel.id); if (!o) return;
+  const c = Object.assign({}, o, { id: newId(), x: r2(o.x + 0.6), y: r2(o.y - 0.3) });
+  S.room.objects.push(c); pushRoom(true); select({ type: "obj", id: c.id });
+};
+function delObj() {
+  const id = S.sel && S.sel.id; if (!id) return;
+  S.room.objects = S.room.objects.filter((o) => o.id !== id);
+  select(null); pushRoom(true);
+}
+$("oeDel").onclick = delObj;
+$("tmMove").onclick = () => setTcMode("translate");
+$("tmRot").onclick = () => setTcMode("rotate");
+$("tmScale").onclick = () => setTcMode("scale");
+
+/* import af 3D-model */
+$("obImport").onclick = () => $("obFile").click();
+$("obFile").onchange = async () => {
+  const f = $("obFile").files[0]; $("obFile").value = ""; if (!f) return;
+  toast("Henter " + f.name + " …");
+  try {
+    const r = await fetch("upload3d?name=" + encodeURIComponent(f.name), { method: "POST", body: f });
+    const d = await r.json();
+    if (!d.ok) { showMsg("Kunne ikke hente modellen: " + d.err); return; }
+    addObj("model", { file: d.file, name: f.name.replace(/\.(glb|gltf)$/i, ""), scale: 1, color: "#808080" });
+    toast(d.file + " er sat ind");
+  } catch (e) { showMsg("Kunne ikke hente modellen: " + e); }
+};
+
+/* rum */
+function syncRoomUI() {
+  const r = S.room.room;
+  setNum("rmW", r.w); setNum("rmD", r.d); setNum("rmH", r.h); setNum("rmCx", r.cx); setNum("rmCy", r.cy);
+  $("rmWalls").checked = !!r.walls; $("rmFloor").value = r.floor; $("rmWall").value = r.wall;
+  if (document.activeElement !== $("cAmb")) { $("cAmb").value = r.ambient; $("cAmbV").textContent = Math.round(r.ambient); }
+}
+for (const [id, key] of [["rmW", "w"], ["rmD", "d"], ["rmH", "h"], ["rmCx", "cx"], ["rmCy", "cy"]]) {
+  $(id).onchange = () => { const v = parseFloat($(id).value); if (!isFinite(v)) return; S.room.room[key] = v; pushRoom(true); };
+}
+$("rmWalls").onchange = () => { S.room.room.walls = $("rmWalls").checked; pushRoom(true); };
+$("rmFloor").oninput = () => { S.room.room.floor = $("rmFloor").value; pushRoom(); };
+$("rmWall").oninput = () => { S.room.room.wall = $("rmWall").value; pushRoom(); };
+$("cAmb").oninput = () => { S.room.room.ambient = +$("cAmb").value; $("cAmbV").textContent = $("cAmb").value; pushRoom(); };
+
+/* ------------------------------------------------------------ knapper */
+function syncButtons() {
+  $("tBeams").classList.toggle("on", S.view.beams);
+  $("tLabels").classList.toggle("on", S.view.labels);
+  $("tShadows").classList.toggle("on", S.view.shadows);
+  $("tEdit").classList.toggle("on", S.edit);
+  labels.domElement.style.display = S.view.labels ? "block" : "none";
+  for (const [id, k, f] of [["cGain", "gain", (v) => v + " %"], ["cSmoke", "smoke", (v) => v], ["cExpo", "expo", (v) => v + " %"]]) {
+    $(id).value = S.view[k]; $(id + "V").textContent = f(S.view[k]);
+  }
+}
+$("tBeams").onclick = () => { S.view.beams = !S.view.beams; saveView(); syncButtons(); };
+$("tLabels").onclick = () => { S.view.labels = !S.view.labels; saveView(); syncButtons(); };
+$("tShadows").onclick = () => { S.view.shadows = !S.view.shadows; saveView(); syncButtons(); applyShadows(); };
+$("tEdit").onclick = () => {
+  S.edit = !S.edit;
+  $("side").classList.toggle("on", S.edit);
+  if (!S.edit) { stopAim(); select(null); } else closeLampBox();
+  syncButtons(); attachSel(); updLampEd(); updObjEd(); updLampBox();
+};
+$("tCfg").onclick = () => $("cfg").classList.toggle("on");
+$("tFull").onclick = () => {
+  if (!document.fullscreenElement) (document.documentElement.requestFullscreen || (() => {})).call(document.documentElement);
+  else document.exitFullscreen();
+};
+$("camSal").onclick = () => camPreset("sal");
+$("camTop").onclick = () => camPreset("top");
+$("camSide").onclick = () => camPreset("side");
+for (const [id, k, f] of [["cGain", "gain", (v) => v + " %"], ["cSmoke", "smoke", (v) => v], ["cExpo", "expo", (v) => v + " %"]]) {
+  $(id).oninput = () => { S.view[k] = +$(id).value; $(id + "V").textContent = f(S.view[k]); saveView(); };
+}
+function showMsg(t) {
+  const m = $("msg"); m.textContent = t; m.style.display = "block";
+  clearTimeout(showMsg._t); showMsg._t = setTimeout(() => { m.style.display = "none"; }, 6000);
+}
+
+/* --------------------------------------------------------- data fra pulten */
+let firstState = true;
+async function loadState() {
+  try {
+    const d = await getJSON("state");
+    S.connected = true;
+    const s = d.show || {}, shapes = {};
+    const bi = (d.meta && d.meta.builtin_profiles) || {}, cp = s.profiles || {};
+    for (const k in bi) shapes[k] = bi[k].shape || "par";
+    for (const k in cp) shapes[k] = cp[k].shape || "par";
+    S.shapes = shapes;
+    const mods = (s.modules || []).map((m, i) => ({ x: m.x || 0, y: m.y || 0, z: m.z, aim: m.aim, type: m.type,
+      name: m.name, num: m.num != null ? m.num : String(i + 1), level: m.level, on: m.on !== false }));
+    const ms = JSON.stringify(mods);
+    if (ms !== S.sig.mods && !(S.dragging && S.sel && S.sel.type === "lamp")) { S.mods = mods; S.sig.mods = ms; syncLamps(); }
+    const room = s.room3d;
+    if (room) {
+      const rs = JSON.stringify(room);
+      if (rs !== S.sig.room && !S.dragging && !pushT && !pushBusy) {
+        S.room = room; S.sig.room = rs;
+        buildRoomIfChanged(); syncObjects(room.objects); updObjList(); updObjEd();
+      }
+    }
+    if (firstState) {
+      firstState = false;
+      if (S.view.cam) { camera.position.fromArray(S.view.cam.p); orbit.target.fromArray(S.view.cam.t); orbit.update(); }
+      else camPreset("sal");
+    }
+  } catch (e) { S.connected = false; }
+  setStat();
+}
+let fps = 0, frames = 0, fpsT = performance.now(), lastSrvFps = null;
+async function loadFrame() {
+  try {
+    const d = await getJSON("frame");
+    S.connected = true; S.px = d.px || []; lastSrvFps = d.fps;
+  } catch (e) { S.connected = false; }
+  setTimeout(loadFrame, 70);
+}
+function setStat() {
+  $("dot").className = "dot" + (S.connected ? " live" : "");
+  $("stat").textContent = S.connected ? S.mods.length + " lamper · " + fps + " billeder/s" : "ingen forbindelse til pulten";
+  if (!S.connected) showMsg("Ingen forbindelse — kører lyspulten?");
+}
+
+function loop() {
+  orbit.update();
+  updateLights();
+  renderer.render(scene, camera);
+  if (S.view.labels) labels.render(scene, camera);
+  frames++;
+  const now = performance.now();
+  if (now - fpsT > 1000) { fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; setStat(); }
+  requestAnimationFrame(loop);
+}
+
+syncButtons();
+await loadState();
+loadFrame();
+setInterval(loadState, 700);
+window.__sim3d = { S, scene, T, camera, renderer, tc, objMap, get lampsNow() { return lamps; } };   // til test
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

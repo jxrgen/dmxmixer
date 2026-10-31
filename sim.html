@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scene-simulator</title>
+<title>2D-simulator</title>
 <style>
 :root{font-size:17px}
 *{box-sizing:border-box}
@@ -49,12 +49,25 @@ input[type=range]{width:90px;vertical-align:middle}
 .editem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .edsw{width:14px;height:14px;border-radius:3px;border:1px solid #555;flex:none}
 .tip{font-size:.72rem;color:#8c94a4;margin-top:6px;line-height:1.45}
+/* valgt lampe: lysstyrke */
+#lampbox{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#14161bf2;border:2px solid #4a5263;
+  border-radius:10px;padding:12px 14px;z-index:9;display:none;min-width:330px;font-size:.95rem}
+#lampbox.on{display:block}
+#lampbox .row{display:flex;align-items:center;gap:10px;margin:6px 0}
+#lampbox .row>span.k{flex:0 0 84px;color:#b4bcc8}
+#lampbox input[type=range]{flex:1;width:auto;accent-color:#ffb200}
+#lampbox .v{min-width:4.5ch;text-align:right;font-weight:800}
+#lampbox button{font-size:.9rem;padding:.4rem .7rem;min-height:36px}
+a.btn{font-size:.82rem;font-weight:700;color:#f4f6fb;background:#1b1e26;border:1px solid #3a4150;border-radius:7px;
+  padding:.35rem .6rem;text-decoration:none}
+a.btn:hover{border-color:#9aa4b6}
+@media (max-width:600px){#lampbox{min-width:0;left:12px;right:12px;transform:none}}
 </style>
 </head>
 <body>
 <canvas id="stage"></canvas>
 <div id="bar">
-  <div class="grp"><span class="dot" id="dot"></span><b>Simulator</b></div>
+  <div class="grp"><span class="dot" id="dot"></span><b>2D-simulator</b></div>
   <div class="grp mut" id="stat">forbinder…</div>
   <div class="grow"></div>
   <div class="grp">
@@ -65,9 +78,17 @@ input[type=range]{width:90px;vertical-align:middle}
     <button id="tCfg">Indstillinger</button>
     <button id="zIn">+</button><button id="zOut">−</button><button id="zFit">Tilpas</button>
     <button id="tFull">Fuldskærm</button>
+    <a class="btn" href="sim3d" target="_blank" rel="noopener">◳ 3D-simulator</a>
   </div>
 </div>
 <div id="msg"></div>
+<div id="lampbox">
+  <div class="row" style="margin-top:0"><b id="lbName" style="flex:1">Lampe</b><button id="lbClose" aria-label="Luk">✕</button></div>
+  <div class="row"><span class="k">Lysstyrke</span><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
+  <div class="row"><span class="k"></span><button id="lbOn">Tændt</button></div>
+  <div class="tip">Lampens rigtige niveau — det samme som under Pult → Lamper. Tryk på en anden lampe
+    for at vælge den, eller på tom baggrund for at lukke.</div>
+</div>
 
 <div id="cfg">
   <h4>Lys</h4>
@@ -195,7 +216,8 @@ function loadState(){
     var newmods = (s.modules || []).map(function(m, i){
       return { x:m.x, y:m.y, rot:m.rot||0, type:m.type, name:m.name,
                num:(m.num!=null?m.num:String(i+1)),
-               lbl:(m.lbl !== false), lx:m.lx||0, ly:m.ly||0, on:m.on !== false };
+               lbl:(m.lbl !== false), lx:m.lx||0, ly:m.ly||0, on:m.on !== false,
+               level:(m.level == null ? 255 : m.level) };
     });
     var geomChanged = newmods.length !== mods.length ||
       newmods.some(function(m,i){ return !mods[i] || mods[i].x!==m.x || mods[i].y!==m.y || mods[i].type!==m.type; });
@@ -209,6 +231,7 @@ function loadState(){
       for (kk in s.view){ if (V[kk] !== s.view[kk]){ V[kk] = s.view[kk]; changed = true; } }
       if (changed) syncCfgUI();
     }
+    updLampBox();
     glabels = s.group_labels || [];
     /* scene-former fra serveren (delt med Layout) */
     var so = s.stage_objects || [];
@@ -262,6 +285,11 @@ function draw(){
   for (var j=0;j<mods.length;j++){
     var mm = mods[j]; var cc = hexToRgb(px[j]);
     drawBody(sx(mm.x), sy(mm.y), shapes[mm.type] || "par", cc, mm, j);
+  }
+  if (lampSel >= 0 && lampSel < mods.length){
+    var ms = mods[lampSel];
+    g.save(); g.strokeStyle = "#ffb200"; g.lineWidth = 3;
+    g.beginPath(); g.arc(sx(ms.x), sy(ms.y), lampRadius() + 7, 0, 6.283); g.stroke(); g.restore();
   }
   if (V.labels){
     for (var k=0;k<mods.length;k++){
@@ -573,8 +601,10 @@ cv.addEventListener("pointerdown", function(e){
     cv.setPointerCapture(e.pointerId); return;
   }
   if (!opts.edit){
-    /* uden editor: træk hvor som helst panorerer */
-    panDrag = { sx: mx, sy: my, px: panX, py: panY };
+    /* uden editor: tryk på en lampe vælger den (lysstyrke), ellers panorerer træk */
+    var sl = hitLamp(mx, my);
+    if (sl >= 0){ selectLamp(sl); return; }
+    panDrag = { sx: mx, sy: my, px: panX, py: panY, click: true };
     cv.setPointerCapture(e.pointerId); return;
   }
   /* resize-håndtag */
@@ -652,7 +682,11 @@ cv.addEventListener("pointermove", function(e){
   }
 });
 cv.addEventListener("pointerup", function(e){
-  if (panDrag){ panDrag = null; return; }
+  if (panDrag){
+    var pu = evPos(e);
+    if (panDrag.click && Math.abs(pu.x - panDrag.sx) < 4 && Math.abs(pu.y - panDrag.sy) < 4) selectLamp(-1);
+    panDrag = null; return;
+  }
   if (lblDrag){
     var i = lblDrag.i, m = mods[i]; lblDrag = null;
     post({ op:"patch", items:[
@@ -665,6 +699,10 @@ cv.addEventListener("pointerup", function(e){
   if (ED.drag){
     if (ED.drag.type === "lamp"){
       var li = ED.drag.i, mm = mods[li];
+      var pe = evPos(e);
+      if (Math.abs(pe.x - ED.drag.sx) < 4 && Math.abs(pe.y - ED.drag.sy) < 4){
+        selectLamp(li); ED.drag = null; return;           // et tryk uden træk vælger lampen
+      }
       post({ op:"patch", items:[
         { path:["modules", li, "x"], value: mm.x },
         { path:["modules", li, "y"], value: mm.y }
@@ -783,6 +821,38 @@ byId("edFile").onchange = function(){
     try { ED.objs = JSON.parse(r.result); ED.sel = -1; renderEdList(); pushObjs(); } catch(e){}
   }; r.readAsText(f);
 };
+
+/* ---- valgt lampe: lysstyrke og tænd/sluk (lampens rigtige niveau) ---- */
+var lampSel = -1, levelTouch = 0, levelT = null;
+function selectLamp(i){ lampSel = i; updLampBox(); }
+function updLampBox(){
+  var b = byId("lampbox"), m = mods[lampSel];
+  if (!m){ lampSel = -1; b.classList.remove("on"); return; }
+  b.classList.add("on");
+  byId("lbName").textContent = (m.num != null ? m.num : lampSel + 1) + " · " + (m.name || "Lampe");
+  var p = Math.round(m.level / 2.55);
+  if (document.activeElement !== byId("lbLevel") && Date.now() - levelTouch > 800){
+    byId("lbLevel").value = p; byId("lbLevelV").textContent = p + " %";
+  }
+  byId("lbOn").textContent = m.on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
+  byId("lbOn").classList.toggle("on", !!m.on);
+}
+byId("lbLevel").oninput = function(){
+  var i = lampSel, v = Math.round(parseInt(this.value, 10) * 2.55);
+  byId("lbLevelV").textContent = this.value + " %"; levelTouch = Date.now();
+  if (i < 0) return;
+  mods[i].level = v;
+  clearTimeout(levelT);
+  levelT = setTimeout(function(){ post({ op:"patch", items:[{ path:["modules", i, "level"], value: v }] }); }, 60);
+};
+byId("lbOn").onclick = function(){
+  var i = lampSel; if (i < 0) return;
+  mods[i].on = !mods[i].on;
+  post({ op:"patch", items:[{ path:["modules", i, "on"], value: mods[i].on }] });
+  updLampBox();
+};
+byId("lbClose").onclick = function(){ selectLamp(-1); };
+window.addEventListener("keydown", function(e){ if (e.key === "Escape") selectLamp(-1); });
 
 /* ---- start ---- */
 resize(); doAutoFit(); syncCfgUI();
