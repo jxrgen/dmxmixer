@@ -60,7 +60,9 @@ function api(msg, cb) {
     /* Serveren taeller rev op ved hver aendring. Naar aendringen kom fra os
        selv, foelger vi bare med - ellers ville hver eneste faderbevaegelse
        udloese en fuld genopbygning af fladen midt i traekket. */
-    if (d && typeof d.rev === "number") rev = d.rev;
+    /* stale: serveren rettede selv i mere end det vi sendte (fx lampens
+       3D-retning når den drejes) - så hentes showet ved næste poll */
+    if (d && typeof d.rev === "number" && !d.stale) rev = d.rev;
     if (cb) cb(d);
   });
 }
@@ -425,6 +427,8 @@ function initTheme() {
     applyTheme(sel.value); fitTabs();
     if (id("theme-adv").style.display !== "none") buildThemeEditor();
   };
+  var xs = id("set-ctlxfer");
+  if (xs) { xs.value = xferPref(); xs.onchange = function () { xferSetPref(xs.value); }; }
   id("theme-advbtn").onclick = function () {
     var a = id("theme-adv"), open = a.style.display === "none";
     a.style.display = open ? "" : "none";
@@ -2566,11 +2570,63 @@ function ctlPick(c) {
   } else nl = [c];
   nl = CTRL.map(function (x) { return x[0]; }).filter(function (x) { return nl.indexOf(x) >= 0; });
   if (nl.join() === ctlNow().join()) return;
+  /* Enkel eller Afvikling tager over: overtag evt. de farver der lyser nu */
+  var cur0 = ctlNow();
+  var added = nl.filter(function (x) { return (x === "afvikling" || x === "enkel") && cur0.indexOf(x) < 0; });
+  if (added.length && lightIsOn()) {
+    var pref = xferPref();
+    if (pref === "ask") { xferAsk(added, function (tr) { ctlApply(nl, tr); }); return; }
+    ctlApply(nl, pref === "always"); return;
+  }
+  ctlApply(nl, false);
+}
+function ctlApply(nl, transfer) {
   S.control = nl;
   markBusy(); clearBusy();
-  api({ op: "control_set", control: nl });
+  api({ op: "control_set", control: nl, transfer: !!transfer }, transfer ? function () { refresh(); } : null);
   ctlRefresh();
-  toast(nl.length > 1 ? "Nu styrer " + ctlNames(nl) + " sammen" : "Nu styrer " + ctlName(nl[0]) + " lyset");
+  toast((nl.length > 1 ? "Nu styrer " + ctlNames(nl) + " sammen" : "Nu styrer " + ctlName(nl[0]) + " lyset") +
+        (transfer ? " — med farverne der lyste" : ""));
+}
+/* lyser der noget lige nu? (ellers er der ingen farver at overtage) */
+function lightIsOn() {
+  var px = lastFrame || [];
+  for (var i = 0; i < px.length; i++) if (/[1-9a-f]/i.test(px[i] || "")) return true;
+  return false;
+}
+function xferPref() {
+  var v = "ask";
+  try { v = localStorage.getItem("lyspult.ctlxfer") || "ask"; } catch (e) {}
+  return v === "always" || v === "never" ? v : "ask";
+}
+function xferSetPref(v) {
+  try { localStorage.setItem("lyspult.ctlxfer", v); } catch (e) {}
+  var sel = id("set-ctlxfer"); if (sel) sel.value = v;
+}
+function xferAsk(added, done) {
+  var dlg = id("xferdlg"), body = id("xferdlg-body");
+  /* i live-matrixen er den i fuldskærm - dialogen skal ind i den */
+  var host = document.fullscreenElement || document.webkitFullscreenElement || document.body;
+  if (dlg.parentNode !== host) host.appendChild(dlg);
+  var nm = ctlNames(added), from = ctlNames(ctlNow());
+  body.innerHTML = "";
+  body.appendChild(el("div", "rst-lead", nm + " overtager styringen fra " + from + "."));
+  body.appendChild(el("p", "", "Skal " + nm + " starte med de farver, der lyser nu? Så står lyset stille ved skiftet, " +
+    "og du kan rette videre derfra. Ellers viser " + nm + " det, den selv havde."));
+  var lb = el("label", "chk"); var ck = el("input"); ck.type = "checkbox"; ck.id = "xfer-remember";
+  lb.appendChild(ck); lb.appendChild(el("span", "", " Husk mit valg på denne skærm (kan ændres under Indstillinger)"));
+  body.appendChild(lb);
+  var row = el("div", "pal-btn-row");
+  var yes = el("button", "lt-go", "Ja, overtag farverne"), no = el("button", "", "Nej, brug " + nm + "s egne"), cancel = el("button", "ghost", "Fortryd");
+  yes.id = "xfer-yes"; no.id = "xfer-no"; cancel.id = "xfer-cancel";
+  function close() { dlg.className = ""; }
+  yes.onclick = function () { if (ck.checked) xferSetPref("always"); close(); done(true); };
+  no.onclick = function () { if (ck.checked) xferSetPref("never"); close(); done(false); };
+  cancel.onclick = close;
+  row.appendChild(yes); row.appendChild(no); row.appendChild(cancel);
+  body.appendChild(row);
+  dlg.className = "on";
+  setTimeout(function () { yes.focus(); }, 30);
 }
 /* knapperne Pult / Afvikling / Enkel + "Flere". Bruges i topbjælken
    (kun ikoner) og i live-matrixens bjælke (ikon + navn). */
@@ -2686,12 +2742,13 @@ function ctlFrameIn(d) {
 /* ------------------------------------------------------------ Enkel */
 /* Den enkleste styring: én flise pr. lampe. Vælg lamper, tryk på en farve.
    Bag fliserne ligger de samme live-looks som i Afvikling - ét look pr.
-   lampe ("l:<nr>") - så det vises i Afvikling og simulatoren og kan
+   lampe ("e:<nr>") - så det vises i Afvikling og simulatoren og kan
    gemmes som scene. */
 var ekSel = [];
 var ekLevelT = null;
 function ekLook(i) {
-  var ls = (S && S.live && S.live.looks) || [], key = "l:" + i;
+  /* Enkels looks har nøglen e:<lampe> på serveren (Afviklings hedder l:) */
+  var ls = (S && S.live && S.live.looks) || [], key = "e:" + i;
   for (var k = 0; k < ls.length; k++) if (ls[k].key === key) return ls[k];
   return null;
 }
@@ -2702,7 +2759,7 @@ function ekMirror(lamps, values) {
   lamps.forEach(function (i) {
     var lk = ekLook(i);
     if (!lk) {
-      lk = { key: "l:" + i, target: { lamps: [i] }, on: true, level: 255, fade: afGlobalFade(),
+      lk = { key: "e:" + i, src: "enkel", target: { lamps: [i] }, on: true, level: 255, fade: afGlobalFade(),
              pattern: "fyldt", colour_mode: "fast", colour: [255, 120, 40] };
       S.live.looks.push(lk);
     }
@@ -4053,11 +4110,47 @@ function afTitle() {
   if (afSel.length) parts.push(afSel.length + (afSel.length === 1 ? " lampe" : " lamper"));
   return parts.join(" + ");
 }
+/* Afviklings kontrolpanel: øverst altid navnene på det valgte, så
+   sektionerne Mønster og bevægelse / Farve / Lysstyrke i den rækkefølge
+   brugeren har valgt (▲▼ på sektionen - huskes på denne skærm). */
+var AF_SECS = ["moenster", "farve", "lys"];
+var AF_SEC_NAME = { moenster: "Mønster og bevægelse", farve: "Farve", lys: "Lysstyrke" };
+function afOrder() {
+  var o = null;
+  try { o = JSON.parse(localStorage.getItem("lyspult.afOrder")); } catch (e) {}
+  if (!o || !o.length) return AF_SECS.slice();
+  o = o.filter(function (k) { return AF_SECS.indexOf(k) >= 0; });
+  AF_SECS.forEach(function (k) { if (o.indexOf(k) < 0) o.push(k); });
+  return o;
+}
+function afMoveSec(k, d) {
+  var o = afOrder(), i = o.indexOf(k), j = i + d;
+  if (i < 0 || j < 0 || j >= o.length) return;
+  o[i] = o[j]; o[j] = k;
+  try { localStorage.setItem("lyspult.afOrder", JSON.stringify(o)); } catch (e) {}
+  buildAfCtrl();
+}
+/* navnene på de valgte grupper og lamper */
+function afNames() {
+  var w = el("div", "af-names");
+  afSelG.forEach(function (gid) {
+    var g = groupById(gid); if (!g) return;
+    var c = el("span", "nchip g", g.name || "Gruppe");
+    c.title = groupLeaves(gid).map(function (i) { return S.modules[i] ? S.modules[i].name : ""; }).join(", ");
+    w.appendChild(c);
+  });
+  afSel.forEach(function (i) {
+    var m = S.modules[i]; if (!m) return;
+    w.appendChild(el("span", "nchip", (m.num != null && m.num !== "" ? m.num : i + 1) + " · " + (m.name || "Lampe")));
+  });
+  return w;
+}
 function buildAfCtrl() {
-  var box = id("af-ctrl"); if (!box) return; box.innerHTML = "";
+  var root = id("af-ctrl"); if (!root) return; root.innerHTML = "";
+  var box = root;
   var info = id("af-selinfo");
-  afGlobalRow(box);
   if (!afHasSel()) {
+    afGlobalRow(box);
     if (info) info.innerHTML = "";
     box.appendChild(el("div", "af-empty", "Vælg en lampe eller en gruppe — i oversigten, eller i gruppe-kolonnen ved siden af. Tasterne 1–9 og 0 vælger en gruppe direkte."));
     return;
@@ -4066,7 +4159,9 @@ function buildAfCtrl() {
   var tgt = afTarget(), nlamps = tgt.group ? groupLeaves(tgt.group).length : (tgt.lamps || []).length;
   if (info) info.innerHTML = "Styrer <b>" + afTitle() + "</b> — " + nlamps + (nlamps === 1 ? " lampe" : " lamper");
 
-  /* top: navn + tænd/sluk + fjern */
+  /* top: navnene + tænd/sluk + fjern - står altid øverst */
+  var head = el("div", "af-head");
+  head.appendChild(afNames());
   var top = el("div", "af-toprow");
   top.appendChild(el("span", "big", afTitle()));
   var onb = el("button", afDraft.on ? "on" : "", afDraft.on ? "Tændt" : "Slukket");
@@ -4081,9 +4176,29 @@ function buildAfCtrl() {
   clr.title = "Fjern dette looks styring";
   clr.onclick = function () { api({ op: "live_del", key: lookKeyOf(afTarget()) }, function () { refresh(function () { afDraft = afDefaultDraft(); buildAfCtrl(); drawAfStage(); }); }); };
   top.appendChild(clr);
-  box.appendChild(top);
+  head.appendChild(top);
+  root.appendChild(head);
+  afGlobalRow(root);
+
+  /* sektionerne bygges hver for sig og sættes ind i brugerens rækkefølge */
+  var secs = {};
+  function sec(k) {
+    var b = el("div", "af-block"); b.setAttribute("data-sec", k);
+    var h = el("div", "af-sec af-sech");
+    h.appendChild(el("span", "t", AF_SEC_NAME[k]));
+    var up = el("button", "sm af-mv", "▲"), dn = el("button", "sm af-mv", "▼");
+    up.title = "Flyt " + AF_SEC_NAME[k] + " op"; dn.title = "Flyt " + AF_SEC_NAME[k] + " ned";
+    up.setAttribute("aria-label", up.title); dn.setAttribute("aria-label", dn.title);
+    up.onclick = function () { afMoveSec(k, -1); };
+    dn.onclick = function () { afMoveSec(k, 1); };
+    h.appendChild(up); h.appendChild(dn);
+    b.appendChild(h);
+    secs[k] = b;
+    return b;
+  }
 
   /* niveau + overgangstid */
+  box = sec("lys");
   var lv = el("div", "af-row");
   lv.appendChild(el("span", "k", "Lysstyrke"));
   var lvi = document.createElement("input"); lvi.type = "range"; lvi.min = 0; lvi.max = 255; lvi.value = afDraft.level;
@@ -4116,7 +4231,7 @@ function buildAfCtrl() {
     "Tiden hører til dette valg og huskes, når du vælger gruppen igen."));
 
   /* farve */
-  box.appendChild(el("div", "af-sec", "Farve"));
+  box = sec("farve");
   var pb = el("div", "af-pickbtns");
   [["felt", "Farvefelt"], ["skydere", "Skydere"], ["palet", "Paletter"]].forEach(function (o) {
     var b = el("button", "sm", o[1]); press(b, afPicker === o[0]);
@@ -4134,7 +4249,7 @@ function buildAfCtrl() {
   else afBuildSwatches(box, chip);
 
   /* mønster m.m. */
-  box.appendChild(el("div", "af-sec", "Mønster og bevægelse"));
+  box = sec("moenster");
   var pr = el("div", "af-row");
   pr.appendChild(el("span", "k", "Mønster"));
   var ps = el("select");
@@ -4198,6 +4313,13 @@ function buildAfCtrl() {
     afRow(box, "Farvefart", 0, 100, afDraft.hue_speed, function (v) { afDraft.hue_speed = v; throttledLive("hue_speed", { hue_speed: v }); });
     afRow(box, "Farvebredde", 0, 200, afDraft.hue_spread, function (v) { afDraft.hue_spread = v; throttledLive("hue_spread", { hue_spread: v }); });
   }
+  var order = afOrder();
+  order.forEach(function (k, n) {
+    var b = secs[k]; if (!b) return;
+    var mv = b.getElementsByClassName("af-mv");
+    mv[0].disabled = n === 0; mv[1].disabled = n === order.length - 1;
+    root.appendChild(b);
+  });
 }
 function afGlobalRow(box) {
   var w = el("div", "af-global");
@@ -6275,7 +6397,7 @@ function wire() {
   H.rot = localPair(id("lay-rot"), id("lay-rot-v"), function (v) {
     if (!S || !S.modules[lastMod]) return;
     S.modules[lastMod].rot = v; drawStage();
-    markBusy(); setv(["modules", lastMod, "rot"], v);
+    markBusy(); clearBusy(); setv(["modules", lastMod, "rot"], v);
   });
   id("lay-auto").onclick = function () { api({ op: "autolayout" }, function () { refresh(drawStage); }); };
   id("lay-grid").onclick = function () {

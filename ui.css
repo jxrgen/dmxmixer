@@ -1266,3 +1266,29 @@ html.nogap #lv-ctl>*,html.nogap #lv-ctl .cb-ctrls>*{margin-right:6px}
   #lv-ctl{-webkit-flex:1 1 100%;flex:1 1 100%;-webkit-flex-wrap:wrap;flex-wrap:wrap;order:1}
   #livebar #lv-ctl .cb-btn{padding:5px 8px;font-size:13px}
 }
+
+/* Overtag farverne ved skift af styring */
+#xferdlg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:950;
+  -webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;padding:16px}
+#xferdlg.on{display:-webkit-flex;display:flex}
+#xferdlg p{font-size:15px;line-height:1.5;margin:6px 0 12px}
+#xferdlg label.chk{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;font-size:14px;margin:4px 0 14px}
+#xferdlg label.chk input{width:20px;height:20px}
+#xferdlg .pal-btn-row{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:8px}
+#xferdlg .pal-btn-row button{min-height:46px;font-size:15px;padding:8px 14px}
+
+/* Afvikling: navnene på det valgte øverst, sektioner der kan byttes om */
+.af-head{position:-webkit-sticky;position:sticky;top:0;z-index:3;background:var(--panel2);
+  margin:-12px -12px 10px;padding:12px 12px 2px;border-bottom:2px solid var(--rule)}
+.af-names{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:6px;margin-bottom:9px;
+  max-height:112px;overflow-y:auto}
+html.nogap .af-names>*{margin:0 6px 6px 0}
+.nchip{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--panel);
+  border:2px solid var(--rule);border-radius:6px;padding:3px 8px;line-height:1.3}
+.nchip.g{border-color:var(--accent);color:var(--accent)}
+.af-block{margin-top:4px}
+.af-sech{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:6px}
+.af-sech .t{-webkit-flex:1 1 auto;flex:1 1 auto}
+.af-sech .af-mv{min-height:30px;min-width:34px;padding:2px 8px;font-size:13px;letter-spacing:0}
+html.nogap .af-sech>*{margin-right:6px}
+.af-block>.af-sech{border-top:1px solid var(--rule);padding-top:10px;margin-top:14px}

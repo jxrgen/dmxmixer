@@ -92,8 +92,10 @@ a.btn:hover{border-color:#9aa4b6}
   <div class="row" style="margin-top:0"><b id="lbName" style="flex:1">Lampe</b><button id="lbClose" aria-label="Luk">✕</button></div>
   <div class="row"><span class="k">Lysstyrke</span><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
   <div class="row"><span class="k"></span><button id="lbOn">Tændt</button></div>
-  <div class="tip">Lampens rigtige niveau — det samme som under Pult → Lamper. Tryk på en anden lampe
-    for at vælge den, eller på tom baggrund for at lukke.</div>
+  <div class="row"><span class="k">Drejet</span><input type="range" id="lbRot" min="-180" max="180" step="1"><span class="v" id="lbRotV"></span></div>
+  <div class="tip">Lampens rigtige niveau — det samme som under Pult → Lamper. <b>Drejet</b> er den samme
+    drejning som i Layout og 3D-simulatoren. Tryk på en anden lampe for at vælge den, eller på tom
+    baggrund for at lukke.</div>
 </div>
 
 <div id="cfg">
@@ -930,7 +932,19 @@ function updLampBox(){
   }
   byId("lbOn").textContent = m.on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
   byId("lbOn").classList.toggle("on", !!m.on);
+  if (document.activeElement !== byId("lbRot") && Date.now() - rotTouch > 900){
+    byId("lbRot").value = Math.round(m.rot || 0); byId("lbRotV").textContent = Math.round(m.rot || 0) + "°";
+  }
 }
+var rotTouch = 0, rotT = null;
+byId("lbRot").oninput = function(){
+  var i = lampSel, v = parseInt(this.value, 10);
+  byId("lbRotV").textContent = v + "°"; rotTouch = Date.now();
+  if (i < 0) return;
+  mods[i].rot = v;
+  clearTimeout(rotT);
+  rotT = setTimeout(function(){ post({ op:"patch", items:[{ path:["modules", i, "rot"], value: v }] }); }, 80);
+};
 byId("lbLevel").oninput = function(){
   var i = lampSel, v = Math.round(parseInt(this.value, 10) * 2.55);
   byId("lbLevelV").textContent = this.value + " %"; levelTouch = Date.now();

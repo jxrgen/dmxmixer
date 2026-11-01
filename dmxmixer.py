@@ -753,12 +753,13 @@ def lamptest_channels(prof, step):
 #  den lodrette akse. Lampernes hoejde og retning ligger paa lamperne
 #  ("z" og "aim" = [x, y, z]); mangler de, regner 3D-siden dem selv ud.
 ROOM3D_KINDS = ("stage", "box", "wall", "cyl", "truss", "person", "drums", "amp",
-                "speaker", "mic", "keys", "model")
+                "speaker", "mic", "keys", "curtain", "model")
 ROOM3D_SIZE = {   # standardmaal (b, d, h) naar en ting saettes ind
     "stage": (6.0, 3.0, 0.5), "box": (1.0, 1.0, 1.0), "wall": (4.0, 0.2, 3.0),
     "cyl": (0.6, 0.6, 1.0), "truss": (6.0, 0.3, 0.3), "person": (0.5, 0.3, 1.8),
     "drums": (2.0, 1.6, 1.1), "amp": (0.7, 0.35, 0.6), "speaker": (0.6, 0.5, 1.0),
-    "mic": (0.3, 0.3, 1.6), "keys": (1.3, 0.5, 1.0), "model": (1.0, 1.0, 1.0)}
+    "mic": (0.3, 0.3, 1.6), "keys": (1.3, 0.5, 1.0), "curtain": (6.0, 0.25, 4.0),
+    "model": (1.0, 1.0, 1.0)}
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -783,7 +784,60 @@ def default_room3d():
             o(8, "amp", "Basforstærker", 2.6, 1.8, 0.5, "#24262b", w=0.8, h=1.0),
             o(9, "truss", "Fronttravers", 0.0, -2.6, 4.55, "#9aa0a8", w=7.0),
         ],
+        "groups": [],
     }
+
+
+def lamp_auto_target(show, mod):
+    """Punktet en lampe uden fast retning peger paa i 3D-simulatoren
+    (samme regel som lampAim i sim3d.html)."""
+    objs = (show.get("room3d") or {}).get("objects") or []
+    st = next((o for o in objs if o.get("kind") == "stage"), None)
+    if st:
+        cx, cy, cz = st["x"], st["y"] - 0.4, st["z"] + st["h"] + 1.0
+    else:
+        cx, cy, cz = 0.0, 0.4, 1.5
+    return (mod.get("x", 0.0) * 0.6 + cx * 0.4, cy, cz)
+
+
+def sync_lamp_dirs(show, paths):
+    """Holder lampens drejning i 2D (rot, grader i planet) og retningen i 3D
+    (aim = punktet den peger paa) sammen. Drejes lampen i Layout, svinger
+    3D-retningen med (samme haeldning); peges den et nyt sted hen i 3D - eller
+    flyttes en lampe der peger paa et fast punkt - foelger drejningen med.
+    Kaldes efter set/patch; True hvis der blev rettet i noget ud over det
+    klienten selv sendte."""
+    touched = {}
+    for p in paths:
+        if isinstance(p, (list, tuple)) and len(p) == 3 and p[0] == "modules":
+            touched.setdefault(p[1], set()).add(p[2])
+    mods = show.get("modules") or []
+    changed = False
+    for i, keys in touched.items():
+        if not isinstance(i, int) or not (0 <= i < len(mods)):
+            continue
+        mod = mods[i]
+        aim = mod.get("aim")
+        fixed = isinstance(aim, (list, tuple)) and len(aim) == 3 and \
+            all(isinstance(v, (int, float)) for v in aim)
+        x, y = float(mod.get("x", 0.0)), float(mod.get("y", 0.0))
+        if "rot" in keys and "aim" not in keys:
+            tx, ty, tz = aim if fixed else lamp_auto_target(show, mod)
+            hd = math.hypot(tx - x, ty - y)
+            if hd < 0.05:
+                continue
+            a = math.radians(float(mod.get("rot", 0.0)))
+            mod["aim"] = [round(x + hd * math.cos(a), 2), round(y + hd * math.sin(a), 2), round(tz, 2)]
+            changed = True
+        elif keys & {"aim", "x", "y"} and "rot" not in keys and fixed and mod.get("pixels", 1) <= 1:
+            hd = math.hypot(aim[0] - x, aim[1] - y)
+            if hd < 0.05:
+                continue
+            rot = round(math.degrees(math.atan2(aim[1] - y, aim[0] - x)), 1)
+            if abs(rot - float(mod.get("rot", 0.0))) > 0.05:
+                mod["rot"] = rot
+                changed = True
+    return changed
 
 
 def clean_room3d(src):
@@ -826,6 +880,8 @@ def clean_room3d(src):
              "z": num(ob.get("z"), -10, 50, 0.0), "rot": num(ob.get("rot"), -360, 360, 0.0),
              "w": num(ob.get("w"), 0.02, 100, w), "d": num(ob.get("d"), 0.02, 100, d),
              "h": num(ob.get("h"), 0.02, 100, h), "color": col(ob.get("color"), "#808080")}
+        if ob.get("grp"):
+            c["grp"] = str(ob["grp"])[:24]
         if kind == "model":
             f = os.path.basename(str(ob.get("file") or ""))
             if not re.match(r"^[\w\- ]+\.(glb|gltf)$", f, re.UNICODE):
@@ -833,7 +889,33 @@ def clean_room3d(src):
             c["file"] = f
             c["scale"] = num(ob.get("scale"), 0.001, 1000, 1.0)
         objs.append(c)
-    return {"room": room, "objects": objs}
+    # grupper af ting, der flyttes samlet: [{id, name}] - kun dem der bruges
+    groups, gseen = [], set()
+    for g in (src.get("groups") if isinstance(src.get("groups"), list) else [])[:100]:
+        if not isinstance(g, dict) or not g.get("id"):
+            continue
+        gid = str(g["id"])[:24]
+        if gid in gseen:
+            continue
+        gseen.add(gid)
+        groups.append({"id": gid, "name": str(g.get("name") or "Gruppe")[:40]})
+    used = set(o.get("grp") for o in objs if o.get("grp"))
+    groups = [g for g in groups if g["id"] in used]
+    known = set(g["id"] for g in groups)
+    for o in objs:
+        if o.get("grp") and o["grp"] not in known:
+            if sum(1 for q in objs if q.get("grp") == o["grp"]) > 1:
+                groups.append({"id": o["grp"], "name": "Gruppe"})
+                known.add(o["grp"])
+            else:
+                del o["grp"]
+    for g in groups:                        # en gruppe skal have mindst to ting
+        if sum(1 for o in objs if o.get("grp") == g["id"]) < 2:
+            for o in objs:
+                if o.get("grp") == g["id"]:
+                    del o["grp"]
+    groups = [g for g in groups if any(o.get("grp") == g["id"] for o in objs)]
+    return {"room": room, "objects": objs, "groups": groups}
 
 
 def default_show(n_modules=20, n_layers=6):
@@ -1758,6 +1840,31 @@ class Engine:
                              "name": prof.get("name", lt["type"])}
 
     # -- visning -------------------------------------------------------
+    def snapshot_colours(self):
+        """Hver lampes farve og lysstyrke, som styringerne viser den lige nu -
+        uden grand, blackout, strobe og lampernes egne niveauer (de virker
+        stadig bagefter). [(rgb normaliseret til 255, niveau 0..255), ...]"""
+        show = self.show
+        if show["master"].get("freeze") and self.pixels:
+            px = self.pixels
+        else:
+            mst = dict(show["master"], grand=255, blackout=False, strobe=0)
+            full = [{"on": True, "level": 255} for _ in show["modules"]]
+            px = self.render(time.monotonic() - self.t0, master=mst, levels=full, beats=self.beats)
+        out = []
+        for mi in range(len(show["modules"])):
+            row = px[mi] if mi < len(px) else []
+            if not row:
+                out.append(([0, 0, 0], 0))
+                continue
+            avg = [sum(p[c] for p in row) / float(len(row)) for c in range(3)]
+            mx = max(avg)
+            if mx <= 0:
+                out.append(([0, 0, 0], 0))
+                continue
+            out.append(([int(round(v * 255.0 / mx)) for v in avg], int(round(mx))))
+        return out
+
     def display(self, pixels):
         """Hvad skaermen skal vise: firmwarens gamma og stroembegraensning,
         derefter tilbage til sRGB saa gammaen ikke rammer to gange."""
@@ -2860,11 +2967,12 @@ class Handler(BaseHTTPRequestHandler):
                 for k in p[:-1]:
                     ref = ref[k]
                 ref[p[-1]] = m["value"]
+                stale = sync_lamp_dirs(show, [p])
                 if p[0] in ("modules", "settings"):
                     eng.touch()
                 else:
                     eng.rev += 1
-                return {"ok": True}
+                return {"ok": True, "stale": True} if stale else {"ok": True}
 
             if op == "patch":
                 # flere vaerdier paa én gang
@@ -2873,8 +2981,9 @@ class Handler(BaseHTTPRequestHandler):
                     for k in item["path"][:-1]:
                         ref = ref[k]
                     ref[item["path"][-1]] = item["value"]
+                stale = sync_lamp_dirs(show, [it["path"] for it in m["items"]])
                 eng.touch()
-                return {"ok": True}
+                return {"ok": True, "stale": True} if stale else {"ok": True}
 
             if op == "wizard_resume":
                 # Hent den autogemte guide (med rig og scener) ind igen
@@ -3371,12 +3480,31 @@ class Handler(BaseHTTPRequestHandler):
                 ctl = clean_control(m.get("control"))
                 if not ctl:
                     return {"ok": False, "err": "vælg mindst én styring"}
-                if ctl != control_of(show):
+                old = control_of(show)
+                took = []
+                if m.get("transfer"):
+                    # Overtag farverne der lyser nu: de nye styringer (Enkel /
+                    # Afvikling) faar ét fast look pr. lampe med lampens farve
+                    # og lysstyrke lige nu - saa billedet staar stille ved skiftet.
+                    took = [c for c in ctl if c in ("afvikling", "enkel") and c not in old]
+                    if took:
+                        snap = eng.snapshot_colours()
+                        for c in took:
+                            show["live"]["looks"] = [lk for lk in show["live"]["looks"] if look_src(lk) != c]
+                        for i, (rgb, lvl) in enumerate(snap):
+                            for c in took:
+                                if lvl < 3:
+                                    fields = {"on": False}
+                                else:
+                                    fields = {"on": True, "level": lvl, "colour": rgb,
+                                              "pattern": "fyldt", "colour_mode": "fast"}
+                                live_apply(show, {"lamps": [i]}, fields, None, src=c)
+                if ctl != old:
                     # krydsfade med standard-overgangstiden, saa skiftet ikke klipper
                     eng.start_fade(float(show["live"].get("fade", 1.0) or 0))
                     show["control"] = ctl
                 eng.rev += 1
-                return {"ok": True, "control": ctl}
+                return {"ok": True, "control": ctl, "took": took}
 
             if op == "live_on":
                 lk = None

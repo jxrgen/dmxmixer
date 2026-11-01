@@ -52,7 +52,12 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
 #cfg{top:60px;right:12px;width:330px;display:none}
 #cfg.on{display:block}
 #side{top:60px;left:12px;bottom:12px;width:360px;display:none;overflow-y:auto}
-#side.on{display:block}
+#side.on{display:flex;flex-direction:column}
+#side>.tabs{flex:none}
+/* lampelisten fylder den plads, der er - editoren står under den */
+#pgLamps{display:flex;flex:1 1 auto;min-height:0;flex-direction:column}
+#lampList{flex:1 1 auto;max-height:none;min-height:max(200px,36vh)}
+#lampEd{flex:none}
 .tabs{display:flex;gap:6px;margin-bottom:8px}
 .tabs button{flex:1;justify-content:center}
 .list{max-height:220px;overflow-y:auto;border:2px solid #2c313c;border-radius:7px}
@@ -62,6 +67,11 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
 .item .sw{width:16px;height:16px;border-radius:4px;border:1px solid #666;flex:none}
 .item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item .no{color:var(--mut);font-weight:800;min-width:2.2ch}
+.item.grp{background:#1b1e26;font-weight:800}
+.item.grp .nm::before{content:"▣ ";color:var(--acc)}
+.item.mem{padding-left:26px}
+.item.msel{background:#24314a;outline:2px dashed var(--acc);outline-offset:-2px}
+.item .ct{color:var(--mut);font-size:.85rem;font-weight:700}
 .cat{display:flex;flex-wrap:wrap;gap:6px}
 .cat button{font-size:.85rem}
 .hint{color:var(--mut);font-size:.85rem;line-height:1.45;margin-top:8px}
@@ -77,6 +87,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
   white-space:nowrap;pointer-events:none}
 #nogl{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
   font-size:1.1rem;line-height:1.5}
+#bar .edonly{display:none}
+#bar.editing .edonly{display:inline-flex}
 @media (max-width:760px){#side{width:auto;right:12px;top:auto;height:55vh}#cfg{left:12px;width:auto}
   #lampbox{min-width:0;left:12px;right:12px;transform:none}}
 </style>
@@ -101,6 +113,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
   <button id="tShadows" title="Skygger fra op til 8 lamper (kræver en hurtig computer)">Skygger</button>
   <span class="sep"></span>
   <button id="tEdit">Rediger</button>
+  <button id="tUndo" class="edonly" title="Fortryd sidste flytning (Ctrl+Z)" disabled>↶ Fortryd</button>
+  <button id="tRedo" class="edonly" title="Gentag (Ctrl+Y)" disabled>↷ Gentag</button>
   <button id="tCfg">Indstillinger</button>
   <button id="tFull">Fuldskærm</button>
   <a class="btn" href="sim" target="_blank" rel="noopener">◱ 2D-simulator</a>
@@ -130,14 +144,17 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
       <h4 id="leName">Lampe</h4>
       <div class="row"><label for="leLevel">Lysstyrke</label><input type="range" id="leLevel" min="0" max="100"><span class="v" id="leLevelV"></span></div>
       <div class="row"><span class="k"></span><button id="leOn">Tændt</button></div>
+      <div class="row"><span class="k">Træk</span><button id="lmMove" class="on">Flyt</button><button id="lmRot">Drej</button></div>
       <div class="row"><label for="leX">Til siden</label><input type="number" id="leX" step="0.1"> m</div>
       <div class="row"><label for="leY">Ind/ud</label><input type="number" id="leY" step="0.1"> m</div>
       <div class="row"><label for="leZ">Højde</label><input type="number" id="leZ" step="0.1" min="0"> m</div>
+      <div class="row"><label for="leRot">Drejet</label><input type="number" id="leRot" step="5"> ° <span class="mut">(som i 2D)</span></div>
       <div class="row"><span class="k">Retning</span><button id="leAim">Peg på…</button><button id="leAuto">Automatisk</button></div>
       <div class="hint" id="leAimTxt"></div>
-      <div class="hint">Træk i pilene på lampen for at flytte den. <b>Peg på…</b>: klik derefter på det sted
-        i rummet, lampen skal lyse på — fx en person eller et punkt på scenen.
-        Lysstyrken er lampens rigtige niveau (det samme som under Pult → Lamper).</div>
+      <div class="hint"><b>Flyt</b>: træk i pilene. <b>Drej</b>: træk i ringene. <b>Peg på…</b>: klik derefter
+        på det sted i rummet, lampen skal lyse på — fx en person eller et punkt på scenen.
+        Drejningen er den samme som i Layout og 2D-simulatoren: drejer du her, drejer den
+        også dér, og omvendt. Lysstyrken er lampens rigtige niveau (som under Pult → Lamper).</div>
     </div>
   </div>
 
@@ -147,8 +164,19 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
       <button id="obImport">Hent 3D-model (.glb)…</button>
       <input type="file" id="obFile" accept=".glb,.gltf" style="display:none">
     </div>
-    <h4>I rummet</h4>
+    <h4>I rummet <span class="mut" style="font-weight:400">Shift+klik vælger flere</span></h4>
     <div class="list" id="objList"></div>
+    <div id="grpEd" style="display:none">
+      <h4 id="geTitle">Gruppe</h4>
+      <div class="row" id="geNameRow"><label for="geName">Navn</label><input type="text" id="geName" style="flex:1;width:auto"></div>
+      <div class="row"><span class="k">Træk</span>
+        <button id="gmMove" class="on">Flyt</button><button id="gmRot">Drej</button><button id="gmScale">Størrelse</button></div>
+      <div class="row" id="geMultiRow"><span class="k"></span><button id="geGroup">Gruppér dem</button></div>
+      <div class="row" id="geGrpRow"><span class="k"></span><button id="geUngroup">Opløs gruppe</button>
+        <button id="geDup">Kopiér</button></div>
+      <div class="row"><span class="k"></span><button id="geDel" class="bad">Slet</button></div>
+      <div class="hint" id="geHint"></div>
+    </div>
     <div id="objEd" style="display:none">
       <h4 id="oeTitle">Ting</h4>
       <div class="row"><label for="oeName">Navn</label><input type="text" id="oeName" style="flex:1;width:auto"></div>
@@ -257,6 +285,14 @@ function resize() {
 }
 window.addEventListener("resize", resize);
 resize();
+/* panelerne starter under bjælken - den kan blive to linjer på en smal skærm */
+function fitPanels() {
+  const h = $("bar").offsetHeight + 6;
+  for (const id of ["side", "cfg"]) if (window.innerWidth > 760 || id === "cfg") $(id).style.top = h + "px";
+  $("toast").style.top = h + 4 + "px"; $("msg").style.top = h + 4 + "px";
+}
+window.addEventListener("resize", fitPanels);
+fitPanels();
 
 /* ----------------------------------------------------------------- server */
 async function getJSON(u) { const r = await fetch(u, { cache: "no-store" }); return r.json(); }
@@ -370,6 +406,26 @@ const BUILD = {
     g.add(box(1.2, 0.02, 0.16, mat("#f2f0ea", 0.4), 0, 0.98, 0.09));
     return [g, [1.3, 0.5, 1.0]];
   },
+  curtain(o) {
+    /* scenetæppe: let bølget stof, bygget i fuld størrelse så folderne ikke strækkes.
+       d = hvor dybe folderne er; en fold for hver ca. 40 cm */
+    const g = new T.Group(), W = o.w, H = o.h, amp = Math.max(0.01, o.d * 0.4);
+    const n = Math.max(2, Math.round(W / 0.4)), seg = Math.min(600, n * 12);
+    const geo = new T.PlaneGeometry(W, H, seg, 8);
+    const pos = geo.attributes.position;
+    for (let k = 0; k < pos.count; k++) {
+      const x = pos.getX(k), y = pos.getY(k), t = (x + W / 2) / W;
+      const sway = 1 + 0.25 * Math.sin(t * 7.1 + 1.3);                 // folderne er ikke helt ens
+      const loose = 0.85 + 0.15 * ((H / 2 - y) / H);                    // lidt mere fylde forneden
+      pos.setZ(k, amp * sway * loose * Math.sin(t * n * Math.PI * 2));
+    }
+    geo.computeVertexNormals();
+    const cloth = new T.MeshStandardMaterial({ color: new T.Color(o.color), roughness: 0.96, metalness: 0, side: T.DoubleSide });
+    const m = new T.Mesh(geo, cloth); m.position.y = H / 2; g.add(m);
+    const rail = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, W, 8), mat("#2a2c30", 0.4, 0.7));
+    rail.rotation.z = Math.PI / 2; rail.position.y = H + 0.02; g.add(rail);
+    return [g, [o.w, o.d, o.h]];
+  },
   truss(o) {
     /* bygges i fuld længde, så stiverne ikke strækkes, når traversen gøres længere */
     const g = new T.Group(), m = mat(o.color, 0.35, 0.85), L = o.w, s = 0.3, r = 0.012;
@@ -440,10 +496,15 @@ function syncObjects(objs) {
     objGroup.add(node);
     objMap[o.id] = { node, sig };
     if (S.sel && S.sel.type === "obj" && S.sel.id === o.id) attachSel();
+    else if (S.sel && (S.sel.type === "grp" || S.sel.type === "multi") && !S.dragging && selObjIds().indexOf(o.id) >= 0) S._reattach = true;
   }
+  if (S._reattach) { S._reattach = false; attachSel(); }
   for (const id in objMap) if (!keep[id]) {
     objGroup.remove(objMap[id].node); delete objMap[id];
     if (S.sel && S.sel.type === "obj" && S.sel.id === id) select(null);
+    else if (S.sel && S.sel.type === "multi" && S.sel.ids.indexOf(id) >= 0) {
+      const rest = S.sel.ids.filter((x) => x !== id); select(rest.length ? { type: "multi", ids: rest } : null);
+    }
   }
 }
 
@@ -591,34 +652,111 @@ orbit.addEventListener("end", saveCam);
 function select(sel) {
   S.sel = sel;
   attachSel();
-  updLampList(); updLampEd(); updObjList(); updObjEd();
+  updLampList(); updLampEd(); updObjList(); updObjEd(); updGrpEd();
 }
+/* de ting et valg omfatter: én ting, en gruppe eller flere valgte */
+function selObjIds(sel) {
+  sel = sel || S.sel;
+  if (!sel) return [];
+  if (sel.type === "obj") return [sel.id];
+  if (sel.type === "grp") return ((S.room && S.room.objects) || []).filter((o) => o.grp === sel.id).map((o) => o.id);
+  if (sel.type === "multi") return sel.ids.slice();
+  return [];
+}
+/* gruppe/flere: ét håndtag (pivot) midt under tingene, som de følger */
+const pivot = new T.Object3D(); scene.add(pivot);
+let pivotStart = null;
 function attachSel() {
-  tc.detach();
+  tc.detach(); pivotStart = null;
   if (!S.edit || !S.sel) return;
   if (S.sel.type === "lamp" && lamps[S.sel.i]) {
-    tc.setMode("translate"); tc.showX = tc.showY = tc.showZ = true;
+    const rot = S.lampMode === "rotate";
+    tc.setMode(rot ? "rotate" : "translate"); tc.showX = tc.showY = tc.showZ = true;
     tc.attach(lamps[S.sel.i].group);
   } else if (S.sel.type === "obj" && objMap[S.sel.id]) {
     tc.attach(objMap[S.sel.id].node);
+    setTcMode(S.tcMode || "translate");
+  } else if (S.sel.type === "grp" || S.sel.type === "multi") {
+    const ids = selObjIds().filter((id) => objMap[id] && objById(id));
+    if (!ids.length) return;
+    const os = ids.map(objById);
+    const cx = os.reduce((a, o) => a + o.x, 0) / os.length, cy = os.reduce((a, o) => a + o.y, 0) / os.length;
+    const cz = Math.min.apply(null, os.map((o) => o.z));
+    pivot.position.copy(P(cx, cy, cz)); pivot.rotation.set(0, 0, 0); pivot.scale.set(1, 1, 1);
+    pivot.updateMatrixWorld();
+    pivotStart = { p: pivot.position.clone(), objs: os.map((o) => Object.assign({}, o)) };
+    tc.attach(pivot);
     setTcMode(S.tcMode || "translate");
   }
 }
 function setTcMode(md) {
   S.tcMode = md;
-  if (!(S.sel && S.sel.type === "obj")) return;
+  const isObj = S.sel && (S.sel.type === "obj" || S.sel.type === "grp" || S.sel.type === "multi");
+  ["tmMove", "tmRot", "tmScale"].forEach((b, k) => $(b).classList.toggle("on", ["translate", "rotate", "scale"][k] === md));
+  ["gmMove", "gmRot", "gmScale"].forEach((b, k) => $(b).classList.toggle("on", ["translate", "rotate", "scale"][k] === md));
+  if (!isObj) return;
   tc.setMode(md);
   tc.showX = tc.showZ = md !== "rotate"; tc.showY = true;
-  ["tmMove", "tmRot", "tmScale"].forEach((b, k) => $(b).classList.toggle("on", ["translate", "rotate", "scale"][k] === md));
 }
+/* gruppens/de valgtes træk: beregn hver tings nye plads ud fra håndtaget */
+function groupScaleNow() {
+  const sc = pivot.scale, d = [sc.x, sc.y, sc.z].map((v) => v - 1);
+  let k = 0; for (let j = 1; j < 3; j++) if (Math.abs(d[j]) > Math.abs(d[k])) k = j;
+  return Math.max(0.05, 1 + d[k]);
+}
+function groupApply(bake) {
+  if (!pivotStart) return;
+  const s = groupScaleNow(), dr = pivot.rotation.y, p0 = pivotStart.p, p1 = pivot.position;
+  const cos = Math.cos(dr), sin = Math.sin(dr);
+  for (const o0 of pivotStart.objs) {
+    const v = P(o0.x, o0.y, o0.z).sub(p0).multiplyScalar(s);
+    const nx = v.x * cos + v.z * sin, nz = -v.x * sin + v.z * cos;     // drej om lodret akse (three: y)
+    const np = new T.Vector3(p1.x + nx, p1.y + v.y, p1.z + nz);
+    const rot = o0.rot + dr / DEG;
+    if (bake) {
+      const o = objById(o0.id); if (!o) continue;
+      o.x = r2(np.x); o.y = r2(-np.z); o.z = r2(np.y);
+      o.rot = Math.round((((rot + 180) % 360 + 360) % 360 - 180) * 10) / 10;
+      if (s !== 1) {
+        if (o.kind === "model") o.scale = r3(Math.max(0.001, (o0.scale || 1) * s));
+        else { o.w = r2(Math.max(0.02, o0.w * s)); o.d = r2(Math.max(0.02, o0.d * s)); o.h = r2(Math.max(0.02, o0.h * s)); }
+      }
+      if (objMap[o.id]) objMap[o.id].sig = "";
+    } else if (objMap[o0.id]) {
+      const n = objMap[o0.id].node;
+      n.position.copy(np); n.rotation.y = rot * DEG; n.scale.setScalar(s);
+    }
+  }
+}
+let pendingSnap = null;
+tc.addEventListener("mouseDown", () => { pendingSnap = snap(); });
 tc.addEventListener("mouseUp", () => {
   const sel = S.sel; if (!sel) return;
   if (sel.type === "lamp") {
-    const g = lamps[sel.i].group, m = S.mods[sel.i];
-    m.x = r2(g.position.x); m.y = r2(-g.position.z); m.z = r2(Math.max(0, g.position.y));
-    post({ op: "patch", items: [{ path: ["modules", sel.i, "x"], value: m.x },
-      { path: ["modules", sel.i, "y"], value: m.y }, { path: ["modules", sel.i, "z"], value: m.z }] });
-    placeLamp(lamps[sel.i], m); updLampEd();
+    const i = sel.i, g = lamps[i].group, m = S.mods[i];
+    if (S.lampMode === "rotate") {
+      /* ny retning: lampens front (+z) - samme afstand som før, eller til gulvet */
+      const a = lampAim(m), pos = g.position.clone(), fwd = new T.Vector3(0, 0, 1).applyQuaternion(g.quaternion);
+      const d = Math.max(1, pos.distanceTo(P(a.x, a.y, a.z)));
+      let tgt = pos.clone().addScaledVector(fwd, d);
+      if (tgt.y < 0 && fwd.y < -0.01) tgt = pos.clone().addScaledVector(fwd, pos.y / -fwd.y);
+      m.aim = [r2(tgt.x), r2(-tgt.z), r2(Math.max(0, tgt.y))];
+      sendDir(i, ["aim"]);
+    } else {
+      m.x = r2(g.position.x); m.y = r2(-g.position.z); m.z = r2(Math.max(0, g.position.y));
+      const items = [{ path: ["modules", i, "x"], value: m.x },
+        { path: ["modules", i, "y"], value: m.y }, { path: ["modules", i, "z"], value: m.z }];
+      const r = dirRot(m);
+      if (r != null && !lampAim(m).auto) { m.rot = r; items.push({ path: ["modules", i, "rot"], value: r }); }
+      post({ op: "patch", items });
+    }
+    commitPending();
+    placeLamp(lamps[i], m); updLampEd();
+  } else if (sel.type === "grp" || sel.type === "multi") {
+    groupApply(true);
+    commitPending();
+    pushRoom(true);
+    attachSel();
   } else {
     const o = objById(sel.id), n = objMap[sel.id] && objMap[sel.id].node;
     if (!o || !n) return;
@@ -630,10 +768,17 @@ tc.addEventListener("mouseUp", () => {
       n.scale.set(1, 1, 1);
     }
     if (objMap[sel.id]) objMap[sel.id].sig = "";     // byg altid om efter et træk
+    commitPending();
     pushRoom(true);
   }
 });
 tc.addEventListener("objectChange", () => {
+  if (S.sel && (S.sel.type === "grp" || S.sel.type === "multi")) { groupApply(false); return; }
+  if (S.sel && S.sel.type === "lamp" && S.lampMode === "rotate") {    // lyset følger lampens front
+    const L = lamps[S.sel.i], fwd = new T.Vector3(0, 0, 1).applyQuaternion(L.group.quaternion);
+    L.target.position.copy(L.group.position).addScaledVector(fwd, 5); L.target.updateMatrixWorld();
+    return;
+  }
   if (S.sel && S.sel.type === "lamp") {      // strålen følger med, mens lampen trækkes
     const g = lamps[S.sel.i].group, m = S.mods[S.sel.i];
     const tmp = Object.assign({}, m, { x: g.position.x, y: -g.position.z, z: g.position.y });
@@ -735,8 +880,9 @@ renderer.domElement.addEventListener("pointerup", (e) => {
     const h = hits.find((x) => !(x.object.userData.pick.type === "lamp" && x.object.userData.pick.i === S.aiming));
     if (h) {
       const i = S.aiming, p = h.point, aim = [r2(p.x), r2(-p.z), r2(p.y)];
+      record();
       S.mods[i].aim = aim;
-      post({ op: "patch", items: [{ path: ["modules", i, "aim"], value: aim }] });
+      sendDir(i, ["aim"]);
       placeLamp(lamps[i], S.mods[i]); updLampEd();
     }
     stopAim(); return;
@@ -748,7 +894,13 @@ renderer.domElement.addEventListener("pointerup", (e) => {
     return;
   }
   if (pk && pk.type === "lamp") { showTab("lamps"); select({ type: "lamp", i: pk.i }); }
-  else if (pk && pk.type === "obj") { showTab("objs"); select({ type: "obj", id: pk.id }); }
+  else if (pk && pk.type === "obj") {
+    showTab("objs");
+    const o = objById(pk.id);
+    if (e.shiftKey || e.ctrlKey || e.metaKey) toggleMulti(o && o.grp ? selObjIds({ type: "grp", id: o.grp }) : [pk.id]);
+    else if (o && o.grp && !e.altKey) select({ type: "grp", id: o.grp });
+    else select({ type: "obj", id: pk.id });
+  }
   else select(null);
 });
 function startAim(i) { S.aiming = i; $("aimtip").style.display = "block"; tc.detach(); }
@@ -756,8 +908,13 @@ function stopAim() { S.aiming = null; $("aimtip").style.display = "none"; attach
 window.addEventListener("keydown", (e) => {
   const tag = (e.target && e.target.tagName) || "";
   if (e.key === "Escape") { if (S.aiming != null) stopAim(); else if (S.edit) select(null); else closeLampBox(); }
-  if ((e.key === "Delete" || e.key === "Backspace") && S.edit && S.sel && S.sel.type === "obj" &&
-      !/INPUT|SELECT|TEXTAREA/.test(tag)) { e.preventDefault(); delObj(); }
+  if ((e.key === "Delete" || e.key === "Backspace") && S.edit && S.sel && /^(obj|grp|multi)$/.test(S.sel.type) &&
+      !/INPUT|SELECT|TEXTAREA/.test(tag)) { e.preventDefault(); if (S.sel.type === "obj") delObj(); else delSel(); }
+  if (S.edit && (e.ctrlKey || e.metaKey) && !/INPUT|SELECT|TEXTAREA/.test(tag)) {
+    const k = e.key.toLowerCase();
+    if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+  }
 });
 
 /* ------------------------------------------------------- lampens lysstyrke */
@@ -802,7 +959,7 @@ $("lbClose").onclick = closeLampBox;
 /* ------------------------------------------------------------ sidepanel */
 function showTab(t) {
   for (const [b, p, k] of [["tabLamps", "pgLamps", "lamps"], ["tabObjs", "pgObjs", "objs"], ["tabRoom", "pgRoom", "room"]]) {
-    $(b).classList.toggle("on", k === t); $(p).style.display = k === t ? "block" : "none";
+    $(b).classList.toggle("on", k === t); $(p).style.display = k === t ? (k === "lamps" ? "flex" : "block") : "none";
   }
 }
 $("tabLamps").onclick = () => showTab("lamps");
@@ -837,7 +994,7 @@ function updLampEd() {
   const on = m.on !== false;
   $("leOn").textContent = on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
   $("leOn").classList.toggle("on", on);
-  setNum("leX", r2(m.x)); setNum("leY", r2(m.y)); setNum("leZ", r2(lampZ(m)));
+  setNum("leX", r2(m.x)); setNum("leY", r2(m.y)); setNum("leZ", r2(lampZ(m))); setNum("leRot", r2(m.rot || 0));
   $("leAimTxt").textContent = a.auto ? "Peger automatisk mod scenen." :
     "Peger på punktet x " + a.x.toFixed(1) + ", y " + a.y.toFixed(1) + ", højde " + a.z.toFixed(1) + " m.";
   $("leAuto").disabled = a.auto;
@@ -847,28 +1004,71 @@ $("leOn").onclick = () => toggleOn(S.sel.i);
 for (const [id, key] of [["leX", "x"], ["leY", "y"], ["leZ", "z"]]) {
   $(id).onchange = () => {
     const i = S.sel.i, v = parseFloat($(id).value); if (!isFinite(v)) return;
+    record();
     S.mods[i][key] = key === "z" ? Math.max(0, v) : v;
-    post({ op: "patch", items: [{ path: ["modules", i, key], value: S.mods[i][key] }] });
-    placeLamp(lamps[i], S.mods[i]);
+    const items = [{ path: ["modules", i, key], value: S.mods[i][key] }];
+    const r = dirRot(S.mods[i]);
+    if (key !== "z" && r != null && !lampAim(S.mods[i]).auto) { S.mods[i].rot = r; items.push({ path: ["modules", i, "rot"], value: r }); }
+    post({ op: "patch", items });
+    placeLamp(lamps[i], S.mods[i]); updLampEd();
   };
 }
+for (const id of ["leX", "leY", "leZ", "leRot"]) $(id).addEventListener("blur", () => setTimeout(updLampEd, 0));
 $("leAim").onclick = () => startAim(S.sel.i);
 $("leAuto").onclick = () => {
-  const i = S.sel.i; S.mods[i].aim = null;
-  post({ op: "patch", items: [{ path: ["modules", i, "aim"], value: null }] });
+  const i = S.sel.i; record(); S.mods[i].aim = null;
+  sendDir(i, ["aim"]);
   placeLamp(lamps[i], S.mods[i]); updLampEd();
 };
+/* drejningen (rot, grader i planet som i 2D) ud fra retningen - lamper med
+   flere pixels (bjælker) har deres egen drejning og røres ikke */
+function dirRot(m) {
+  if ((m.pixels || 1) > 1) return null;
+  const a = lampAim(m), hd = Math.hypot(a.x - m.x, a.y - m.y);
+  if (hd < 0.05) return null;
+  return Math.round(Math.atan2(a.y - m.y, a.x - m.x) / DEG * 10) / 10;
+}
+/* send retning og drejning sammen, så 2D og 3D altid passer */
+function sendDir(i, keys) {
+  const m = S.mods[i], items = [{ path: ["modules", i, "aim"], value: m.aim || null }];
+  const r = dirRot(m);
+  if (r != null) { m.rot = r; items.push({ path: ["modules", i, "rot"], value: r }); }
+  post({ op: "patch", items });
+}
+/* drej lampen i planet til 'rot' grader: målet svinger med, samme hældning */
+function setRot(i, rot) {
+  const m = S.mods[i], a = lampAim(m), hd = Math.hypot(a.x - m.x, a.y - m.y);
+  m.rot = rot;
+  const items = [{ path: ["modules", i, "rot"], value: rot }];
+  if (hd >= 0.05) {
+    m.aim = [r2(m.x + hd * Math.cos(rot * DEG)), r2(m.y + hd * Math.sin(rot * DEG)), r2(a.z)];
+    items.push({ path: ["modules", i, "aim"], value: m.aim });
+  }
+  post({ op: "patch", items });
+  placeLamp(lamps[i], m); updLampEd();
+}
+$("leRot").onchange = () => {
+  const v = parseFloat($("leRot").value); if (!isFinite(v)) return;
+  record(); setRot(S.sel.i, Math.round((((v + 180) % 360 + 360) % 360 - 180) * 10) / 10);
+};
+function setLampMode(md) {
+  S.lampMode = md;
+  $("lmMove").classList.toggle("on", md !== "rotate"); $("lmRot").classList.toggle("on", md === "rotate");
+  attachSel();
+}
+$("lmMove").onclick = () => setLampMode("translate");
+$("lmRot").onclick = () => setLampMode("rotate");
 
 /* ting */
 const CATALOG = [["stage", "Scenepodie"], ["person", "Person"], ["drums", "Trommesæt"], ["amp", "Forstærker"],
-  ["speaker", "Højttaler"], ["mic", "Mikrofon"], ["keys", "Keyboard"], ["truss", "Travers"], ["wall", "Væg"],
+  ["speaker", "Højttaler"], ["mic", "Mikrofon"], ["keys", "Keyboard"], ["curtain", "Scenetæppe"], ["truss", "Travers"], ["wall", "Væg"],
   ["box", "Klods"], ["cyl", "Cylinder"]];
 const KIND_NAME = Object.fromEntries(CATALOG.concat([["model", "3D-model"]]));
 const KIND_SIZE = { stage: [6, 3, 0.5], box: [1, 1, 1], wall: [4, 0.2, 3], cyl: [0.6, 0.6, 1], truss: [6, 0.3, 0.3],
   person: [0.5, 0.3, 1.8], drums: [2, 1.6, 1.1], amp: [0.7, 0.35, 0.6], speaker: [0.6, 0.5, 1], mic: [0.3, 0.3, 1.6],
-  keys: [1.3, 0.5, 1.0], model: [1, 1, 1] };
+  keys: [1.3, 0.5, 1.0], curtain: [6, 0.25, 4], model: [1, 1, 1] };
 const KIND_COLOR = { stage: "#3a3532", person: "#c9c2b8", drums: "#8c2f2f", amp: "#24262b", speaker: "#1d1e22",
-  mic: "#9aa0a8", keys: "#202226", truss: "#9aa0a8", wall: "#4a4d55", box: "#6a6d75", cyl: "#6a6d75", model: "#808080" };
+  mic: "#9aa0a8", keys: "#202226", curtain: "#5a1218", truss: "#9aa0a8", wall: "#4a4d55", box: "#6a6d75", cyl: "#6a6d75", model: "#808080" };
 CATALOG.forEach(([k, n]) => {
   const b = document.createElement("button"); b.textContent = "+ " + n; b.onclick = () => addObj(k); $("catalog").appendChild(b);
 });
@@ -896,27 +1096,118 @@ function addObj(kind, extra) {
     w: sz[0], d: sz[1], h: sz[2], color: KIND_COLOR[kind] }, extra || {});
   if (kind === "truss") o.z = 4.5;
   else if (kind !== "stage") o.z = surfaceZ(o.x, o.y);
+  record();
   S.room.objects.push(o);
   pushRoom(true);
   showTab("objs"); select({ type: "obj", id: o.id });
 }
+function grpById(id) { return ((S.room && S.room.groups) || []).find((g) => g.id === id); }
+/* Shift/Ctrl-klik: læg ting til eller træk dem fra et valg af flere */
+function toggleMulti(ids) {
+  let cur = S.sel && S.sel.type === "multi" ? S.sel.ids.slice() : selObjIds();
+  const allIn = ids.every((id) => cur.indexOf(id) >= 0);
+  if (allIn) cur = cur.filter((id) => ids.indexOf(id) < 0);
+  else ids.forEach((id) => { if (cur.indexOf(id) < 0) cur.push(id); });
+  if (!cur.length) select(null);
+  else if (cur.length === 1) { const o = objById(cur[0]); select(o && o.grp && selObjIds({ type: "grp", id: o.grp }).length === 1 ? { type: "grp", id: o.grp } : { type: "obj", id: cur[0] }); }
+  else select({ type: "multi", ids: cur });
+}
 function updObjList() {
-  const box = $("objList"), objs = (S.room && S.room.objects) || [];
-  const sig = JSON.stringify(objs.map((o) => [o.id, o.name, o.color, o.kind])) + "|" + (S.sel && S.sel.type === "obj" ? S.sel.id : "");
+  const box = $("objList"), objs = (S.room && S.room.objects) || [], groups = (S.room && S.room.groups) || [];
+  const sig = JSON.stringify([objs.map((o) => [o.id, o.name, o.color, o.kind, o.grp]), groups]) + "|" + JSON.stringify(S.sel);
   if (box._sig === sig) return; box._sig = sig;
   box.innerHTML = "";
   if (!objs.length) { box.innerHTML = '<div class="item"><span class="nm mut">Ingen ting endnu</span></div>'; return; }
-  objs.forEach((o) => {
+  const sel = S.sel || {}, multi = sel.type === "multi" ? sel.ids : [];
+  const row = (o, mem) => {
     const d = document.createElement("div");
-    d.className = "item" + (S.sel && S.sel.type === "obj" && S.sel.id === o.id ? " sel" : "");
+    d.className = "item" + (mem ? " mem" : "") + (sel.type === "obj" && sel.id === o.id ? " sel" : "") +
+      (multi.indexOf(o.id) >= 0 ? " msel" : "");
     d.innerHTML = '<span class="sw"></span><span class="nm"></span><span class="mut"></span>';
     d.children[0].style.background = o.color;
     d.children[1].textContent = o.name || KIND_NAME[o.kind];
     d.children[2].textContent = KIND_NAME[o.kind];
-    d.onclick = () => { select({ type: "obj", id: o.id }); };
+    d.onclick = (e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) toggleMulti([o.id]); else select({ type: "obj", id: o.id }); };
     box.appendChild(d);
+  };
+  const done = {};
+  objs.forEach((o) => {
+    if (o.grp && grpById(o.grp)) {
+      if (done[o.grp]) return; done[o.grp] = 1;
+      const g = grpById(o.grp), mem = objs.filter((q) => q.grp === g.id);
+      const h = document.createElement("div");
+      const inMulti = mem.every((q) => multi.indexOf(q.id) >= 0);
+      h.className = "item grp" + (sel.type === "grp" && sel.id === g.id ? " sel" : "") + (inMulti ? " msel" : "");
+      h.innerHTML = '<span class="nm"></span><span class="ct"></span>';
+      h.children[0].textContent = g.name || "Gruppe";
+      h.children[1].textContent = mem.length + " ting";
+      h.title = "Vælg hele gruppen";
+      h.onclick = (e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) toggleMulti(mem.map((q) => q.id)); else select({ type: "grp", id: g.id }); };
+      box.appendChild(h);
+      mem.forEach((q) => row(q, true));
+    } else row(o, false);
   });
 }
+function updGrpEd() {
+  const sel = S.edit && S.sel && (S.sel.type === "grp" || S.sel.type === "multi") ? S.sel : null;
+  $("grpEd").style.display = sel ? "block" : "none";
+  if (!sel) return;
+  const ids = selObjIds(), isG = sel.type === "grp", g = isG ? grpById(sel.id) : null;
+  $("geTitle").textContent = isG ? "Gruppe · " + ids.length + " ting" : ids.length + " ting valgt";
+  $("geNameRow").style.display = isG ? "flex" : "none";
+  if (isG && document.activeElement !== $("geName")) $("geName").value = g ? g.name : "";
+  $("geMultiRow").style.display = isG ? "none" : "flex";
+  $("geGrpRow").style.display = isG ? "flex" : "none";
+  $("geGroup").disabled = ids.length < 2;
+  $("geHint").innerHTML = isG
+    ? "Tingene flyttes, drejes og skaleres samlet. <b>Størrelse</b> skalerer hele gruppen — også afstandene mellem tingene. Vil du rette én af dem, så klik på den i listen (eller Alt+klik i rummet)."
+    : "Træk i håndtaget for at flytte de valgte samlet. <b>Gruppér dem</b>, så de altid hænger sammen.";
+  setTcMode(S.tcMode || "translate");
+}
+$("gmMove").onclick = () => setTcMode("translate");
+$("gmRot").onclick = () => setTcMode("rotate");
+$("gmScale").onclick = () => setTcMode("scale");
+$("geGroup").onclick = () => {
+  const ids = selObjIds(); if (ids.length < 2) return;
+  record();
+  const gid = "g" + Math.random().toString(36).slice(2, 9);
+  S.room.groups = (S.room.groups || []).filter((g) => S.room.objects.some((o) => o.grp === g.id && ids.indexOf(o.id) < 0));
+  const n = (S.room.groups || []).length + 1;
+  S.room.groups.push({ id: gid, name: "Gruppe " + n });
+  S.room.objects.forEach((o) => { if (ids.indexOf(o.id) >= 0) o.grp = gid; });
+  pushRoom(true); select({ type: "grp", id: gid });
+  setTimeout(() => { $("geName").focus(); $("geName").select(); }, 50);
+};
+$("geUngroup").onclick = () => {
+  const gid = S.sel && S.sel.id, ids = selObjIds(); if (!gid) return;
+  record();
+  S.room.objects.forEach((o) => { if (o.grp === gid) delete o.grp; });
+  S.room.groups = (S.room.groups || []).filter((g) => g.id !== gid);
+  pushRoom(true); select({ type: "multi", ids });
+};
+let geNameRec = 0;
+$("geName").oninput = () => {
+  const g = S.sel && grpById(S.sel.id); if (!g) return;
+  if (Date.now() - geNameRec > 1500) record(); geNameRec = Date.now();
+  g.name = $("geName").value.slice(0, 40); pushRoom();
+};
+$("geDup").onclick = () => {
+  const gid = S.sel && S.sel.id, g = grpById(gid); if (!g) return;
+  record();
+  const ng = "g" + Math.random().toString(36).slice(2, 9);
+  S.room.groups.push({ id: ng, name: (g.name + " (kopi)").slice(0, 40) });
+  S.room.objects.filter((o) => o.grp === gid).forEach((o) => {
+    S.room.objects.push(Object.assign({}, o, { id: newId(), grp: ng, x: r2(o.x + 0.8), y: r2(o.y - 0.4) }));
+  });
+  pushRoom(true); select({ type: "grp", id: ng });
+};
+function delSel() {
+  const ids = selObjIds(); if (!ids.length) return;
+  record();
+  S.room.objects = S.room.objects.filter((o) => ids.indexOf(o.id) < 0);
+  select(null); pushRoom(true);
+}
+$("geDel").onclick = delSel;
 function updObjEd() {
   const o = S.edit && S.sel && S.sel.type === "obj" ? objById(S.sel.id) : null;
   $("objEd").style.display = o ? "block" : "none";
@@ -929,22 +1220,33 @@ function updObjEd() {
   setNum("oeW", o.w); setNum("oeD", o.d); setNum("oeH", o.h); setNum("oeScale", o.scale || 1);
   $("oeSizeRow").style.display = o.kind === "model" ? "none" : "flex";
   $("oeScaleRow").style.display = o.kind === "model" ? "flex" : "none";
-  $("oeHint").textContent = o.kind === "model" ? "Skala 1 = modellens egne mål (glTF er i meter)." : "";
+  $("oeHint").textContent = o.kind === "model" ? "Skala 1 = modellens egne mål (glTF er i meter)." :
+    o.kind === "curtain" ? "Scenetæppe: dybden er hvor dybe folderne er (fx 0,2 m). Drej det med «Drejet», hvis det skal hænge på tværs." : "";
 }
-function editObj(fn) { const o = objById(S.sel.id); if (!o) return; fn(o); pushRoom(); }
-$("oeName").oninput = () => editObj((o) => { o.name = $("oeName").value.slice(0, 40); });
-$("oeColor").oninput = () => editObj((o) => { o.color = $("oeColor").value; });
+let editRec = { t: 0, k: "" };
+function editObj(fn, key) {
+  const o = objById(S.sel.id); if (!o) return;
+  const k = S.sel.id + "|" + (key || "");
+  if (Date.now() - editRec.t > 1500 || editRec.k !== k) record();
+  editRec = { t: Date.now(), k };
+  fn(o); pushRoom();
+}
+$("oeName").oninput = () => editObj((o) => { o.name = $("oeName").value.slice(0, 40); }, "name");
+$("oeColor").oninput = () => editObj((o) => { o.color = $("oeColor").value; }, "color");
 for (const [id, key, min] of [["oeX", "x"], ["oeY", "y"], ["oeZ", "z"], ["oeRot", "rot"], ["oeW", "w", 0.02], ["oeD", "d", 0.02], ["oeH", "h", 0.02], ["oeScale", "scale", 0.001]]) {
-  $(id).onchange = () => { const v = parseFloat($(id).value); if (!isFinite(v)) return; editObj((o) => { o[key] = min ? Math.max(min, v) : v; }); };
+  $(id).onchange = () => { const v = parseFloat($(id).value); if (!isFinite(v)) return; editRec.t = 0; editObj((o) => { o[key] = min ? Math.max(min, v) : v; }, key); };
 }
-$("oeFloor").onclick = () => editObj((o) => { o.z = o.kind === "stage" ? 0 : surfaceZ(o.x, o.y, o.id); });
+$("oeFloor").onclick = () => { editRec.t = 0; editObj((o) => { o.z = o.kind === "stage" ? 0 : surfaceZ(o.x, o.y, o.id); }, "floor"); };
 $("oeDup").onclick = () => {
   const o = objById(S.sel.id); if (!o) return;
+  record();
   const c = Object.assign({}, o, { id: newId(), x: r2(o.x + 0.6), y: r2(o.y - 0.3) });
+  delete c.grp;
   S.room.objects.push(c); pushRoom(true); select({ type: "obj", id: c.id });
 };
 function delObj() {
   const id = S.sel && S.sel.id; if (!id) return;
+  record();
   S.room.objects = S.room.objects.filter((o) => o.id !== id);
   select(null); pushRoom(true);
 }
@@ -975,9 +1277,9 @@ function syncRoomUI() {
   if (document.activeElement !== $("cAmb")) { $("cAmb").value = r.ambient; $("cAmbV").textContent = Math.round(r.ambient); }
 }
 for (const [id, key] of [["rmW", "w"], ["rmD", "d"], ["rmH", "h"], ["rmCx", "cx"], ["rmCy", "cy"]]) {
-  $(id).onchange = () => { const v = parseFloat($(id).value); if (!isFinite(v)) return; S.room.room[key] = v; pushRoom(true); };
+  $(id).onchange = () => { const v = parseFloat($(id).value); if (!isFinite(v)) return; record(); S.room.room[key] = v; pushRoom(true); };
 }
-$("rmWalls").onchange = () => { S.room.room.walls = $("rmWalls").checked; pushRoom(true); };
+$("rmWalls").onchange = () => { record(); S.room.room.walls = $("rmWalls").checked; pushRoom(true); };
 $("rmFloor").oninput = () => { S.room.room.floor = $("rmFloor").value; pushRoom(); };
 $("rmWall").oninput = () => { S.room.room.wall = $("rmWall").value; pushRoom(); };
 $("cAmb").oninput = () => { S.room.room.ambient = +$("cAmb").value; $("cAmbV").textContent = $("cAmb").value; pushRoom(); };
@@ -1008,6 +1310,7 @@ $("plSave").onclick = async () => {
 $("plLoad").onclick = async () => {
   const name = $("plList").value; if (!name) return;
   if (!confirm("Hent 3D-sceneplanen “" + name + "”? Rummet, der står nu, erstattes.")) return;
+  record();
   const d = await post({ op: "plan_load", kind: "3d", name });
   if (!d.ok) { planTip(d.err || "Kunne ikke hente sceneplanen."); return; }
   $("plName").value = name; planTip("Hentet: 3D-sceneplanen “" + name + "”.");
@@ -1020,12 +1323,62 @@ $("plDel").onclick = async () => {
 };
 $("tabRoom").addEventListener("click", planRefresh);
 
+/* ------------------------------------------------------------ fortryd */
+/* Hvert skridt gemmer lampernes placering/retning og hele rummet, før der
+   ændres. Fortryd sender forskellen tilbage til pulten. */
+const UNDO = [], REDO = [];
+function snap() {
+  return { mods: S.mods.map((m) => ({ x: r2(m.x), y: r2(m.y), z: r2(lampZ(m)), aim: m.aim ? m.aim.slice() : null, rot: m.rot || 0 })),
+    room: S.room ? JSON.parse(JSON.stringify(S.room)) : null };
+}
+function commitPending() {
+  if (pendingSnap && JSON.stringify(pendingSnap) !== JSON.stringify(snap())) {
+    UNDO.push(pendingSnap); if (UNDO.length > 80) UNDO.shift(); REDO.length = 0; updUndo();
+  }
+  pendingSnap = null;
+}
+function record() {
+  UNDO.push(snap()); if (UNDO.length > 80) UNDO.shift();
+  REDO.length = 0; updUndo();
+}
+function restore(st) {
+  const items = [];
+  st.mods.forEach((o, i) => {
+    const m = S.mods[i]; if (!m) return;
+    let ch = false;
+    for (const k of ["x", "y", "z", "aim", "rot"]) {
+      if (JSON.stringify(m[k] == null ? null : m[k]) !== JSON.stringify(o[k])) {
+        m[k] = o[k]; items.push({ path: ["modules", i, k], value: o[k] }); ch = true;
+      }
+    }
+    if (ch && lamps[i]) placeLamp(lamps[i], m);
+  });
+  if (items.length) post({ op: "patch", items });
+  if (st.room && JSON.stringify(st.room) !== JSON.stringify(S.room)) {
+    S.room = st.room;
+    for (const id in objMap) objMap[id].sig = "";
+    pushRoom(true);
+  }
+  if (S.sel && /^(obj|grp)$/.test(S.sel.type) && !selObjIds().length) select(null);
+  else if (S.sel && S.sel.type === "multi") {
+    const ids = S.sel.ids.filter((id) => objById(id)); select(ids.length ? { type: "multi", ids } : null);
+  } else select(S.sel);
+  updLampEd();
+}
+function undo() { if (!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop()); updUndo(); toast("Fortrudt"); }
+function redo() { if (!REDO.length) return; UNDO.push(snap()); restore(REDO.pop()); updUndo(); }
+function updUndo() { $("tUndo").disabled = !UNDO.length; $("tRedo").disabled = !REDO.length; }
+$("tUndo").onclick = undo;
+$("tRedo").onclick = redo;
+
 /* ------------------------------------------------------------ knapper */
 function syncButtons() {
   $("tBeams").classList.toggle("on", S.view.beams);
   $("tLabels").classList.toggle("on", S.view.labels);
   $("tShadows").classList.toggle("on", S.view.shadows);
   $("tEdit").classList.toggle("on", S.edit);
+  $("bar").classList.toggle("editing", S.edit);
+  fitPanels();
   labels.domElement.style.display = S.view.labels ? "block" : "none";
   for (const [id, k, f] of [["cGain", "gain", (v) => v + " %"], ["cSmoke", "smoke", (v) => v], ["cExpo", "expo", (v) => v + " %"]]) {
     $(id).value = S.view[k]; $(id + "V").textContent = f(S.view[k]);
@@ -1037,8 +1390,8 @@ $("tShadows").onclick = () => { S.view.shadows = !S.view.shadows; saveView(); sy
 $("tEdit").onclick = () => {
   S.edit = !S.edit;
   $("side").classList.toggle("on", S.edit);
-  if (!S.edit) { stopAim(); select(null); } else closeLampBox();
-  syncButtons(); attachSel(); updLampEd(); updObjEd(); updLampBox();
+  if (!S.edit) { stopAim(); select(null); } else { closeLampBox(); showTab($("tabObjs").classList.contains("on") ? "objs" : $("tabRoom").classList.contains("on") ? "room" : "lamps"); }
+  syncButtons(); attachSel(); updLampEd(); updObjEd(); updGrpEd(); updLampBox();
 };
 $("tCfg").onclick = () => $("cfg").classList.toggle("on");
 $("tFull").onclick = () => {
@@ -1070,6 +1423,7 @@ async function loadState() {
     for (const k in cp) shapes[k] = cp[k].shape || "par";
     S.shapes = shapes;
     const mods = (s.modules || []).map((m, i) => ({ x: m.x || 0, y: m.y || 0, z: m.z, aim: m.aim, type: m.type,
+      rot: m.rot || 0, pixels: m.pixels || 1,
       name: m.name, num: m.num != null ? m.num : String(i + 1), level: m.level, on: m.on !== false }));
     const ms = JSON.stringify(mods);
     if (ms !== S.sig.mods && !(S.dragging && S.sel && S.sel.type === "lamp")) { S.mods = mods; S.sig.mods = ms; syncLamps(); }
@@ -1119,7 +1473,7 @@ setLock(!!S.view.lock);
 await loadState();
 loadFrame();
 setInterval(loadState, 700);
-window.__sim3d = { S, scene, T, camera, renderer, tc, objMap, get lampsNow() { return lamps; } };   // til test
+window.__sim3d = { S, scene, T, camera, renderer, tc, objMap, pivot, UNDO, get lampsNow() { return lamps; } };   // til test
 requestAnimationFrame(loop);
 </script>
 </body>

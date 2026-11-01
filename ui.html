@@ -612,6 +612,14 @@
         <b>Office</b> er til, når du rigger i dagslys. De øvrige låner farver, skrift og
         hjørner fra kendte programmer, men holder samme læsbarhed.</div>
       <div id="theme-adv" class="theme-adv" style="display:none"></div>
+      <div class="rowline" style="margin-top:12px"><span class="k">Skift af styring</span>
+        <select id="set-ctlxfer" style="width:auto;min-width:240px;max-width:100%" aria-label="Når Enkel eller Afvikling overtager styringen">
+          <option value="ask">Spørg om farverne skal overtages</option>
+          <option value="always">Overtag altid de farver der lyser</option>
+          <option value="never">Overtag aldrig farverne</option>
+        </select></div>
+      <div class="hint">Når <b>Enkel</b> eller <b>Afvikling</b> tager styringen over (fx fra Pult),
+        kan de starte med de farver, der lyser i øjeblikket — så står lyset stille ved skiftet.</div>
     </div>
 
     <div class="pan" id="lc11-pan">
@@ -702,6 +710,11 @@
           mellem Afvikling og Enkel vinder den lyseste.</li>
         <li>Åbner du en af de tre faner, mens den ikke styrer, står det i en bjælke
           øverst i fanen, med en knap til at lade den styre.</li>
+        <li><b>Overtag farverne:</b> når <b>Enkel</b> eller <b>Afvikling</b> tager over
+          (fx fra Pult), bliver du spurgt, om de skal starte med de farver, der lyser i
+          øjeblikket. Siger du ja, får hver lampe sin nuværende farve og lysstyrke, så lyset
+          står stille ved skiftet, og du retter videre derfra. Under <b>Indstillinger</b> kan
+          du vælge, at den altid eller aldrig skal overtage.</li>
         <li><b>Striben under fanerne</b> dukker op, når noget rammer <i>alle</i> lamper,
           uanset hvem der styrer: blackout, grand under 100 %, frosset billede,
           strobe, lamper der er slukket i Pult → Lamper, en kørende lampe- eller
@@ -807,6 +820,17 @@
           showet; modellerne ligger i mappen <code>modeller</code> ved siden af
           <code>shows</code>. 3D-simulatoren kræver en nyere browser; en gammel iPad
           bruger 2D-simulatoren.</li>
+        <li><b>2D og 3D hænger sammen:</b> drejer du en lampe i Layout (<b>Drej lampe</b>),
+          svinger den også i 3D, og drejer du den i 3D (<b>Drej</b>, feltet <b>Drejet</b>
+          eller <b>Peg på…</b>), følger 2D med. Flytter du en lampe, der peger på et fast
+          punkt, bliver den ved med at pege på punktet.</li>
+        <li><b>I 3D under Rediger:</b> <b>↶ Fortryd</b> (Ctrl+Z) og <b>↷ Gentag</b> (Ctrl+Y)
+          for flytninger af lamper og ting. Ting kan <b>grupperes</b>: Shift+klik på flere i
+          listen (eller i rummet) og tryk <b>Gruppér dem</b> — fx en person og hans
+          forstærker, eller hele scenen med musikere og instrumenter. Et klik vælger hele
+          gruppen, som flyttes, drejes og skaleres samlet; Alt+klik (eller klik i listen)
+          vælger én ting i gruppen. <b>Scenetæppe</b> i kataloget er et let bølget tæppe;
+          dybden bestemmer hvor dybe folderne er.</li>
       </ul>
 
       <h3 id="h-afvikling" data-ico="v-afvikling">Afvikling</h3>
@@ -822,6 +846,9 @@
           Farven vælges med <b>Farvefelt</b>, <b>Skydere</b> eller <b>Paletter</b>
           (bogstaverne A–M virker som genveje). Gradient og farvecyklus kan have
           lige så mange farver du vil.</li>
+        <li>Øverst i panelet står altid navnene på de grupper og lamper, du har valgt.
+          Under dem kommer <b>Mønster og bevægelse</b>, <b>Farve</b> og <b>Lysstyrke</b> —
+          byt om på dem med <b>▲</b> og <b>▼</b>. Rækkefølgen huskes på skærmen.</li>
         <li><b>Overgangstid</b> (sekunder med én decimal) bestemmer hvor blødt lyset
           skifter, og huskes for netop det, du har valgt. Grupper uden egen tid bruger
           <b>Standard overgangstid</b> øverst i panelet.</li>
@@ -953,6 +980,8 @@
           ud fra.</li>
         <li>Egne temaer ligger på computeren der kører pulten (i <code>temaer.json</code>
           ved siden af <code>shows</code>), så alle skærme kan vælge dem.</li>
+        <li><b>Skift af styring:</b> om Enkel og Afvikling skal spørge, altid eller aldrig
+          overtage de farver, der lyser, når de tager styringen over.</li>
       </ul>
 
       <h3 id="h-lc11" data-ico="lc11">LC-11</h3>
@@ -1055,6 +1084,16 @@
       <button id="grpdlg-close" class="sm">Luk</button>
     </div>
     <div class="grpdlg-body" id="grpdlg-body"></div>
+  </div>
+</div>
+
+<div id="xferdlg">
+  <div class="grpdlg-box" style="max-width:560px">
+    <div class="grpdlg-hd">
+      <b>Overtag farverne?</b>
+      <button onclick="document.getElementById('xferdlg').className=''" class="sm">Luk</button>
+    </div>
+    <div class="grpdlg-body" id="xferdlg-body"></div>
   </div>
 </div>
 
