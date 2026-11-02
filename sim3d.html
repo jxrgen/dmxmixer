@@ -95,63 +95,63 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
 </head>
 <body>
 <div id="view"></div>
-<div id="nogl"><div><b>3D-simulatoren kan ikke køre i denne browser.</b><br>Den kræver WebGL 2.
+<div id="nogl"><div><b data-t="3D-simulatoren kan ikke køre i denne browser.">3D-simulatoren kan ikke køre i denne browser.</b><br><span data-t="Den kræver WebGL 2.">Den kræver WebGL 2.</span>
   Brug <a href="sim" style="color:#ffb200">2D-simulatoren</a> i stedet.</div></div>
 
 <div id="bar">
-  <span class="dot" id="dot"></span><b>3D-simulator</b>
-  <span class="mut" id="stat">forbinder…</span>
+  <span class="dot" id="dot"></span><b data-t="3D-simulator">3D-simulator</b>
+  <span class="mut" id="stat" data-t="forbinder…">forbinder…</span>
   <span class="grow"></span>
-  <button id="camSal" title="Se scenen fra salen">Salen</button>
-  <button id="camTop" title="Se rummet ovenfra">Ovenfra</button>
-  <button id="camSide" title="Se scenen fra siden">Siden</button>
-  <button id="zArea" title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
-  <label class="lock" title="Lås kameraet, så visningen bliver stående"><input type="checkbox" id="zLock"> Lås visning</label>
+  <button id="camSal" title="Se scenen fra salen" data-t="Salen" data-t-title="Se scenen fra salen">Salen</button>
+  <button id="camTop" title="Se rummet ovenfra" data-t="Ovenfra" data-t-title="Se rummet ovenfra">Ovenfra</button>
+  <button id="camSide" title="Se scenen fra siden" data-t="Siden" data-t-title="Se scenen fra siden">Siden</button>
+  <button id="zArea" title="Træk et område op, så zoomes der ind på det" data-t="⬚ Zoom område" data-t-title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
+  <label class="lock" title="Lås kameraet, så visningen bliver stående" data-t-title="Lås kameraet, så visningen bliver stående"><input type="checkbox" id="zLock"> <span data-t="Lås visning">Lås visning</span></label>
   <span class="sep"></span>
-  <button id="tBeams" class="on">Stråler</button>
-  <button id="tLabels">Navne</button>
-  <button id="tShadows" title="Skygger fra op til 8 lamper (kræver en hurtig computer)">Skygger</button>
+  <button id="tBeams" class="on" data-t="Stråler">Stråler</button>
+  <button id="tLabels" data-t="Navne">Navne</button>
+  <button id="tShadows" title="Skygger fra op til 8 lamper (kræver en hurtig computer)" data-t="Skygger" data-t-title="Skygger fra op til 8 lamper (kræver en hurtig computer)">Skygger</button>
   <span class="sep"></span>
-  <button id="tEdit">Rediger</button>
-  <button id="tUndo" class="edonly" title="Fortryd sidste flytning (Ctrl+Z)" disabled>↶ Fortryd</button>
-  <button id="tRedo" class="edonly" title="Gentag (Ctrl+Y)" disabled>↷ Gentag</button>
-  <button id="tCfg">Indstillinger</button>
-  <button id="tFull">Fuldskærm</button>
-  <a class="btn" href="sim" target="_blank" rel="noopener">◱ 2D-simulator</a>
+  <button id="tEdit" data-t="Rediger">Rediger</button>
+  <button id="tUndo" class="edonly" title="Fortryd sidste flytning (Ctrl+Z)" data-t="↶ Fortryd" data-t-title="Fortryd sidste flytning (Ctrl+Z)" disabled>↶ Fortryd</button>
+  <button id="tRedo" class="edonly" title="Gentag (Ctrl+Y)" data-t="↷ Gentag" data-t-title="Gentag (Ctrl+Y)" disabled>↷ Gentag</button>
+  <button id="tCfg" data-t="Indstillinger">Indstillinger</button>
+  <button id="tFull" data-t="Fuldskærm">Fuldskærm</button>
+  <a class="btn" href="sim" target="_blank" rel="noopener" data-t="◱ 2D-simulator">◱ 2D-simulator</a>
 </div>
 
 <div class="panel" id="cfg">
-  <h3>Visning <span class="mut" style="font-weight:400">gælder denne skærm</span></h3>
-  <div class="row"><label for="cGain">Lysstyrke</label><input type="range" id="cGain" min="10" max="300" value="100"><span class="v" id="cGainV"></span></div>
-  <div class="row"><label for="cSmoke">Røg</label><input type="range" id="cSmoke" min="0" max="100" value="35"><span class="v" id="cSmokeV"></span></div>
-  <div class="row"><label for="cExpo">Eksponering</label><input type="range" id="cExpo" min="20" max="300" value="100"><span class="v" id="cExpoV"></span></div>
-  <h4>Rummet <span class="mut" style="font-weight:400">gemmes i showet</span></h4>
-  <div class="row"><label for="cAmb">Rumlys</label><input type="range" id="cAmb" min="0" max="100" value="8"><span class="v" id="cAmbV"></span></div>
-  <div class="hint">Rumlys er det svage lys, der gør rummet synligt, selv om lamperne er slukket.
+  <h3><span data-t="Visning">Visning</span> <span class="mut" style="font-weight:400" data-t="gælder denne skærm">gælder denne skærm</span></h3>
+  <div class="row"><label for="cGain" data-t="Lysstyrke">Lysstyrke</label><input type="range" id="cGain" min="10" max="300" value="100"><span class="v" id="cGainV"></span></div>
+  <div class="row"><label for="cSmoke" data-t="Røg">Røg</label><input type="range" id="cSmoke" min="0" max="100" value="35"><span class="v" id="cSmokeV"></span></div>
+  <div class="row"><label for="cExpo" data-t="Eksponering">Eksponering</label><input type="range" id="cExpo" min="20" max="300" value="100"><span class="v" id="cExpoV"></span></div>
+  <h4><span data-t="Rummet">Rummet</span> <span class="mut" style="font-weight:400" data-t="gemmes i showet">gemmes i showet</span></h4>
+  <div class="row"><label for="cAmb" data-t="Rumlys">Rumlys</label><input type="range" id="cAmb" min="0" max="100" value="8"><span class="v" id="cAmbV"></span></div>
+  <div class="hint" data-t="Rumlys er det svage lys, der gør rummet synligt, selv om lamperne er slukket. Røg bestemmer, hvor tydelige lysstrålerne er.">Rumlys er det svage lys, der gør rummet synligt, selv om lamperne er slukket.
     Røg bestemmer, hvor tydelige lysstrålerne er.</div>
 </div>
 
 <div class="panel" id="side">
   <div class="tabs">
-    <button id="tabLamps" class="on">Lamper</button>
-    <button id="tabObjs">Ting</button>
-    <button id="tabRoom">Rum</button>
+    <button id="tabLamps" class="on" data-t="Lamper">Lamper</button>
+    <button id="tabObjs" data-t="Ting">Ting</button>
+    <button id="tabRoom" data-t="Rum">Rum</button>
   </div>
 
   <div id="pgLamps">
     <div class="list" id="lampList"></div>
     <div id="lampEd" style="display:none">
-      <h4 id="leName">Lampe</h4>
-      <div class="row"><label for="leLevel">Lysstyrke</label><input type="range" id="leLevel" min="0" max="100"><span class="v" id="leLevelV"></span></div>
-      <div class="row"><span class="k"></span><button id="leOn">Tændt</button></div>
-      <div class="row"><span class="k">Træk</span><button id="lmMove" class="on">Flyt</button><button id="lmRot">Drej</button></div>
-      <div class="row"><label for="leX">Til siden</label><input type="number" id="leX" step="0.1"> m</div>
-      <div class="row"><label for="leY">Ind/ud</label><input type="number" id="leY" step="0.1"> m</div>
-      <div class="row"><label for="leZ">Højde</label><input type="number" id="leZ" step="0.1" min="0"> m</div>
-      <div class="row"><label for="leRot">Drejet</label><input type="number" id="leRot" step="5"> ° <span class="mut">(som i 2D)</span></div>
-      <div class="row"><span class="k">Retning</span><button id="leAim">Peg på…</button><button id="leAuto">Automatisk</button></div>
+      <h4 id="leName" data-t="Lampe">Lampe</h4>
+      <div class="row"><label for="leLevel" data-t="Lysstyrke">Lysstyrke</label><input type="range" id="leLevel" min="0" max="100"><span class="v" id="leLevelV"></span></div>
+      <div class="row"><span class="k"></span><button id="leOn" data-t="Tændt">Tændt</button></div>
+      <div class="row"><span class="k" data-t="Træk">Træk</span><button id="lmMove" class="on" data-t="Flyt">Flyt</button><button id="lmRot" data-t="Drej">Drej</button></div>
+      <div class="row"><label for="leX" data-t="Til siden">Til siden</label><input type="number" id="leX" step="0.1"> m</div>
+      <div class="row"><label for="leY" data-t="Ind/ud">Ind/ud</label><input type="number" id="leY" step="0.1"> m</div>
+      <div class="row"><label for="leZ" data-t="Højde">Højde</label><input type="number" id="leZ" step="0.1" min="0"> m</div>
+      <div class="row"><label for="leRot" data-t="Drejet">Drejet</label><input type="number" id="leRot" step="5"> ° <span class="mut" data-t="(som i 2D)">(som i 2D)</span></div>
+      <div class="row"><span class="k" data-t="Retning">Retning</span><button id="leAim" data-t="Peg på…">Peg på…</button><button id="leAuto" data-t="Automatisk">Automatisk</button></div>
       <div class="hint" id="leAimTxt"></div>
-      <div class="hint"><b>Flyt</b>: træk i pilene. <b>Drej</b>: træk i ringene. <b>Peg på…</b>: klik derefter
+      <div class="hint" data-t-html="&lt;b&gt;Flyt&lt;/b&gt;: træk i pilene. &lt;b&gt;Drej&lt;/b&gt;: træk i ringene. &lt;b&gt;Peg på…&lt;/b&gt;: klik derefter på det sted i rummet, lampen skal lyse på — fx en person eller et punkt på scenen. Drejningen er den samme som i Layout og 2D-simulatoren: drejer du her, drejer den også dér, og omvendt. Lysstyrken er lampens rigtige niveau (som under Pult → Lamper)."><b>Flyt</b>: træk i pilene. <b>Drej</b>: træk i ringene. <b>Peg på…</b>: klik derefter
         på det sted i rummet, lampen skal lyse på — fx en person eller et punkt på scenen.
         Drejningen er den samme som i Layout og 2D-simulatoren: drejer du her, drejer den
         også dér, og omvendt. Lysstyrken er lampens rigtige niveau (som under Pult → Lamper).</div>
@@ -161,74 +161,76 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
   <div id="pgObjs" style="display:none">
     <div class="cat" id="catalog"></div>
     <div class="row" style="margin-top:8px">
-      <button id="obImport">Hent 3D-model (.glb)…</button>
+      <button id="obImport" data-t="Hent 3D-model (.glb)…">Hent 3D-model (.glb)…</button>
       <input type="file" id="obFile" accept=".glb,.gltf" style="display:none">
     </div>
-    <h4>I rummet <span class="mut" style="font-weight:400">Shift+klik vælger flere</span></h4>
+    <h4><span data-t="I rummet">I rummet</span> <span class="mut" style="font-weight:400" data-t="Shift+klik vælger flere">Shift+klik vælger flere</span></h4>
     <div class="list" id="objList"></div>
     <div id="grpEd" style="display:none">
-      <h4 id="geTitle">Gruppe</h4>
-      <div class="row" id="geNameRow"><label for="geName">Navn</label><input type="text" id="geName" style="flex:1;width:auto"></div>
-      <div class="row"><span class="k">Træk</span>
-        <button id="gmMove" class="on">Flyt</button><button id="gmRot">Drej</button><button id="gmScale">Størrelse</button></div>
-      <div class="row" id="geMultiRow"><span class="k"></span><button id="geGroup">Gruppér dem</button></div>
-      <div class="row" id="geGrpRow"><span class="k"></span><button id="geUngroup">Opløs gruppe</button>
-        <button id="geDup">Kopiér</button></div>
-      <div class="row"><span class="k"></span><button id="geDel" class="bad">Slet</button></div>
+      <h4 id="geTitle" data-t="Gruppe">Gruppe</h4>
+      <div class="row" id="geNameRow"><label for="geName" data-t="Navn">Navn</label><input type="text" id="geName" style="flex:1;width:auto"></div>
+      <div class="row"><span class="k" data-t="Træk">Træk</span>
+        <button id="gmMove" class="on" data-t="Flyt">Flyt</button><button id="gmRot" data-t="Drej">Drej</button><button id="gmScale" data-t="Størrelse">Størrelse</button></div>
+      <div class="row" id="geMultiRow"><span class="k"></span><button id="geGroup" data-t="Gruppér dem">Gruppér dem</button></div>
+      <div class="row" id="geGrpRow"><span class="k"></span><button id="geUngroup" data-t="Opløs gruppe">Opløs gruppe</button>
+        <button id="geDup" data-t="Kopiér">Kopiér</button></div>
+      <div class="row"><span class="k"></span><button id="geDel" class="bad" data-t="Slet">Slet</button></div>
       <div class="hint" id="geHint"></div>
     </div>
     <div id="objEd" style="display:none">
-      <h4 id="oeTitle">Ting</h4>
-      <div class="row"><label for="oeName">Navn</label><input type="text" id="oeName" style="flex:1;width:auto"></div>
-      <div class="row"><label for="oeColor">Farve</label><input type="color" id="oeColor"></div>
-      <div class="row"><span class="k">Træk</span>
-        <button id="tmMove" class="on">Flyt</button><button id="tmRot">Drej</button><button id="tmScale">Størrelse</button></div>
-      <div class="row"><label for="oeX">Til siden</label><input type="number" id="oeX" step="0.1"> m</div>
-      <div class="row"><label for="oeY">Ind/ud</label><input type="number" id="oeY" step="0.1"> m</div>
-      <div class="row"><label for="oeZ">Står i højde</label><input type="number" id="oeZ" step="0.1"> m</div>
-      <div class="row" id="oeSizeRow"><label>Bredde/dybde/højde</label>
+      <h4 id="oeTitle" data-t="Ting">Ting</h4>
+      <div class="row"><label for="oeName" data-t="Navn">Navn</label><input type="text" id="oeName" style="flex:1;width:auto"></div>
+      <div class="row"><label for="oeColor" data-t="Farve">Farve</label><input type="color" id="oeColor"></div>
+      <div class="row"><span class="k" data-t="Træk">Træk</span>
+        <button id="tmMove" class="on" data-t="Flyt">Flyt</button><button id="tmRot" data-t="Drej">Drej</button><button id="tmScale" data-t="Størrelse">Størrelse</button></div>
+      <div class="row"><label for="oeX" data-t="Til siden">Til siden</label><input type="number" id="oeX" step="0.1"> m</div>
+      <div class="row"><label for="oeY" data-t="Ind/ud">Ind/ud</label><input type="number" id="oeY" step="0.1"> m</div>
+      <div class="row"><label for="oeZ" data-t="Står i højde">Står i højde</label><input type="number" id="oeZ" step="0.1"> m</div>
+      <div class="row" id="oeSizeRow"><label data-t="Bredde/dybde/højde">Bredde/dybde/højde</label>
         <input type="number" id="oeW" step="0.1" min="0.02" style="width:70px">
         <input type="number" id="oeD" step="0.1" min="0.02" style="width:70px">
         <input type="number" id="oeH" step="0.1" min="0.02" style="width:70px"></div>
-      <div class="row" id="oeScaleRow"><label for="oeScale">Skala</label><input type="number" id="oeScale" step="0.1" min="0.001"></div>
-      <div class="row"><label for="oeRot">Drejet</label><input type="number" id="oeRot" step="5"> °</div>
-      <div class="row"><span class="k"></span><button id="oeFloor">Stil på gulv/scene</button></div>
-      <div class="row"><span class="k"></span><button id="oeDup">Kopiér</button><button id="oeDel" class="bad">Slet</button></div>
+      <div class="row" id="oeScaleRow"><label for="oeScale" data-t="Skala">Skala</label><input type="number" id="oeScale" step="0.1" min="0.001"></div>
+      <div class="row"><label for="oeRot" data-t="Drejet">Drejet</label><input type="number" id="oeRot" step="5"> °</div>
+      <div class="row"><span class="k"></span><button id="oeFloor" data-t="Stil på gulv/scene">Stil på gulv/scene</button></div>
+      <div class="row"><span class="k"></span><button id="oeDup" data-t="Kopiér">Kopiér</button><button id="oeDel" class="bad" data-t="Slet">Slet</button></div>
       <div class="hint" id="oeHint"></div>
     </div>
   </div>
 
   <div id="pgRoom" style="display:none">
-    <div class="row"><label for="rmW">Bredde</label><input type="number" id="rmW" step="0.5" min="2"> m</div>
-    <div class="row"><label for="rmD">Dybde</label><input type="number" id="rmD" step="0.5" min="2"> m</div>
-    <div class="row"><label for="rmH">Loftshøjde</label><input type="number" id="rmH" step="0.5" min="2"> m</div>
-    <div class="row"><label for="rmCx">Midte til siden</label><input type="number" id="rmCx" step="0.5"> m</div>
-    <div class="row"><label for="rmCy">Midte ind/ud</label><input type="number" id="rmCy" step="0.5"> m</div>
-    <div class="row"><label for="rmWalls">Vægge</label><input type="checkbox" id="rmWalls"></div>
-    <div class="row"><label for="rmFloor">Gulvfarve</label><input type="color" id="rmFloor"></div>
-    <div class="row"><label for="rmWall">Vægfarve</label><input type="color" id="rmWall"></div>
-    <div class="hint">Målene er i meter og passer med Layout: x til siden, y ind mod scenens bagkant
+    <div class="row"><label for="rmW" data-t="Bredde">Bredde</label><input type="number" id="rmW" step="0.5" min="2"> m</div>
+    <div class="row"><label for="rmD" data-t="Dybde">Dybde</label><input type="number" id="rmD" step="0.5" min="2"> m</div>
+    <div class="row"><label for="rmH" data-t="Loftshøjde">Loftshøjde</label><input type="number" id="rmH" step="0.5" min="2"> m</div>
+    <div class="row"><label for="rmCx" data-t="Midte til siden">Midte til siden</label><input type="number" id="rmCx" step="0.5"> m</div>
+    <div class="row"><label for="rmCy" data-t="Midte ind/ud">Midte ind/ud</label><input type="number" id="rmCy" step="0.5"> m</div>
+    <div class="row"><label for="rmWalls" data-t="Vægge">Vægge</label><input type="checkbox" id="rmWalls"></div>
+    <div class="row"><label for="rmFloor" data-t="Gulvfarve">Gulvfarve</label><input type="color" id="rmFloor"></div>
+    <div class="row"><label for="rmWall" data-t="Vægfarve">Vægfarve</label><input type="color" id="rmWall"></div>
+    <div class="hint" data-t="Målene er i meter og passer med Layout: x til siden, y ind mod scenens bagkant (salen er på minus-siden). Væggene er gennemsigtige udefra, så du kan se ind fra alle sider.">Målene er i meter og passer med Layout: x til siden, y ind mod scenens bagkant
       (salen er på minus-siden). Væggene er gennemsigtige udefra, så du kan se ind fra alle sider.</div>
-    <h4>3D-sceneplaner</h4>
-    <div class="row"><input type="text" id="plName" placeholder="Navn på sceneplanen" style="flex:1;width:auto">
-      <button id="plSave">Gem 3D-sceneplan</button></div>
+    <h4 data-t="3D-sceneplaner">3D-sceneplaner</h4>
+    <div class="row"><input type="text" id="plName" placeholder="Navn på sceneplanen" data-t-placeholder="Navn på sceneplanen" style="flex:1;width:auto">
+      <button id="plSave" data-t="Gem 3D-sceneplan">Gem 3D-sceneplan</button></div>
     <div class="row"><select id="plList" style="flex:1;width:auto"></select>
-      <button id="plLoad">Hent</button><button id="plDel" class="bad">Slet</button></div>
-    <div class="hint" id="plTip">En 3D-sceneplan er rummet med alle ting og modeller (ikke lamperne).
+      <button id="plLoad" data-t="Hent">Hent</button><button id="plDel" class="bad" data-t="Slet">Slet</button></div>
+    <div class="hint" id="plTip" data-t="En 3D-sceneplan er rummet med alle ting og modeller (ikke lamperne). Den gemmes i Show-mappen ved siden af dine shows som «navn.sceneplan-3d.json».">En 3D-sceneplan er rummet med alle ting og modeller (ikke lamperne).
       Den gemmes i Show-mappen ved siden af dine shows som «navn.sceneplan-3d.json».</div>
   </div>
 </div>
 
 <div class="panel" id="lampbox">
-  <div class="row" style="margin:0 0 6px"><b id="lbName" style="flex:1">Lampe</b><button id="lbClose" aria-label="Luk">✕</button></div>
-  <div class="row"><label for="lbLevel">Lysstyrke</label><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
-  <div class="row"><span class="k"></span><button id="lbOn">Tændt</button></div>
+  <div class="row" style="margin:0 0 6px"><b id="lbName" style="flex:1" data-t="Lampe">Lampe</b><button id="lbClose" aria-label="Luk" data-t-aria="Luk">✕</button></div>
+  <div class="row"><label for="lbLevel" data-t="Lysstyrke">Lysstyrke</label><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
+  <div class="row"><span class="k"></span><button id="lbOn" data-t="Tændt">Tændt</button></div>
 </div>
 <div id="zrect"></div>
 <div id="msg"></div>
 <div id="toast"></div>
-<div id="aimtip">Klik på det sted, lampen skal pege på — Esc fortryder</div>
+<div id="aimtip" data-t>Klik på det sted, lampen skal pege på — Esc fortryder</div>
 
+<script>if(typeof window.t!=="function"){window.t=function(k){return k};window.applyLang=function(){}}</script>
+<script src="lang.js"></script>
 <script type="module">
 import * as T from "/three/three3d.min.js";
 
@@ -300,8 +302,8 @@ function post(msg) {
   return fetch("api", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) })
     .then((r) => r.json()).catch(() => ({ ok: false }));
 }
-function toast(t) {
-  const e = $("toast"); e.textContent = t; e.style.display = "block";
+function toast(txt) {
+  const e = $("toast"); e.textContent = txt; e.style.display = "block";
   clearTimeout(toast._t); toast._t = setTimeout(() => { e.style.display = "none"; }, 2600);
 }
 
@@ -461,7 +463,7 @@ function buildObj(o) {
       const bb = new T.Box3().setFromObject(m), ctr = bb.getCenter(new T.Vector3());
       m.position.set(-ctr.x, -bb.min.y, -ctr.z);
       inner.add(m);
-    }).catch(() => { showMsg("3D-modellen " + o.file + " findes ikke på denne computer (mappen modeller ved siden af shows)."); });
+    }).catch(() => { showMsg(t("3D-modellen") + " " + o.file + " " + t("findes ikke på denne computer (mappen modeller ved siden af shows).")); });
     inner.scale.setScalar(o.scale || 1);
   } else if (BUILD[o.kind]) {
     const res = BUILD[o.kind](o), base = res[1];
@@ -571,7 +573,7 @@ function makeLamp(m, i) {
   /* ConeGeometry har uv.y = 1 i spidsen - det er der, strålen er kraftigst */
   group.add(beam);
 
-  const el = document.createElement("div"); el.className = "lbl3d"; el.textContent = m.name || ("Lampe " + (i + 1));
+  const el = document.createElement("div"); el.className = "lbl3d"; el.textContent = m.name || (t("Lampe") + " " + (i + 1));
   const label = new T.CSS2DObject(el); label.position.set(0, 0.32, 0); group.add(label);
   lampGroup.add(group);
   return { group, body, lens, spot, target, beam, label, shape: sh, cfg };
@@ -588,7 +590,7 @@ function placeLamp(L, m) {
   const len = Math.max(1.5, Math.min(14, dist * 1.35));
   const rad = len * Math.tan(L.cfg.ang * DEG);
   L.beam.scale.set(rad, rad, len);
-  L.label.element.textContent = m.name || "Lampe";
+  L.label.element.textContent = m.name || t("Lampe");
 }
 function syncLamps() {
   const sig = JSON.stringify(S.mods.map((m) => [m.type, S.shapes[m.type]]));
@@ -929,7 +931,7 @@ function toggleOn(i) {
   post({ op: "patch", items: [{ path: ["modules", i, "on"], value: v }] });
   updLampEd(); updLampBox();
 }
-function lampTitle(m, i) { return (m.num != null && m.num !== "" ? m.num : i + 1) + " · " + (m.name || "Lampe"); }
+function lampTitle(m, i) { return (m.num != null && m.num !== "" ? m.num : i + 1) + " · " + (m.name || t("Lampe")); }
 function pct(m) { return Math.round((m.level == null ? 255 : m.level) / 2.55); }
 function wireLevel(slider, out, getI) {
   let t = null;
@@ -949,7 +951,7 @@ function updLampBox() {
     $("lbLevel").value = pct(m); $("lbLevelV").textContent = pct(m) + " %";
   }
   const on = m.on !== false;
-  $("lbOn").textContent = on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
+  $("lbOn").textContent = on ? t("Tændt — tryk for at slukke") : t("Slukket — tryk for at tænde");
   $("lbOn").classList.toggle("on", on);
 }
 wireLevel($("lbLevel"), $("lbLevelV"), () => S.lampBox);
@@ -976,7 +978,7 @@ function updLampList() {
     d.className = "item" + (S.sel && S.sel.type === "lamp" && S.sel.i === i ? " sel" : "");
     d.innerHTML = '<span class="no"></span><span class="nm"></span>';
     d.firstChild.textContent = m.num != null && m.num !== "" ? m.num : i + 1;
-    d.lastChild.textContent = m.name || "Lampe";
+    d.lastChild.textContent = m.name || t("Lampe");
     d.onclick = () => select({ type: "lamp", i });
     box.appendChild(d);
   });
@@ -992,11 +994,11 @@ function updLampEd() {
     $("leLevel").value = pct(m); $("leLevelV").textContent = pct(m) + " %";
   }
   const on = m.on !== false;
-  $("leOn").textContent = on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
+  $("leOn").textContent = on ? t("Tændt — tryk for at slukke") : t("Slukket — tryk for at tænde");
   $("leOn").classList.toggle("on", on);
   setNum("leX", r2(m.x)); setNum("leY", r2(m.y)); setNum("leZ", r2(lampZ(m))); setNum("leRot", r2(m.rot || 0));
-  $("leAimTxt").textContent = a.auto ? "Peger automatisk mod scenen." :
-    "Peger på punktet x " + a.x.toFixed(1) + ", y " + a.y.toFixed(1) + ", højde " + a.z.toFixed(1) + " m.";
+  $("leAimTxt").textContent = a.auto ? t("Peger automatisk mod scenen.") :
+    t("Peger på punktet x") + " " + a.x.toFixed(1) + ", y " + a.y.toFixed(1) + ", " + t("højde") + " " + a.z.toFixed(1) + " m.";
   $("leAuto").disabled = a.auto;
 }
 wireLevel($("leLevel"), $("leLevelV"), () => S.sel.i);
@@ -1060,10 +1062,10 @@ $("lmMove").onclick = () => setLampMode("translate");
 $("lmRot").onclick = () => setLampMode("rotate");
 
 /* ting */
-const CATALOG = [["stage", "Scenepodie"], ["person", "Person"], ["drums", "Trommesæt"], ["amp", "Forstærker"],
-  ["speaker", "Højttaler"], ["mic", "Mikrofon"], ["keys", "Keyboard"], ["curtain", "Scenetæppe"], ["truss", "Travers"], ["wall", "Væg"],
-  ["box", "Klods"], ["cyl", "Cylinder"]];
-const KIND_NAME = Object.fromEntries(CATALOG.concat([["model", "3D-model"]]));
+const CATALOG = [["stage", t("Scenepodie")], ["person", t("Person")], ["drums", t("Trommesæt")], ["amp", t("Forstærker")],
+  ["speaker", t("Højttaler")], ["mic", t("Mikrofon")], ["keys", t("Keyboard")], ["curtain", t("Scenetæppe")], ["truss", t("Travers")], ["wall", t("Væg")],
+  ["box", t("Klods")], ["cyl", t("Cylinder")]];
+const KIND_NAME = Object.fromEntries(CATALOG.concat([["model", t("3D-model")]]));
 const KIND_SIZE = { stage: [6, 3, 0.5], box: [1, 1, 1], wall: [4, 0.2, 3], cyl: [0.6, 0.6, 1], truss: [6, 0.3, 0.3],
   person: [0.5, 0.3, 1.8], drums: [2, 1.6, 1.1], amp: [0.7, 0.35, 0.6], speaker: [0.6, 0.5, 1], mic: [0.3, 0.3, 1.6],
   keys: [1.3, 0.5, 1.0], curtain: [6, 0.25, 4], model: [1, 1, 1] };
@@ -1117,7 +1119,7 @@ function updObjList() {
   const sig = JSON.stringify([objs.map((o) => [o.id, o.name, o.color, o.kind, o.grp]), groups]) + "|" + JSON.stringify(S.sel);
   if (box._sig === sig) return; box._sig = sig;
   box.innerHTML = "";
-  if (!objs.length) { box.innerHTML = '<div class="item"><span class="nm mut">Ingen ting endnu</span></div>'; return; }
+  if (!objs.length) { box.innerHTML = '<div class="item"><span class="nm mut">' + t("Ingen ting endnu") + '</span></div>'; return; }
   const sel = S.sel || {}, multi = sel.type === "multi" ? sel.ids : [];
   const row = (o, mem) => {
     const d = document.createElement("div");
@@ -1139,9 +1141,9 @@ function updObjList() {
       const inMulti = mem.every((q) => multi.indexOf(q.id) >= 0);
       h.className = "item grp" + (sel.type === "grp" && sel.id === g.id ? " sel" : "") + (inMulti ? " msel" : "");
       h.innerHTML = '<span class="nm"></span><span class="ct"></span>';
-      h.children[0].textContent = g.name || "Gruppe";
-      h.children[1].textContent = mem.length + " ting";
-      h.title = "Vælg hele gruppen";
+      h.children[0].textContent = g.name || t("Gruppe");
+      h.children[1].textContent = mem.length + " " + t("ting");
+      h.title = t("Vælg hele gruppen");
       h.onclick = (e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) toggleMulti(mem.map((q) => q.id)); else select({ type: "grp", id: g.id }); };
       box.appendChild(h);
       mem.forEach((q) => row(q, true));
@@ -1153,15 +1155,15 @@ function updGrpEd() {
   $("grpEd").style.display = sel ? "block" : "none";
   if (!sel) return;
   const ids = selObjIds(), isG = sel.type === "grp", g = isG ? grpById(sel.id) : null;
-  $("geTitle").textContent = isG ? "Gruppe · " + ids.length + " ting" : ids.length + " ting valgt";
+  $("geTitle").textContent = isG ? t("Gruppe") + " · " + ids.length + " " + t("ting") : ids.length + " " + t("ting valgt");
   $("geNameRow").style.display = isG ? "flex" : "none";
   if (isG && document.activeElement !== $("geName")) $("geName").value = g ? g.name : "";
   $("geMultiRow").style.display = isG ? "none" : "flex";
   $("geGrpRow").style.display = isG ? "flex" : "none";
   $("geGroup").disabled = ids.length < 2;
   $("geHint").innerHTML = isG
-    ? "Tingene flyttes, drejes og skaleres samlet. <b>Størrelse</b> skalerer hele gruppen — også afstandene mellem tingene. Vil du rette én af dem, så klik på den i listen (eller Alt+klik i rummet)."
-    : "Træk i håndtaget for at flytte de valgte samlet. <b>Gruppér dem</b>, så de altid hænger sammen.";
+    ? t("Tingene flyttes, drejes og skaleres samlet. <b>Størrelse</b> skalerer hele gruppen — også afstandene mellem tingene. Vil du rette én af dem, så klik på den i listen (eller Alt+klik i rummet).")
+    : t("Træk i håndtaget for at flytte de valgte samlet. <b>Gruppér dem</b>, så de altid hænger sammen.");
   setTcMode(S.tcMode || "translate");
 }
 $("gmMove").onclick = () => setTcMode("translate");
@@ -1173,7 +1175,7 @@ $("geGroup").onclick = () => {
   const gid = "g" + Math.random().toString(36).slice(2, 9);
   S.room.groups = (S.room.groups || []).filter((g) => S.room.objects.some((o) => o.grp === g.id && ids.indexOf(o.id) < 0));
   const n = (S.room.groups || []).length + 1;
-  S.room.groups.push({ id: gid, name: "Gruppe " + n });
+  S.room.groups.push({ id: gid, name: t("Gruppe") + " " + n });
   S.room.objects.forEach((o) => { if (ids.indexOf(o.id) >= 0) o.grp = gid; });
   pushRoom(true); select({ type: "grp", id: gid });
   setTimeout(() => { $("geName").focus(); $("geName").select(); }, 50);
@@ -1195,7 +1197,7 @@ $("geDup").onclick = () => {
   const gid = S.sel && S.sel.id, g = grpById(gid); if (!g) return;
   record();
   const ng = "g" + Math.random().toString(36).slice(2, 9);
-  S.room.groups.push({ id: ng, name: (g.name + " (kopi)").slice(0, 40) });
+  S.room.groups.push({ id: ng, name: (g.name + " " + t("(kopi)")).slice(0, 40) });
   S.room.objects.filter((o) => o.grp === gid).forEach((o) => {
     S.room.objects.push(Object.assign({}, o, { id: newId(), grp: ng, x: r2(o.x + 0.8), y: r2(o.y - 0.4) }));
   });
@@ -1220,8 +1222,8 @@ function updObjEd() {
   setNum("oeW", o.w); setNum("oeD", o.d); setNum("oeH", o.h); setNum("oeScale", o.scale || 1);
   $("oeSizeRow").style.display = o.kind === "model" ? "none" : "flex";
   $("oeScaleRow").style.display = o.kind === "model" ? "flex" : "none";
-  $("oeHint").textContent = o.kind === "model" ? "Skala 1 = modellens egne mål (glTF er i meter)." :
-    o.kind === "curtain" ? "Scenetæppe: dybden er hvor dybe folderne er (fx 0,2 m). Drej det med «Drejet», hvis det skal hænge på tværs." : "";
+  $("oeHint").textContent = o.kind === "model" ? t("Skala 1 = modellens egne mål (glTF er i meter).") :
+    o.kind === "curtain" ? t("Scenetæppe: dybden er hvor dybe folderne er (fx 0,2 m). Drej det med «Drejet», hvis det skal hænge på tværs.") : "";
 }
 let editRec = { t: 0, k: "" };
 function editObj(fn, key) {
@@ -1259,14 +1261,14 @@ $("tmScale").onclick = () => setTcMode("scale");
 $("obImport").onclick = () => $("obFile").click();
 $("obFile").onchange = async () => {
   const f = $("obFile").files[0]; $("obFile").value = ""; if (!f) return;
-  toast("Henter " + f.name + " …");
+  toast(t("Henter") + " " + f.name + " …");
   try {
     const r = await fetch("upload3d?name=" + encodeURIComponent(f.name), { method: "POST", body: f });
     const d = await r.json();
-    if (!d.ok) { showMsg("Kunne ikke hente modellen: " + d.err); return; }
+    if (!d.ok) { showMsg(t("Kunne ikke hente modellen:") + " " + d.err); return; }
     addObj("model", { file: d.file, name: f.name.replace(/\.(glb|gltf)$/i, ""), scale: 1, color: "#808080" });
-    toast(d.file + " er sat ind");
-  } catch (e) { showMsg("Kunne ikke hente modellen: " + e); }
+    toast(d.file + " " + t("er sat ind"));
+  } catch (e) { showMsg(t("Kunne ikke hente modellen:") + " " + e); }
 };
 
 /* rum */
@@ -1289,37 +1291,37 @@ let plans = [];
 function planList(d) {
   if (d && d.plans) plans = d.plans.filter((p) => p.kind === "3d");
   const sel = $("plList"), cur = sel.value; sel.innerHTML = "";
-  if (!plans.length) { const o = document.createElement("option"); o.value = ""; o.textContent = "Ingen 3D-sceneplaner gemt"; sel.appendChild(o); }
+  if (!plans.length) { const o = document.createElement("option"); o.value = ""; o.textContent = t("Ingen 3D-sceneplaner gemt"); sel.appendChild(o); }
   for (const p of plans) { const o = document.createElement("option"); o.value = p.name; o.textContent = "3D · " + p.name + "  (" + p.saved + ")"; sel.appendChild(o); }
   if (cur) sel.value = cur;
   $("plLoad").disabled = $("plDel").disabled = !plans.length;
 }
-function planTip(t) { $("plTip").textContent = t; $("plTip").style.color = "#ffd166"; }
+function planTip(txt) { $("plTip").textContent = txt; $("plTip").style.color = "#ffd166"; }
 const planRefresh = () => post({ op: "plan_list" }).then(planList);
 $("plSave").onclick = async () => {
   const name = $("plName").value.trim();
-  if (!name) { planTip("Skriv et navn på sceneplanen først."); $("plName").focus(); return; }
+  if (!name) { planTip(t("Skriv et navn på sceneplanen først.")); $("plName").focus(); return; }
   let d = await post({ op: "plan_save", kind: "3d", name, room3d: S.room });
   if (d.exists) {
-    if (!confirm("Der findes allerede en 3D-sceneplan, der hedder “" + d.name + "”. Skal den overskrives?")) return;
+    if (!confirm(t("Der findes allerede en 3D-sceneplan, der hedder") + " “" + d.name + "”. " + t("Skal den overskrives?"))) return;
     d = await post({ op: "plan_save", kind: "3d", name, room3d: S.room, overwrite: true });
   }
-  if (!d.ok) { planTip("Kunne ikke gemme: " + (d.err || "ukendt fejl")); return; }
-  planList(d); $("plList").value = d.name; planTip("Gemt som 3D-sceneplanen “" + d.name + "”.");
+  if (!d.ok) { planTip(t("Kunne ikke gemme:") + " " + (d.err || t("ukendt fejl"))); return; }
+  planList(d); $("plList").value = d.name; planTip(t("Gemt som 3D-sceneplanen") + " “" + d.name + "”.");
 };
 $("plLoad").onclick = async () => {
   const name = $("plList").value; if (!name) return;
-  if (!confirm("Hent 3D-sceneplanen “" + name + "”? Rummet, der står nu, erstattes.")) return;
+  if (!confirm(t("Hent 3D-sceneplanen") + " “" + name + "”? " + t("Rummet, der står nu, erstattes."))) return;
   record();
   const d = await post({ op: "plan_load", kind: "3d", name });
-  if (!d.ok) { planTip(d.err || "Kunne ikke hente sceneplanen."); return; }
-  $("plName").value = name; planTip("Hentet: 3D-sceneplanen “" + name + "”.");
+  if (!d.ok) { planTip(d.err || t("Kunne ikke hente sceneplanen.")); return; }
+  $("plName").value = name; planTip(t("Hentet: 3D-sceneplanen") + " “" + name + "”.");
   select(null); await loadState();
 };
 $("plDel").onclick = async () => {
   const name = $("plList").value; if (!name) return;
-  if (!confirm("Slet 3D-sceneplanen “" + name + "”?")) return;
-  planList(await post({ op: "plan_delete", kind: "3d", name })); planTip("Slettet.");
+  if (!confirm(t("Slet 3D-sceneplanen") + " “" + name + "”?")) return;
+  planList(await post({ op: "plan_delete", kind: "3d", name })); planTip(t("Slettet."));
 };
 $("tabRoom").addEventListener("click", planRefresh);
 
@@ -1365,7 +1367,7 @@ function restore(st) {
   } else select(S.sel);
   updLampEd();
 }
-function undo() { if (!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop()); updUndo(); toast("Fortrudt"); }
+function undo() { if (!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop()); updUndo(); toast(t("Fortrudt")); }
 function redo() { if (!REDO.length) return; UNDO.push(snap()); restore(REDO.pop()); updUndo(); }
 function updUndo() { $("tUndo").disabled = !UNDO.length; $("tRedo").disabled = !REDO.length; }
 $("tUndo").onclick = undo;
@@ -1406,8 +1408,8 @@ $("camSide").onclick = () => camPreset("side");
 for (const [id, k, f] of [["cGain", "gain", (v) => v + " %"], ["cSmoke", "smoke", (v) => v], ["cExpo", "expo", (v) => v + " %"]]) {
   $(id).oninput = () => { S.view[k] = +$(id).value; $(id + "V").textContent = f(S.view[k]); saveView(); };
 }
-function showMsg(t) {
-  const m = $("msg"); m.textContent = t; m.style.display = "block";
+function showMsg(txt) {
+  const m = $("msg"); m.textContent = txt; m.style.display = "block";
   clearTimeout(showMsg._t); showMsg._t = setTimeout(() => { m.style.display = "none"; }, 6000);
 }
 
@@ -1453,8 +1455,8 @@ async function loadFrame() {
 }
 function setStat() {
   $("dot").className = "dot" + (S.connected ? " live" : "");
-  $("stat").textContent = S.connected ? S.mods.length + " lamper · " + fps + " billeder/s" : "ingen forbindelse til pulten";
-  if (!S.connected) showMsg("Ingen forbindelse — kører lyspulten?");
+  $("stat").textContent = S.connected ? S.mods.length + " " + t("lamper") + " · " + fps + " " + t("billeder/s") : t("ingen forbindelse til pulten");
+  if (!S.connected) showMsg(t("Ingen forbindelse — kører lyspulten?"));
 }
 
 function loop() {
@@ -1474,6 +1476,7 @@ await loadState();
 loadFrame();
 setInterval(loadState, 700);
 window.__sim3d = { S, scene, T, camera, renderer, tc, objMap, pivot, UNDO, get lampsNow() { return lamps; } };   // til test
+applyLang();
 requestAnimationFrame(loop);
 </script>
 </body>

@@ -4,6 +4,9 @@
    arrow functions. Det koster nogle linjer nu og sparer en omskrivning
    senere. */
 
+if (typeof window.t !== "function") { window.t = function (k) { return k; }; }
+if (typeof window.applyLang !== "function") { window.applyLang = function () {}; }
+
 (function () {
 "use strict";
 
@@ -233,7 +236,7 @@ function localPair(elm, out, onchange) {
   return { set: function (v) { if (!dragging) { num.value = v; elm.value = v; } } };
 }
 
-function strobeTxt(v) { return v < 8 ? "fra" : (1 + Math.floor((v - 8) * 24 / 247)) + " Hz"; }
+function strobeTxt(v) { return v < 8 ? t("fra") : (1 + Math.floor((v - 8) * 24 / 247)) + " Hz"; }
 
 /* ------------------------------------------------------------ profiler */
 function profilesAll() {
@@ -335,13 +338,13 @@ function colourControl(parent, value, onchange) {
    variabler. Egne temaer gemmes på serveren (alle skærme kan bruge dem);
    hvilket tema den enkelte skærm bruger, huskes i browseren. */
 var THEME_GROUPS = [
-  ["Flader", [["bg", "Baggrund"], ["panel", "Rammer"],
-              ["panel2", "Knapper, felter og skydere"], ["rule", "Kanter og streger"]]],
-  ["Tekst", [["ink", "Tekst"], ["muted", "Dæmpet tekst"], ["dim", "Svag tekst"]]],
-  ["Fremhævning", [["accent", "Valgte knapper, skyderknop, overskrifter"],
-                   ["accent-ink", "Tekst på det fremhævede"],
-                   ["alarm", "Advarsler og blackout"], ["alarm-ink", "Tekst på advarsler"],
-                   ["ok", "OK og solo"]]]
+  [t("Flader"), [["bg", t("Baggrund")], ["panel", t("Rammer")],
+              ["panel2", t("Knapper, felter og skydere")], ["rule", t("Kanter og streger")]]],
+  [t("Tekst"), [["ink", t("Tekst")], ["muted", t("Dæmpet tekst")], ["dim", t("Svag tekst")]]],
+  [t("Fremhævning"), [["accent", t("Valgte knapper, skyderknop, overskrifter")],
+                   ["accent-ink", t("Tekst på det fremhævede")],
+                   ["alarm", t("Advarsler og blackout")], ["alarm-ink", t("Tekst på advarsler")],
+                   ["ok", t("OK og solo")]]]
 ];
 var THEME_VARS = [];
 THEME_GROUPS.forEach(function (g) { g[1].forEach(function (v) { THEME_VARS.push(v[0]); }); });
@@ -398,7 +401,7 @@ function themeOptions() {
   var og = id("theme-own"), own = themeOwn(), names = Object.keys(own).sort();
   if (og) og.parentNode.removeChild(og);
   if (names.length) {
-    og = document.createElement("optgroup"); og.label = "Egne temaer"; og.id = "theme-own";
+    og = document.createElement("optgroup"); og.label = t("Egne temaer"); og.id = "theme-own";
     names.forEach(function (n) { var o = el("option", "", n); o.value = "custom:" + n; og.appendChild(o); });
     sel.appendChild(og);
   }
@@ -409,18 +412,18 @@ function themeOptions() {
   if (id("theme-adv").style.display !== "none" && !themeDraft) buildThemeEditor();
 }
 function initTheme() {
-  var t = "rav";
-  try { t = window.localStorage.getItem("pixelpult.theme") || "rav"; } catch (e) {}
+  var tv = "rav";
+  try { tv = window.localStorage.getItem("pixelpult.theme") || "rav"; } catch (e) {}
   var sel = id("theme");
-  if (themeIsOwn(t)) {
+  if (themeIsOwn(tv)) {
     /* eget tema: farverne kommer med serverens svar (themeOptions) */
-    themePending = t; themeCur = t;
+    themePending = tv; themeCur = tv;
   } else {
-    sel.value = t; if (sel.value !== t) t = "rav";
-    applyTheme(t);
+    sel.value = tv; if (sel.value !== tv) tv = "rav";
+    applyTheme(tv);
   }
   sel.onchange = function () {
-    if (themeDirty && !confirm("Du har ændret farver uden at gemme. Kassér ændringerne?")) {
+    if (themeDirty && !confirm(t("Du har ændret farver uden at gemme. Kassér ændringerne?"))) {
       sel.value = themeCur; return;
     }
     themeDraft = null; themeDirty = false;
@@ -432,7 +435,7 @@ function initTheme() {
   id("theme-advbtn").onclick = function () {
     var a = id("theme-adv"), open = a.style.display === "none";
     a.style.display = open ? "" : "none";
-    this.textContent = (open ? "▾" : "▸") + " Avanceret";
+    this.textContent = (open ? "▾" : "▸") + " " + t("Avanceret");
     this.setAttribute("aria-expanded", open ? "true" : "false");
     if (open) buildThemeEditor();
   };
@@ -462,14 +465,14 @@ function themeShowContrast() {
   var box = id("theme-contrast"); if (!box || !themeDraft) return;
   var v = themeDraft.vars;
   box.innerHTML = "";
-  [["ink", "bg", "Tekst på baggrund"], ["ink", "panel", "Tekst i rammer"], ["ink", "panel2", "Tekst på knapper"],
-   ["muted", "panel", "Dæmpet tekst"], ["accent-ink", "accent", "Tekst på det fremhævede"],
-   ["alarm-ink", "alarm", "Tekst på advarsler"]].forEach(function (p) {
+  [["ink", "bg", t("Tekst på baggrund")], ["ink", "panel", t("Tekst i rammer")], ["ink", "panel2", t("Tekst på knapper")],
+   ["muted", "panel", t("Dæmpet tekst")], ["accent-ink", "accent", t("Tekst på det fremhævede")],
+   ["alarm-ink", "alarm", t("Tekst på advarsler")]].forEach(function (p) {
     var r = themeContrast(v[p[0]], v[p[1]]), good = r >= 4.5;
     var c = el("span", "th-ct" + (good ? "" : " bad"));
     var sw = el("span", "sw", "Aa"); sw.style.background = v[p[1]]; sw.style.color = v[p[0]];
     c.appendChild(sw);
-    c.appendChild(document.createTextNode(p[2] + ": " + r.toFixed(1).replace(".", ",") + ":1 " + (good ? "✓" : "— svær at læse")));
+    c.appendChild(document.createTextNode(p[2] + ": " + r.toFixed(1).replace(".", ",") + ":1 " + (good ? "✓" : "— " + t("svær at læse"))));
     box.appendChild(c);
   });
 }
@@ -479,11 +482,11 @@ function buildThemeEditor() {
   var own = themeIsOwn(themeCur);
   box.innerHTML = "";
   var lead = el("p", "th-lead");
-  lead.appendChild(document.createTextNode("Du retter i "));
+  lead.appendChild(document.createTextNode(t("Du retter i") + " "));
   lead.appendChild(el("b", "", themeLabel(themeCur)));
   lead.appendChild(document.createTextNode(own
-    ? ". Ændringerne ses med det samme, men gemmes først, når du trykker Gem."
-    : ". Det er et fast tema og kan ikke ændres — gem dine ændringer som et eget tema."));
+    ? ". " + t("Ændringerne ses med det samme, men gemmes først, når du trykker Gem.")
+    : ". " + t("Det er et fast tema og kan ikke ændres — gem dine ændringer som et eget tema.")));
   box.appendChild(lead);
   var grid = el("div", "th-groups");
   THEME_GROUPS.forEach(function (g) {
@@ -508,7 +511,7 @@ function buildThemeEditor() {
     grid.appendChild(gb);
   });
   box.appendChild(grid);
-  box.appendChild(el("div", "th-gname", "Kan det læses?"));
+  box.appendChild(el("div", "th-gname", t("Kan det læses?")));
   var ct = el("div", "th-contrast"); ct.id = "theme-contrast"; box.appendChild(ct);
   var br = el("div", "btns th-btns"); br.id = "theme-btns"; box.appendChild(br);
   themeShowContrast();
@@ -519,32 +522,32 @@ function themeButtons() {
   var own = themeIsOwn(themeCur);
   br.innerHTML = "";
   if (own) {
-    var sv = el("button", themeDirty ? "lt-go" : "", "Gem"); sv.id = "theme-save";
+    var sv = el("button", themeDirty ? "lt-go" : "", t("Gem")); sv.id = "theme-save";
     sv.disabled = !themeDirty;
     sv.onclick = function () { themeStore(themeOwnName(themeCur), true); };
     br.appendChild(sv);
   }
-  var sn = el("button", own ? "" : "lt-go", "Gem som nyt tema…"); sn.id = "theme-saveas";
+  var sn = el("button", own ? "" : "lt-go", t("Gem som nyt tema…")); sn.id = "theme-saveas";
   sn.onclick = function () {
     var sug = own ? themeOwnName(themeCur) + " 2" : "Mit " + themeLabel(themeCur).toLowerCase();
-    var n = prompt("Navn på temaet (findes det i forvejen blandt dine egne, kan du overskrive det):", sug);
+    var n = prompt(t("Navn på temaet (findes det i forvejen blandt dine egne, kan du overskrive det):"), sug);
     if (n === null) return;
     n = n.replace(/^\s+|\s+$/g, "");
     if (!n) return;
     var exists = !!themeOwn()[n];
-    if (exists && !confirm("Der findes allerede et tema der hedder “" + n + "”. Vil du overskrive det?")) return;
+    if (exists && !confirm(t("Der findes allerede et tema der hedder") + " “" + n + "”. " + t("Vil du overskrive det?"))) return;
     themeStore(n, exists);
   };
   br.appendChild(sn);
-  var un = el("button", "", "Fortryd ændringer"); un.id = "theme-undo";
+  var un = el("button", "", t("Fortryd ændringer")); un.id = "theme-undo";
   un.disabled = !themeDirty;
   un.onclick = function () { themeDraft = null; themeDirty = false; applyTheme(themeCur); buildThemeEditor(); };
   br.appendChild(un);
   if (own) {
-    var dl = el("button", "alarm", "Slet tema"); dl.id = "theme-del";
+    var dl = el("button", "alarm", t("Slet tema")); dl.id = "theme-del";
     dl.onclick = function () {
       var n = themeOwnName(themeCur);
-      if (!confirm("Slet temaet “" + n + "”? Skærme der bruger det, skifter til " + themeLabel(themeBaseOf(themeCur)) + ".")) return;
+      if (!confirm(t("Slet temaet") + " “" + n + "”? " + t("Skærme der bruger det, skifter til") + " " + themeLabel(themeBaseOf(themeCur)) + ".")) return;
       var base = themeBaseOf(themeCur);
       api({ op: "theme_del", name: n }, function () {
         themeDraft = null; themeDirty = false;
@@ -557,7 +560,7 @@ function themeButtons() {
 }
 function themeStore(name, overwrite) {
   api({ op: "theme_save", name: name, base: themeDraft.base, vars: themeDraft.vars, overwrite: !!overwrite }, function (r) {
-    if (!r || !r.ok) { toast((r && r.err) || "Kunne ikke gemme temaet"); return; }
+    if (!r || !r.ok) { toast((r && r.err) || t("Kunne ikke gemme temaet")); return; }
     themeCur = "custom:" + r.name;
     try { window.localStorage.setItem("pixelpult.theme", themeCur); } catch (e) {}
     themeDraft = null; themeDirty = false;
@@ -669,7 +672,7 @@ function buildTabs() {
     b.appendChild(icon(t[0]));
     b.appendChild(el("span", "lbl", t[1]));
     b.setAttribute("data-vid", t[0]);
-    b.title = t[1] + (styrer ? " — styrer lyset" : "");
+    b.title = t[1] + (styrer ? " — " + window.t("styrer lyset") : "");
     press(b, t[0] === viewCur);
     b.onclick = function () { gotoTab(t[0]); };
     /* træk en fane for at flytte den - en pil viser hvor den lander */
@@ -788,7 +791,7 @@ function fitTabs() {
    serveren (wizard_scene i dmxmixer.py), så Prøv og Opret altid giver
    præcis det samme. */
 var WZ = null, wzSaveT = null, wzInfo = null, wzResult = null;
-var WZ_STEPS = ["Lamper", "Farver", "Scener", "Tempo", "Gem og afvikl"];
+var WZ_STEPS = [t("Lamper"), t("Farver"), t("Scener"), t("Tempo"), t("Gem og afvikl")];
 
 function wzMeta() { return (META && META.wiz) || { roles: [], colours: [], palettes: [], templates: [] }; }
 function wzTpl(key) {
@@ -818,12 +821,12 @@ function wzProfName(typ) {
   return p ? p.name : typ;
 }
 function wzSave() {
-  id("wz-saved").textContent = "gemmer…";
+  id("wz-saved").textContent = t("gemmer…");
   if (wzSaveT) clearTimeout(wzSaveT);
   wzSaveT = setTimeout(function () {
     wzSaveT = null;
     api({ op: "wizard_save", wizard: WZ }, function (d) {
-      id("wz-saved").textContent = d && d.ok ? "Gemt — du kan fortsætte senere" : "Kunne ikke gemme";
+      id("wz-saved").textContent = d && d.ok ? t("Gemt — du kan fortsætte senere") : t("Kunne ikke gemme");
     });
   }, 450);
 }
@@ -835,9 +838,9 @@ function wzOpen(restart, extra) {
     if (d.offer) { wzOffer(d.offer); return; }
     WZ = d.wizard; wzResult = null;
     wzInfo = null;
-    if (d.rig_changed) wzInfo = "Riggen er ændret siden sidst. Guiden har givet de nye eller ændrede lamper en rolle — tjek trin 1.";
+    if (d.rig_changed) wzInfo = t("Riggen er ændret siden sidst. Guiden har givet de nye eller ændrede lamper en rolle — tjek trin 1.");
     else if (!d.fresh && (WZ.step > 0 || WZ.built_at))
-      wzInfo = "Velkommen tilbage. Du fortsætter hvor du slap" +
+      wzInfo = t("Velkommen tilbage. Du fortsætter hvor du slap") +
         (WZ.built_at ? " — scenerne blev sidst oprettet " + WZ.built_at + "." : ".");
     wzRender();
   });
@@ -851,31 +854,30 @@ function wzOffer(info) {
   id("wz-next").style.display = "none";
   id("wz-saved").textContent = "";
   var box = id("wz-body"); box.innerHTML = "";
-  box.appendChild(el("div", "wz-q", "Du har en guide i gang fra sidst"));
+  box.appendChild(el("div", "wz-q", t("Du har en guide i gang fra sidst")));
   var ul = el("ul", "wz-sum");
   ul.appendChild(el("li", "", "Gemt " + info.when));
   ul.appendChild(el("li", "", info.lamps + " lamper, " + info.items + " scener" +
     (info.built ? " — scenerne er oprettet" : " — scenerne er ikke oprettet endnu")));
-  ul.appendChild(el("li", "", "Du var nået til trin " + (info.step + 1) + ": " + WZ_STEPS[info.step]));
+  ul.appendChild(el("li", "", t("Du var nået til trin") + " " + (info.step + 1) + ": " + WZ_STEPS[info.step]));
   box.appendChild(ul);
   var b = el("div", "btns");
-  var go = el("button", "wz-primary wz-big", "Fortsæt hvor jeg slap");
+  var go = el("button", "wz-primary wz-big", t("Fortsæt hvor jeg slap"));
   go.onclick = function () {
     api({ op: "wizard_resume" }, function (d) {
-      if (!d || !d.ok) { toast("Kunne ikke hente guiden"); return; }
+      if (!d || !d.ok) { toast(t("Kunne ikke hente guiden")); return; }
       refresh(function () {
         WZ = d.wizard; wzResult = null;
-        wzInfo = "Velkommen tilbage. Lamper, scener og dine valg er hentet ind igen.";
+        wzInfo = t("Velkommen tilbage. Lamper, scener og dine valg er hentet ind igen.");
         wzRender();
       });
     });
   };
-  var nw = el("button", "wz-big", "Start en ny guide");
+  var nw = el("button", "wz-big", t("Start en ny guide"));
   nw.onclick = function () { wzOpen(false, { "new": true }); };
   b.appendChild(go); b.appendChild(nw);
   box.appendChild(b);
-  box.appendChild(el("p", "hint", "Fortsæt henter hele opsætningen fra sidst ind — lamper, scener og guidens valg — " +
-    "og erstatter det der er åbent nu. Start en ny guide bruger de lamper, der er i Patch lige nu."));
+  box.appendChild(el("p", "hint", t("Fortsæt henter hele opsætningen fra sidst ind — lamper, scener og guidens valg — og erstatter det der er åbent nu. Start en ny guide bruger de lamper, der er i Patch lige nu.")));
 }
 function wzGo(step) {
   WZ.step = Math.max(0, Math.min(WZ_STEPS.length - 1, step));
@@ -887,7 +889,7 @@ function wzTry(index, tpl) {
   var msg = { op: "wizard_try", wizard: WZ };
   if (tpl) msg.tpl = tpl; else msg.index = index;
   api(msg, function (d) {
-    if (d && d.ok) toast("Vises nu på lamperne");
+    if (d && d.ok) toast(t("Vises nu på lamperne"));
   });
 }
 function wzStepDone(i) {
@@ -920,14 +922,13 @@ function wzRender() {
 function wzStepLamps(box) {
   var roles = wzMeta().roles;
   if (!S.modules.length) {
-    box.appendChild(el("p", "wz-lead", "Der er ingen lamper endnu. Opret dem under Patch først — så kommer du tilbage hertil."));
-    var b = el("button", "wz-primary", "Gå til Patch"); b.onclick = function () { gotoTab("v-patch"); };
+    box.appendChild(el("p", "wz-lead", t("Der er ingen lamper endnu. Opret dem under Patch først — så kommer du tilbage hertil.")));
+    var b = el("button", "wz-primary", t("Gå til Patch")); b.onclick = function () { gotoTab("v-patch"); };
     box.appendChild(b); return;
   }
-  box.appendChild(el("p", "wz-lead", "Guiden har fundet " + S.modules.length +
-    " lamper i Patch. Fortæl hvad de skal bruges til — så ved guiden hvilke lamper der skal have farver, " +
-    "hvilke der skal lyse på musikerne, og hvilke den skal lade være. Den har allerede gættet ud fra lampetyperne."));
-  box.appendChild(el("div", "wz-q", "Hele typer på én gang"));
+  box.appendChild(el("p", "wz-lead", t("Guiden har fundet") + " " + S.modules.length +
+    " " + t("lamper i Patch. Fortæl hvad de skal bruges til — så ved guiden hvilke lamper der skal have farver, hvilke der skal lyse på musikerne, og hvilke den skal lade være. Den har allerede gættet ud fra lampetyperne.")));
+  box.appendChild(el("div", "wz-q", t("Hele typer på én gang")));
   var types = [], cnt = {};
   S.modules.forEach(function (m) {
     if (!cnt[m.type]) { cnt[m.type] = 0; types.push(m.type); }
@@ -951,7 +952,7 @@ function wzStepLamps(box) {
     tb.appendChild(row);
   });
   box.appendChild(tb);
-  box.appendChild(el("div", "wz-q", "Eller lampe for lampe — tryk på en lampe for at flytte den"));
+  box.appendChild(el("div", "wz-q", t("Eller lampe for lampe — tryk på en lampe for at flytte den")));
   var wrap = el("div", "wz-roles");
   roles.forEach(function (r, ri) {
     var col = el("div", "wz-role");
@@ -981,14 +982,13 @@ function wzStepLamps(box) {
     return p && !p.channels.some(function (c) { return c.k === "r" || c.k === "g" || c.k === "b"; });
   });
   if (whiteInColour) box.appendChild(el("p", "hint",
-    "Bemærk: der er lamper uden farver (fx hvide spots) under Farvelys eller Baggrund. De lyser bare hvidt med i takt."));
+    t("Bemærk: der er lamper uden farver (fx hvide spots) under Farvelys eller Baggrund. De lyser bare hvidt med i takt.")));
 }
 
 /* --- trin 2: farver --- */
 function wzStepColours(box) {
-  box.appendChild(el("p", "wz-lead", "Vælg showets to hovedfarver. Farve 1 bruges på farvelyset, " +
-    "farve 2 på baggrunden og som modfarve i effekterne. Du kan senere give enkelte scener andre farver."));
-  box.appendChild(el("div", "wz-q", "Færdige farvesæt"));
+  box.appendChild(el("p", "wz-lead", t("Vælg showets to hovedfarver. Farve 1 bruges på farvelyset, farve 2 på baggrunden og som modfarve i effekterne. Du kan senere give enkelte scener andre farver.")));
+  box.appendChild(el("div", "wz-q", t("Færdige farvesæt")));
   var pals = el("div", "wz-pals");
   wzMeta().palettes.forEach(function (p) {
     var b = el("button", "wz-pal");
@@ -1000,7 +1000,7 @@ function wzStepColours(box) {
     pals.appendChild(b);
   });
   box.appendChild(pals);
-  box.appendChild(el("div", "wz-q", "Eller vælg selv"));
+  box.appendChild(el("div", "wz-q", t("Eller vælg selv")));
   ["c1", "c2"].forEach(function (k, n) {
     var row = el("div", "wz-colrow");
     row.appendChild(el("span", "", "Farve " + (n + 1)));
@@ -1014,7 +1014,7 @@ function wzStepColours(box) {
     box.appendChild(row);
   });
   var tr = el("div", "btns"); tr.style.marginTop = "14px";
-  var b1 = el("button", "", "Se farverne på lamperne");
+  var b1 = el("button", "", t("Se farverne på lamperne"));
   b1.onclick = function () { wzTry(0, "rolig"); };
   tr.appendChild(b1);
   box.appendChild(tr);
@@ -1031,9 +1031,7 @@ function wzColSelect(item, k) {
   return sel;
 }
 function wzStepScenes(box) {
-  box.appendChild(el("p", "wz-lead", "Her er de scener, du får at spille med. Rækkefølgen her bliver " +
-    "rækkefølgen i live-matrixen, og de første ni kan kaldes med tasterne 1–9. Giv dem gerne navne efter jeres " +
-    "numre, og tryk Prøv for at se en scene på lamperne."));
+  box.appendChild(el("p", "wz-lead", t("Her er de scener, du får at spille med. Rækkefølgen her bliver rækkefølgen i live-matrixen, og de første ni kan kaldes med tasterne 1–9. Giv dem gerne navne efter jeres numre, og tryk Prøv for at se en scene på lamperne.")));
   var list = el("div", "wz-cards");
   WZ.items.forEach(function (it, i) {
     var tpl = wzTpl(it.tpl);
@@ -1055,13 +1053,13 @@ function wzStepScenes(box) {
       wzSave(); wzRender();
     };
     top.appendChild(ts);
-    var pr = el("button", "", "Prøv"); pr.onclick = function () { wzTry(i); };
+    var pr = el("button", "", t("Prøv")); pr.onclick = function () { wzTry(i); };
     top.appendChild(pr);
-    var up = el("button", "nudge", "▲"); up.title = "Flyt op"; up.disabled = i === 0;
+    var up = el("button", "nudge", "▲"); up.title = t("Flyt op"); up.disabled = i === 0;
     up.onclick = function () { WZ.items.splice(i - 1, 0, WZ.items.splice(i, 1)[0]); wzSave(); wzRender(); };
-    var dn = el("button", "nudge", "▼"); dn.title = "Flyt ned"; dn.disabled = i === WZ.items.length - 1;
+    var dn = el("button", "nudge", "▼"); dn.title = t("Flyt ned"); dn.disabled = i === WZ.items.length - 1;
     dn.onclick = function () { WZ.items.splice(i + 1, 0, WZ.items.splice(i, 1)[0]); wzSave(); wzRender(); };
-    var rm = el("button", "sm", "Fjern");
+    var rm = el("button", "sm", t("Fjern"));
     rm.onclick = function () { WZ.items.splice(i, 1); wzSave(); wzRender(); };
     top.appendChild(up); top.appendChild(dn); top.appendChild(rm);
     card.appendChild(top);
@@ -1070,7 +1068,7 @@ function wzStepScenes(box) {
     var opts = el("div", "opts");
     if (it.tpl !== "slukket" && it.tpl !== "arbejdslys" && it.tpl !== "strobe" && it.tpl !== "finale") {
       ["a", "b"].forEach(function (k) {
-        var l = el("label", "", k === "a" ? "Farve 1" : "Farve 2");
+        var l = el("label", "", k === "a" ? t("Farve 1") : t("Farve 2"));
         l.appendChild(wzSwatch(it[k]));
         var s = wzColSelect(it, k);
         s.onchange = function () { it[k] = s.value; wzSave(); wzRender(); };
@@ -1078,7 +1076,7 @@ function wzStepScenes(box) {
       });
     }
     if (it.tpl !== "slukket") {
-      var ll = el("label", "", "Styrke");
+      var ll = el("label", "", t("Styrke"));
       var ls = el("select");
       [25, 50, 75, 100].forEach(function (v) {
         var o = el("option", "", v + " %"); o.value = v; if (it.level === v) o.selected = true; ls.appendChild(o);
@@ -1088,7 +1086,7 @@ function wzStepScenes(box) {
       ll.appendChild(ls); opts.appendChild(ll);
     }
     if (tpl.moving) {
-      var fl = el("label", "", "Fart");
+      var fl = el("label", "", t("Fart"));
       var fs = el("select");
       [[0.5, "Halv"], [1, "Normal"], [2, "Dobbelt"]].forEach(function (v) {
         var o = el("option", "", v[1]); o.value = v[0]; if (it.fart === v[0]) o.selected = true; fs.appendChild(o);
@@ -1103,14 +1101,14 @@ function wzStepScenes(box) {
     card.appendChild(opts);
     list.appendChild(card);
   });
-  if (!WZ.items.length) list.appendChild(el("p", "hint", "Ingen scener endnu — tilføj nogle herunder."));
+  if (!WZ.items.length) list.appendChild(el("p", "hint", t("Ingen scener endnu — tilføj nogle herunder.")));
   box.appendChild(list);
   var add = el("div", "wz-add");
-  add.appendChild(el("span", "", "Tilføj scene:"));
+  add.appendChild(el("span", "", t("Tilføj scene:")));
   var as = el("select");
   wzMeta().templates.forEach(function (t) { var o = el("option", "", t.name); o.value = t.key; as.appendChild(o); });
   add.appendChild(as);
-  var ab = el("button", "", "+ Tilføj");
+  var ab = el("button", "", t("+ Tilføj"));
   ab.onclick = function () {
     var t = wzTpl(as.value);
     WZ.items.push({ sid: Math.random().toString(16).slice(2, 12), tpl: t.key, name: t.name,
@@ -1121,17 +1119,16 @@ function wzStepScenes(box) {
   box.appendChild(add);
   var hd = el("p", "hint", "");
   hd.style.marginTop = "10px";
-  hd.textContent = "Tip: Har I flere numre i samme stil, så tilføj den samme slags scene flere gange og giv dem numrenes navne.";
+  hd.textContent = t("Tip: Har I flere numre i samme stil, så tilføj den samme slags scene flere gange og giv dem numrenes navne.");
   box.appendChild(hd);
 }
 
 /* --- trin 4: tempo --- */
 function wzStepTempo(box) {
-  box.appendChild(el("p", "wz-lead", "Effekterne i scenerne (chase, puls, skift) kan følge musikkens tempo. " +
-    "Så tapper du bare takten under koncerten, og lyset følger med — også i den scene der kører."));
-  [[true, "Ja, lyset skal følge musikkens tempo (anbefalet)",
+  box.appendChild(el("p", "wz-lead", t("Effekterne i scenerne (chase, puls, skift) kan følge musikkens tempo. Så tapper du bare takten under koncerten, og lyset følger med — også i den scene der kører.")));
+  [[true, t("Ja, lyset skal følge musikkens tempo (anbefalet)"),
     "Under koncerten tapper du takten med tasten T eller knappen TAP i live-matrixen."],
-   [false, "Nej, effekterne kører i fast fart",
+   [false, t("Nej, effekterne kører i fast fart"),
     "Godt hvis ingen skal passe lyset undervejs."]].forEach(function (o) {
     var l = el("label", "wz-radio" + (WZ.follow === o[0] ? " on" : ""));
     var r = document.createElement("input"); r.type = "radio"; r.name = "wz-follow"; r.checked = WZ.follow === o[0];
@@ -1141,7 +1138,7 @@ function wzStepTempo(box) {
     l.appendChild(el("div", "hint", o[2]));
     box.appendChild(l);
   });
-  box.appendChild(el("div", "wz-q", WZ.follow ? "Starttempo" : "Fart"));
+  box.appendChild(el("div", "wz-q", WZ.follow ? t("Starttempo") : t("Fart")));
   var row = el("div", "wz-colrow");
   row.appendChild(el("span", "", "BPM"));
   var bi = document.createElement("input"); bi.type = "number"; bi.min = 40; bi.max = 220; bi.value = WZ.bpm;
@@ -1159,14 +1156,14 @@ function wzStepTempo(box) {
   function wzTapSync() { WZ.bpm = curBpm(); bi.value = WZ.bpm; wzSave(); }
   row.appendChild(tb);
   box.appendChild(row);
-  box.appendChild(el("p", "hint", "Kender du ikke tempoet, så lad det stå på 120. Det er kun et udgangspunkt — " +
+  box.appendChild(el("p", "hint", t("Kender du ikke tempoet, så lad det stå på 120. Det er kun et udgangspunkt — ") +
     (WZ.follow ? "du tapper det rigtige under koncerten." : "farten passer til de fleste numre.")));
 }
 
 /* --- trin 5: gem og afvikl --- */
 function wzStepFinish(box) {
   box.appendChild(el("p", "wz-lead", "Sidste trin: giv fanebladet et navn og opret scenerne. " +
-    "De lægges i deres eget faneblad under Scener, så dine andre scener ikke røres."));
+    t("De lægges i deres eget faneblad under Scener, så dine andre scener ikke røres.")));
   var row = el("div", "wz-colrow");
   row.appendChild(el("span", "", "Fanebladets navn"));
   var ti = document.createElement("input"); ti.type = "text"; ti.value = WZ.tab_name; ti.style.minWidth = "220px";
@@ -1184,11 +1181,11 @@ function wzStepFinish(box) {
   cl.appendChild(wzSwatch(WZ.c1)); cl.appendChild(document.createTextNode(wzColName(WZ.c1) + "  "));
   cl.appendChild(wzSwatch(WZ.c2)); cl.appendChild(document.createTextNode(wzColName(WZ.c2)));
   ul.appendChild(cl);
-  ul.appendChild(el("li", "", WZ.follow ? "Effekterne følger tempoet (start " + WZ.bpm + " BPM)" : "Effekterne kører i fast fart"));
+  ul.appendChild(el("li", "", WZ.follow ? t("Effekterne følger tempoet (start") + " " + WZ.bpm + " BPM)" : t("Effekterne kører i fast fart")));
   box.appendChild(ul);
 
   var built = !!WZ.built_at;
-  var mk = el("button", "wz-primary wz-big", built ? "Opdatér scenerne" : "Opret scenerne");
+  var mk = el("button", "wz-primary wz-big", built ? t("Opdatér scenerne") : t("Opret scenerne"));
   mk.disabled = !WZ.items.length;
   mk.onclick = function () {
     mk.disabled = true;
@@ -1196,10 +1193,10 @@ function wzStepFinish(box) {
       mk.disabled = false;
       if (!d || !d.ok) { toast("Det gik ikke — prøv igen"); return; }
       WZ = d.wizard;
-      var t = d.made + " scener lagt i fanebladet “" + WZ.tab_name + "”.";
-      if (d.kept) t += " " + d.kept + (d.kept === 1 ? " scene" : " scener") +
-        " er beholdt uændret, fordi du selv har rettet i " + (d.kept === 1 ? "den" : "dem") + " under Scener.";
-      wzResult = t; wzInfo = null;
+      var msg = d.made + " scener lagt i fanebladet “" + WZ.tab_name + "”.";
+      if (d.kept) msg += " " + d.kept + (d.kept === 1 ? " scene" : " scener") +
+        " " + t("er beholdt uændret, fordi du selv har rettet i") + " " + (d.kept === 1 ? t("den") : t("dem")) + " " + t("under Scener.");
+      wzResult = msg; wzInfo = null;
       sceneTab = WZ.tab_id;
       refresh(function () { wzRender(); });
     });
@@ -1207,7 +1204,7 @@ function wzStepFinish(box) {
   box.appendChild(mk);
   if (wzResult) box.appendChild(el("div", "wz-result", wzResult));
   else if (built) box.appendChild(el("p", "hint", "Scenerne blev oprettet " + WZ.built_at +
-    ". Har du rettet noget i guiden, så tryk Opdatér scenerne."));
+    ". " + t("Har du rettet noget i guiden, så tryk Opdatér scenerne.")));
 
   if (built) {
     box.appendChild(el("div", "wz-q", "Afvikling"));
@@ -1219,11 +1216,11 @@ function wzStepFinish(box) {
     go.appendChild(lv); go.appendChild(sc);
     box.appendChild(go);
     var keys = el("ul", "wz-keys");
-    ["Tryk på en flise for at skifte scene — eller tasterne 1–9.",
-     WZ.follow ? "Tap takten med T eller knappen TAP, så følger effekterne musikken." : "Effekterne kører i fast fart.",
-     "B eller Blackout gør alt mørkt med det samme. Tryk igen for at tænde.",
+    [t("Tryk på en flise for at skifte scene — eller tasterne 1–9."),
+     WZ.follow ? t("Tap takten med T eller knappen TAP, så følger effekterne musikken.") : t("Effekterne kører i fast fart."),
+     t("B eller Blackout gør alt mørkt med det samme. Tryk igen for at tænde."),
      "Grand-skyderen skruer op og ned for det hele.",
-     "Esc eller Afslut live går tilbage hertil."].forEach(function (t) { keys.appendChild(el("li", "", t)); });
+     t("Esc eller Afslut live går tilbage hertil.")].forEach(function (t) { keys.appendChild(el("li", "", t)); });
     box.appendChild(keys);
   }
 }
@@ -1236,12 +1233,12 @@ function buildLayerList() {
     var pick = el("button", "pick", L.name);
     press(pick, i === layer);
     pick.onclick = function () { layer = i; buildLayerList(); buildLayerForm(); buildStrips(); };
-    var eye = el("button", "", L.on ? "Til" : "Fra");
-    eye.title = "Tænd eller sluk laget";
+    var eye = el("button", "", L.on ? t("Til") : t("Fra"));
+    eye.title = t("Tænd eller sluk laget");
     press(eye, L.on);
     eye.onclick = function () { setv(["layers", i, "on"], !L.on); L.on = !L.on; buildLayerList(); };
-    var solo = el("button", "solo", "Solo");
-    solo.title = "Sluk alle andre lag imens";
+    var solo = el("button", "solo", t("Solo"));
+    solo.title = t("Sluk alle andre lag imens");
     press(solo, !!L.solo);
     solo.onclick = function () { setv(["layers", i, "solo"], !L.solo); L.solo = !L.solo; buildLayerList(); };
     wrap.appendChild(pick); wrap.appendChild(eye); wrap.appendChild(solo);
@@ -1291,41 +1288,41 @@ function buildLayerForm() {
   box.appendChild(c1); box.appendChild(c2); box.appendChild(c3);
 
   /* --- moenster --- */
-  optRow(c1, "pattern", "Mønster", META.patterns, L.pattern, function (v) {
+  optRow(c1, "pattern", t("Mønster"), META.patterns, L.pattern, function (v) {
     setv(["layers", layer, "pattern"], v); L.pattern = v; buildLayerForm();
   });
   if (L.pattern === "egen") {
     var names = S.patterns.map(function (p, i) { return [String(i), p.name]; });
-    optRow(c1, "custom", "Hvilket", names, String(L.custom), function (v) {
+    optRow(c1, "custom", t("Hvilket"), names, String(L.custom), function (v) {
       setv(["layers", layer, "custom"], parseInt(v, 10));
     });
   }
-  rangeRow(c1, "Fart", 0, 200, L.speed, ["layers", layer, "speed"],
-           L.sync ? function (v) { return (v / 100).toFixed(2).replace(".", ",") + " omg./slag"; } : undefined);
-  rangeRow(c1, "Størrelse", 0, 100, L.size, ["layers", layer, "size"]);
-  rangeRow(c1, "Tæthed", 0, 100, L.density, ["layers", layer, "density"]);
-  if (L.pattern === "chase") rangeRow(c1, "Hale", 0, 100, L.tail, ["layers", layer, "tail"]);
-  if (L.pattern === "teater") rangeRow(c1, "Hop", 0, 10, L.steps, ["layers", layer, "steps"]);
+  rangeRow(c1, t("Fart"), 0, 200, L.speed, ["layers", layer, "speed"],
+           L.sync ? function (v) { return (v / 100).toFixed(2).replace(".", ",") + " " + t("omg./slag"); } : undefined);
+  rangeRow(c1, t("Størrelse"), 0, 100, L.size, ["layers", layer, "size"]);
+  rangeRow(c1, t("Tæthed"), 0, 100, L.density, ["layers", layer, "density"]);
+  if (L.pattern === "chase") rangeRow(c1, t("Hale"), 0, 100, L.tail, ["layers", layer, "tail"]);
+  if (L.pattern === "teater") rangeRow(c1, t("Hop"), 0, 10, L.steps, ["layers", layer, "steps"]);
   var dirRow = el("div", "btns");
-  var dirB = el("button", "", L.dir > 0 ? "Fremad" : "Baglæns");
-  dirB.onclick = function () { L.dir = -L.dir; setv(["layers", layer, "dir"], L.dir); dirB.textContent = L.dir > 0 ? "Fremad" : "Baglæns"; };
+  var dirB = el("button", "", L.dir > 0 ? t("Fremad") : t("Baglæns"));
+  dirB.onclick = function () { L.dir = -L.dir; setv(["layers", layer, "dir"], L.dir); dirB.textContent = L.dir > 0 ? t("Fremad") : t("Baglæns"); };
   dirRow.appendChild(dirB);
   c1.appendChild(dirRow);
-  chk(c1, "Spejlvend", L.mirror, ["layers", layer, "mirror"]);
+  chk(c1, t("Spejlvend"), L.mirror, ["layers", layer, "mirror"]);
   /* Foelg tempo: serveren regner Fart om, saa laget koerer lige saa
      hurtigt som foer ved det nuvaerende tempo - derefter styrer tap farten */
-  var syncC = chk(c1, "Følg tempo (tap)", L.sync, ["layers", layer, "sync"]);
+  var syncC = chk(c1, t("Følg tempo (tap)"), L.sync, ["layers", layer, "sync"]);
   syncC.onchange = function () {
     api({ op: "layer_sync", layer: layer, on: syncC.checked }, function () { refresh(); });
   };
 
   /* --- farve --- */
-  optRow(c2, "cm", "Farvekilde", META.colour_modes, L.colour_mode, function (v) {
+  optRow(c2, "cm", t("Farvekilde"), META.colour_modes, L.colour_mode, function (v) {
     setv(["layers", layer, "colour_mode"], v); L.colour_mode = v; buildLayerForm();
   });
   if (L.colour_mode === "fast") {
     var r = el("div", "rowline");
-    r.appendChild(el("span", "k", "Farve"));
+    r.appendChild(el("span", "k", t("Farve")));
     var cc = colourControl(r, L.colour, function (c) {
       setv(["layers", layer, "colour"], c);
     });
@@ -1343,8 +1340,8 @@ function buildLayerForm() {
     c2.appendChild(sw);
     buildPaletteBar(c2);
   } else if (L.colour_mode === "regnbue") {
-    rangeRow(c2, "Hue-fart", -100, 100, L.hue_speed, ["layers", layer, "hue_speed"]);
-    rangeRow(c2, "Hue-spredn.", 0, 400, L.hue_spread, ["layers", layer, "hue_spread"]);
+    rangeRow(c2, t("Hue-fart"), -100, 100, L.hue_speed, ["layers", layer, "hue_speed"]);
+    rangeRow(c2, t("Hue-spredn."), 0, 400, L.hue_spread, ["layers", layer, "hue_spread"]);
   } else {
     var wrap = el("div", "swatchrow");
     L.stops.forEach(function (col, si) {
@@ -1352,66 +1349,66 @@ function buildLayerForm() {
         setv(["layers", layer, "stops", si], c);
       });
     });
-    var add = el("button", "sm", "Tilføj stop");
+    var add = el("button", "sm", t("Tilføj stop"));
     add.onclick = function () {
       L.stops.push([255, 255, 255]);
       setv(["layers", layer, "stops"], L.stops, buildLayerForm);
     };
-    var rem = el("button", "sm", "Fjern stop");
+    var rem = el("button", "sm", t("Fjern stop"));
     rem.onclick = function () {
       if (L.stops.length > 1) { L.stops.pop(); setv(["layers", layer, "stops"], L.stops, buildLayerForm); }
     };
     wrap.appendChild(add); wrap.appendChild(rem);
     c2.appendChild(wrap);
     if (L.colour_mode === "cyklus")
-      rangeRow(c2, "Cyklusfart", 0, 100, L.hue_speed, ["layers", layer, "hue_speed"]);
+      rangeRow(c2, t("Cyklusfart"), 0, 100, L.hue_speed, ["layers", layer, "hue_speed"]);
   }
-  rangeRow(c2, "Styrke", 0, 255, L.opacity, ["layers", layer, "opacity"]);
-  optRow(c2, "blend", "Blanding", META.blends, L.blend, function (v) {
+  rangeRow(c2, t("Styrke"), 0, 255, L.opacity, ["layers", layer, "opacity"]);
+  optRow(c2, "blend", t("Blanding"), META.blends, L.blend, function (v) {
     setv(["layers", layer, "blend"], v); L.blend = v;
   });
 
   /* --- rum og spredning --- */
-  optRow(c3, "domain", "Kører i", [["module", "Hver lampe"], ["world", "Rummet"]],
+  optRow(c3, "domain", t("Kører i"), [["module", t("Hver lampe")], ["world", t("Rummet")]],
     L.domain, function (v) { setv(["layers", layer, "domain"], v); L.domain = v; buildLayerForm(); });
   if (L.domain === "world")
-    rangeRow(c3, "Retning", -180, 180, L.angle, ["layers", layer, "angle"], function (v) { return v + "°"; });
-  optRow(c3, "sm", "Forskydning", META.spreads, L.spread_mode, function (v) {
+    rangeRow(c3, t("Retning"), -180, 180, L.angle, ["layers", layer, "angle"], function (v) { return v + "°"; });
+  optRow(c3, "sm", t("Forskydning"), META.spreads, L.spread_mode, function (v) {
     setv(["layers", layer, "spread_mode"], v); L.spread_mode = v; buildLayerForm();
   });
   if (L.spread_mode !== "ingen")
-    rangeRow(c3, "Mængde", 0, 300, L.spread, ["layers", layer, "spread"], function (v) { return v + "%"; });
+    rangeRow(c3, t("Mængde"), 0, 300, L.spread, ["layers", layer, "spread"], function (v) { return v + "%"; });
 
   /* --- kopiér / byt / nulstil --- */
   var tools = el("div", "laytools");
   var tr = el("div", "rowline");
-  tr.appendChild(el("span", "k", "Kopiér til"));
+  tr.appendChild(el("span", "k", t("Kopiér til")));
   var tsel = el("select");
   S.layers.forEach(function (LL, li) {
     if (li === layer) return;
-    var o = el("option", "", LL.name + (LL.on ? " (til)" : ""));
+    var o = el("option", "", LL.name + (LL.on ? " (" + t("til") + ")" : ""));
     o.value = String(li);
     tsel.appendChild(o);
   });
   tr.appendChild(tsel);
   tools.appendChild(tr);
   var tb = el("div", "btns");
-  var bcopy = el("button", "sm", "Kopiér");
-  bcopy.title = "Overskriv det valgte lag med dette lags indstillinger";
+  var bcopy = el("button", "sm", t("Kopiér"));
+  bcopy.title = t("Overskriv det valgte lag med dette lags indstillinger");
   bcopy.onclick = function () {
     if (!tsel.value) return;
     api({ op: "layer_copy", from: layer, to: parseInt(tsel.value, 10) },
-        function () { refresh(); toast("Lag kopieret"); });
+        function () { refresh(); toast(t("Lag kopieret")); });
   };
-  var bswap = el("button", "sm", "Byt om");
+  var bswap = el("button", "sm", t("Byt om"));
   bswap.onclick = function () {
     if (!tsel.value) return;
     api({ op: "layer_swap", from: layer, to: parseInt(tsel.value, 10) },
-        function () { refresh(); toast("Lag byttet"); });
+        function () { refresh(); toast(t("Lag byttet")); });
   };
-  var bclr = el("button", "sm", "Nulstil dette lag");
+  var bclr = el("button", "sm", t("Nulstil dette lag"));
   bclr.onclick = function () {
-    if (confirm("Nulstil " + L.name + "?"))
+    if (confirm(t("Nulstil") + " " + L.name + "?"))
       api({ op: "layer_clear", index: layer }, refresh);
   };
   tb.appendChild(bcopy); tb.appendChild(bswap); tb.appendChild(bclr);
@@ -1424,16 +1421,16 @@ function buildLayerForm() {
     b.onclick = function () { api({ op: "group_select", layer: layer, group: gi }, refresh); };
     gb.appendChild(b);
   });
-  var ball = el("button", "ghost", "Alle");
+  var ball = el("button", "ghost", t("Alle"));
   ball.onclick = function () { setv(["layers", layer, "mask"], [], refresh); };
   gb.appendChild(ball);
-  var bnew = el("button", "ghost", "Gem valg som gruppe");
+  var bnew = el("button", "ghost", t("Gem valg som gruppe"));
   bnew.onclick = function () {
-    var n = prompt("Navn på gruppen", "Gruppe " + (S.groups.length + 1));
+    var n = prompt(t("Navn på gruppen"), t("Gruppe") + " " + (S.groups.length + 1));
     if (n) api({ op: "group_new", name: n, members: S.layers[layer].mask.slice() }, refresh);
   };
   gb.appendChild(bnew);
-  var mh = el("div", "hint", "Maske — hvilke lamper laget rammer:");
+  var mh = el("div", "hint", t("Maske — hvilke lamper laget rammer:"));
   c3.insertBefore(mh, tools);
   c3.insertBefore(gb, tools);
 }
@@ -1444,11 +1441,11 @@ function buildQuickPick() {
   function mask(list) { setv(["layers", layer, "mask"], list, refresh); }
   var n = S.modules.length, i;
   var defs = [
-    ["Alle", function () { mask([]); }],
-    ["Ingen", function () { mask([-1]); }],
-    ["Ulige", function () { var a = []; for (i = 0; i < n; i += 2) a.push(i); mask(a); }],
-    ["Lige", function () { var a = []; for (i = 1; i < n; i += 2) a.push(i); mask(a); }],
-    ["Vend om", function () {
+    [t("Alle"), function () { mask([]); }],
+    [t("Ingen"), function () { mask([-1]); }],
+    [t("Ulige"), function () { var a = []; for (i = 0; i < n; i += 2) a.push(i); mask(a); }],
+    [t("Lige"), function () { var a = []; for (i = 1; i < n; i += 2) a.push(i); mask(a); }],
+    [t("Vend om"), function () {
       var cur = S.layers[layer].mask, a = [];
       for (i = 0; i < n; i++) if (cur.indexOf(i) < 0) a.push(i);
       mask(a);
@@ -1457,9 +1454,9 @@ function buildQuickPick() {
   defs.forEach(function (d) {
     var b = el("button", "ghost", d[0]); b.onclick = d[1]; box.appendChild(b);
   });
-  var bon = el("button", "ghost", "Tænd alle");
+  var bon = el("button", "ghost", t("Tænd alle"));
   bon.onclick = function () { allPower(true); };
-  var boff = el("button", "ghost", "Sluk alle");
+  var boff = el("button", "ghost", t("Sluk alle"));
   boff.onclick = function () { allPower(false); };
   box.appendChild(bon); box.appendChild(boff);
 }
@@ -1497,12 +1494,12 @@ function buildStrips() {
     slider(f, vv, ["modules", i, "level"]);
 
     var bt = el("div", "bt");
-    var bo = el("button", "", stripsCompact ? (m.on ? "På" : "Af") : (m.on ? "Tændt" : "Slukket"));
-    bo.title = "Simulerer at strømmen tages af lampen";
+    var bo = el("button", "", stripsCompact ? (m.on ? t("På") : t("Af")) : (m.on ? t("Tændt") : t("Slukket")));
+    bo.title = t("Simulerer at strømmen tages af lampen");
     press(bo, m.on);
     bo.onclick = function () { m.on = !m.on; setv(["modules", i, "on"], m.on); buildStrips(); };
-    var bv = el("button", "", stripsCompact ? "Lag" : "I lag");
-    bv.title = "Tag lampen med i det lag du redigerer";
+    var bv = el("button", "", stripsCompact ? t("Lag") : t("I lag"));
+    bv.title = t("Tag lampen med i det lag du redigerer");
     press(bv, inMask);
     bv.onclick = function () {
       var cur = S.layers[layer].mask.slice();
@@ -1512,8 +1509,8 @@ function buildStrips() {
       S.layers[layer].mask = cur;
       setv(["layers", layer, "mask"], cur, function () { buildStrips(); });
     };
-    var bs = el("button", "", stripsCompact ? "Kun" : "Kun her");
-    bs.title = "Lad laget ramme kun denne lampe";
+    var bs = el("button", "", stripsCompact ? t("Kun") : t("Kun her"));
+    bs.title = t("Lad laget ramme kun denne lampe");
     bs.onclick = function () {
       S.layers[layer].mask = [i];
       setv(["layers", layer, "mask"], [i], function () { buildStrips(); });
@@ -1538,8 +1535,8 @@ function buildPultGroups() {
   box.innerHTML = "";
   var gs = S.group_labels || [];
   if (!gs.length) {
-    var e = el("div", "hint", "Ingen grupper endnu. ");
-    var b = el("button", "sm", "Lav grupper under Layout");
+    var e = el("div", "hint", t("Ingen grupper endnu.") + " ");
+    var b = el("button", "sm", t("Lav grupper under Layout"));
     b.onclick = function () { gotoTab("v-layout"); };
     e.appendChild(b); box.appendChild(e); return;
   }
@@ -1554,8 +1551,8 @@ function buildPultGroups() {
     s.setAttribute("data-gid", gr.id);
     var hd = el("div", "hd");
     hd.appendChild(el("span", "no", "▣"));
-    hd.appendChild(el("span", "nm", gr.name || "Gruppe"));
-    hd.appendChild(el("span", "ad", mem.length + (mem.length === 1 ? " lampe" : " lamper")));
+    hd.appendChild(el("span", "nm", gr.name || t("Gruppe")));
+    hd.appendChild(el("span", "ad", mem.length + (mem.length === 1 ? " " + t("lampe") : " " + t("lamper"))));
     s.appendChild(hd);
     var sw = el("div", "gsw");
     mem.forEach(function (i) { var d = el("span", ""); d.setAttribute("data-i", i); sw.appendChild(d); });
@@ -1565,7 +1562,7 @@ function buildPultGroups() {
     var lv = el("div", "lv");
     var f = document.createElement("input");
     f.type = "range"; f.min = 0; f.max = 255; f.value = lvl; f.disabled = !mem.length;
-    f.setAttribute("aria-label", "Lysstyrke for " + (gr.name || "gruppen"));
+    f.setAttribute("aria-label", t("Lysstyrke for") + " " + (gr.name || t("gruppen")));
     var vv = el("span", "", String(lvl));
     f.oninput = function () {
       var v = parseInt(f.value, 10); vv.textContent = v;
@@ -1578,16 +1575,16 @@ function buildPultGroups() {
 
     var allOn = mem.length > 0 && mem.every(function (i) { return S.modules[i].on; });
     var bt = el("div", "bt");
-    var bo = el("button", "", stripsCompact ? (allOn ? "På" : "Af") : (allOn ? "Tændt" : "Slukket"));
-    bo.title = "Tænd eller sluk alle lamper i gruppen";
+    var bo = el("button", "", stripsCompact ? (allOn ? t("På") : t("Af")) : (allOn ? t("Tændt") : t("Slukket")));
+    bo.title = t("Tænd eller sluk alle lamper i gruppen");
     press(bo, allOn); bo.disabled = !mem.length;
     bo.onclick = function () {
       var v = !allOn;
       api({ op: "patch", items: mem.map(function (i) { S.modules[i].on = v; return { path: ["modules", i, "on"], value: v }; }) });
       buildStrips();
     };
-    var bv = el("button", "", stripsCompact ? "Lag" : "I lag");
-    bv.title = "Tag hele gruppen med i det lag du redigerer - eller ud igen";
+    var bv = el("button", "", stripsCompact ? t("Lag") : t("I lag"));
+    bv.title = t("Tag hele gruppen med i det lag du redigerer");
     press(bv, allIn); bv.disabled = !mem.length;
     bv.onclick = function () {
       var cur = S.layers[layer].mask.slice();
@@ -1638,7 +1635,7 @@ function buildManual() {
   var box = id("manual"); if (!box) return;
   box.innerHTML = "";
   var idxs = manualTargets();
-  var LABELS = { w: "Hvid", a: "Ravgul", uv: "UV", strobe: "Strobe", duration: "Blinkvarighed", macro: "Makro", generic: "Ekstra" };
+  var LABELS = { w: t("Hvid"), a: t("Ravgul"), uv: "UV", strobe: "Strobe", duration: t("Blinkvarighed"), macro: t("Makro"), generic: t("Ekstra") };
   var order = ["w", "a", "uv", "strobe", "duration", "macro", "generic"];
   var have = {};
   idxs.forEach(function (i) {
@@ -1647,8 +1644,8 @@ function buildManual() {
   var present = order.filter(function (k) { return have[k]; });
   if (!idxs.length || !present.length) {
     box.appendChild(el("div", "hint", idxs.length
-      ? "De valgte lamper har ingen manuelle kanaler."
-      : "Ingen lamper i lagets maske."));
+      ? t("De valgte lamper har ingen manuelle kanaler.")
+      : t("Ingen lamper i lagets maske.")));
     return;
   }
   present.forEach(function (k) {
@@ -2393,11 +2390,11 @@ function pushView(vals) {
 
 /* ------------------------------------------------------------- patch */
 function buildPatch() {
-  var t = id("patchtab");
+  var ptab = id("patchtab");
   buildPatchTypes();
-  t.innerHTML = "<thead><tr><th>↕</th><th>Nr.</th><th>Navn</th><th>Type</th>" +
-    "<th>Univ</th><th>Adr</th><th>Kan.</th><th>Slut</th><th>Vis navn</th><th></th></tr></thead><tbody></tbody>";
-  var tb = t.getElementsByTagName("tbody")[0];
+  ptab.innerHTML = "<thead><tr><th>↕</th><th>" + t("Nr.") + "</th><th>" + t("Navn") + "</th><th>" + t("Type") + "</th>" +
+    "<th>" + t("Univ") + "</th><th>" + t("Adr") + "</th><th>" + t("Kan.") + "</th><th>" + t("Slut") + "</th><th>" + t("Vis navn") + "</th><th></th></tr></thead><tbody></tbody>";
+  var tb = ptab.getElementsByTagName("tbody")[0];
   var bad = patchConflicts();
   var all = profilesAll();
   S.modules.forEach(function (m, i) {
@@ -2408,7 +2405,7 @@ function buildPatch() {
     patchRowDrag(tr, i);
 
     var tdg = el("td", "draghandle");
-    tdg.title = "Træk for at flytte lampen op eller ned";
+    tdg.title = t("Træk for at flytte lampen op eller ned");
     tdg.appendChild(el("span", "grip", "⠿"));
     var bup = el("button", "nudge", "▲"); bup.title = "Flyt op";
     var bdn = el("button", "nudge", "▼"); bdn.title = "Flyt ned";
@@ -2462,24 +2459,24 @@ function buildPatch() {
 
     /* vis navnet for netop denne lampe */
     var tdl = el("td");
-    var bl = el("button", "sm", m.lbl === false ? "Skjult" : "Vist");
+    var bl = el("button", "sm", m.lbl === false ? t("Skjult") : t("Vist"));
     press(bl, m.lbl !== false);
     bl.onclick = function () {
       m.lbl = (m.lbl === false);
       press(bl, m.lbl !== false);
-      bl.textContent = m.lbl === false ? "Skjult" : "Vist";
+      bl.textContent = m.lbl === false ? t("Skjult") : t("Vist");
       setv(["modules", i, "lbl"], m.lbl, function () { drawStage(); });
     };
     tdl.appendChild(bl); tr.appendChild(tdl);
 
     var tdx = el("td");
-    var bx = el("button", "ghost", "Fjern");
+    var bx = el("button", "ghost", t("Fjern"));
     bx.onclick = function () { api({ op: "fixture_del", index: i }, refresh); };
     tdx.appendChild(bx); tr.appendChild(tdx);
     tb.appendChild(tr);
   });
   var c = id("pa-count");
-  if (c) c.textContent = S.modules.length + (S.modules.length === 1 ? " lampe" : " lamper");
+  if (c) c.textContent = S.modules.length + (S.modules.length === 1 ? " " + t("lampe") : " " + t("lamper"));
   updatePatchHint();
   buildEditor();
 }
@@ -2497,13 +2494,13 @@ function buildEditor() {
   var tsel = id("ed-type"); tsel.innerHTML = "";
   var order = META.generic_order || [];
   order.forEach(function (g) {
-    var o = el("option", "", g.name + " — " + g.span + " kan."); o.value = g.id; tsel.appendChild(o);
+    var o = el("option", "", g.name + " — " + g.span + " " + t("kan.")); o.value = g.id; tsel.appendChild(o);
   });
   var cur = S.modules[edLamp] ? S.modules[edLamp].type : null;
   var inList = order.some(function (g) { return g.id === cur; });
   if (inList) tsel.value = cur;
   else if (cur) {
-    var o = el("option", "", lampProfile(S.modules[edLamp]).name + " (nuværende)");
+    var o = el("option", "", lampProfile(S.modules[edLamp]).name + " (" + t("nuværende") + ")");
     o.value = cur; tsel.insertBefore(o, tsel.firstChild); tsel.value = cur;
   }
   buildEdChans();
@@ -2526,13 +2523,13 @@ function edTargets() {
   }
   return [edLamp];
 }
-function edApplyType(t) {
-  api({ op: "fixture_settype", indices: edTargets(), type: t },
+function edApplyType(typ) {
+  api({ op: "fixture_settype", indices: edTargets(), type: typ },
     function () {
       refresh(function () {
         buildEditor();
-        var p = profilesAll()[t];
-        toast("Sat til " + (p ? p.name : t));
+        var p = profilesAll()[typ];
+        toast(t("Sat til") + " " + (p ? p.name : typ));
       });
     });
 }
@@ -2564,7 +2561,7 @@ function ctlPick(c) {
   if (ctlMulti) {
     var k = cur.indexOf(c);
     if (k >= 0) {
-      if (cur.length === 1) { toast("Mindst én skal styre lyset"); return; }
+      if (cur.length === 1) { toast(t("Mindst én skal styre lyset")); return; }
       cur.splice(k, 1); nl = cur;
     } else nl = cur.concat([c]);
   } else nl = [c];
@@ -2585,8 +2582,8 @@ function ctlApply(nl, transfer) {
   markBusy(); clearBusy();
   api({ op: "control_set", control: nl, transfer: !!transfer }, transfer ? function () { refresh(); } : null);
   ctlRefresh();
-  toast((nl.length > 1 ? "Nu styrer " + ctlNames(nl) + " sammen" : "Nu styrer " + ctlName(nl[0]) + " lyset") +
-        (transfer ? " — med farverne der lyste" : ""));
+  toast((nl.length > 1 ? t("Nu styrer") + " " + ctlNames(nl) + " " + t("sammen") : t("Nu styrer") + " " + ctlName(nl[0]) + " " + t("lyset")) +
+        (transfer ? " — " + t("med farverne der lyste") : ""));
 }
 /* lyser der noget lige nu? (ellers er der ingen farver at overtage) */
 function lightIsOn() {
@@ -2610,14 +2607,13 @@ function xferAsk(added, done) {
   if (dlg.parentNode !== host) host.appendChild(dlg);
   var nm = ctlNames(added), from = ctlNames(ctlNow());
   body.innerHTML = "";
-  body.appendChild(el("div", "rst-lead", nm + " overtager styringen fra " + from + "."));
-  body.appendChild(el("p", "", "Skal " + nm + " starte med de farver, der lyser nu? Så står lyset stille ved skiftet, " +
-    "og du kan rette videre derfra. Ellers viser " + nm + " det, den selv havde."));
+  body.appendChild(el("div", "rst-lead", nm + " " + t("overtager styringen fra") + " " + from + "."));
+  body.appendChild(el("p", "", t("Skal") + " " + nm + " " + t("starte med de farver, der lyser nu? Så står lyset stille ved skiftet, og du kan rette videre derfra. Ellers viser") + " " + nm + " " + t("det, den selv havde.")));
   var lb = el("label", "chk"); var ck = el("input"); ck.type = "checkbox"; ck.id = "xfer-remember";
-  lb.appendChild(ck); lb.appendChild(el("span", "", " Husk mit valg på denne skærm (kan ændres under Indstillinger)"));
+  lb.appendChild(ck); lb.appendChild(el("span", "", " " + t("Husk mit valg på denne skærm (kan ændres under Indstillinger)")));
   body.appendChild(lb);
   var row = el("div", "pal-btn-row");
-  var yes = el("button", "lt-go", "Ja, overtag farverne"), no = el("button", "", "Nej, brug " + nm + "s egne"), cancel = el("button", "ghost", "Fortryd");
+  var yes = el("button", "lt-go", t("Ja, overtag farverne")), no = el("button", "", t("Nej, brug") + " " + nm + t("s egne")), cancel = el("button", "ghost", t("Fortryd"));
   yes.id = "xfer-yes"; no.id = "xfer-no"; cancel.id = "xfer-cancel";
   function close() { dlg.className = ""; }
   yes.onclick = function () { if (ck.checked) xferSetPref("always"); close(); done(true); };
@@ -2634,7 +2630,7 @@ function ctlGroup(box, idp, withText) {
   var multi = ctlNow().length > 1;
   var g = el("span", "cb-ctrls" + (multi ? " multi" : "") + (withText ? " txt" : ""));
   g.setAttribute("role", "group");
-  g.setAttribute("aria-label", "Hvem styrer lyset");
+  g.setAttribute("aria-label", t("Hvem styrer lyset"));
   CTRL.forEach(function (c) {
     var on = ctlOn(c[0]);
     var b = el("button", "cb-btn" + (on ? " on" : ""));
@@ -2642,14 +2638,14 @@ function ctlGroup(box, idp, withText) {
     b.appendChild(icon(c[2]));
     if (withText) b.appendChild(el("span", "t", c[1]));
     press(b, on);
-    b.title = on ? c[1] + " styrer lyset" : "Lad " + c[1] + " styre lyset";
+    b.title = on ? c[1] + " " + t("styrer lyset") : t("Lad") + " " + c[1] + " " + t("styre lyset");
     b.setAttribute("aria-label", b.title);
     b.onclick = function () { ctlPick(c[0]); };
     g.appendChild(b);
   });
   box.appendChild(g);
   var lb = el("label", "cb-multi");
-  lb.title = "Flere på én gang: tryk på de styringer der skal styre sammen";
+  lb.title = t("Flere på én gang: tryk på de styringer der skal styre sammen");
   var ck = el("input"); ck.type = "checkbox"; ck.id = idp + "multi"; ck.checked = ctlMulti;
   ck.onchange = function () {
     ctlMulti = ck.checked;
@@ -2657,14 +2653,14 @@ function ctlGroup(box, idp, withText) {
     /* slår man det fra med flere valgt, beholdes de til man vælger én */
     buildCtrlBar(); ctlBanners();
   };
-  lb.appendChild(ck); lb.appendChild(el("span", "t", "Flere"));
+  lb.appendChild(ck); lb.appendChild(el("span", "t", t("Flere")));
   box.appendChild(lb);
 }
 function buildCtrlBar() {
   var lv = id("lv-ctl");
   if (lv) {                       /* live-matrixen: samme styring som topbjælken */
     lv.innerHTML = "";
-    lv.appendChild(el("span", "k", "Styrer"));
+    lv.appendChild(el("span", "k", t("Styrer")));
     ctlGroup(lv, "lv-cb-", true);
   }
   var bar = id("ctlsel"); if (!bar) return;
@@ -2678,26 +2674,26 @@ function buildCtrlBar() {
 function ctlStatus() {
   var box = id("ctlwarn"); if (!box || !S) return;
   var items = [], ctl = ctlNow(), m = S.master, k;
-  if (ctl.length > 1) items.push(["warn", "Flere styrer samtidig: " + ctlNames(ctl), null]);
-  if (!armed()) items.push(["warn", "DMX ud er slået fra", ["Slå til", function () { setArm(true); }]]);
-  if (m.blackout) items.push(["alarm", "BLACKOUT", ["Slå fra", function () { S.master.blackout = false; setv(["master", "blackout"], false, refresh); }]]);
-  if (m.freeze) items.push(["warn", "Billedet er frosset", ["Slå fra", function () { S.master.freeze = false; setv(["master", "freeze"], false, refresh); }]]);
+  if (ctl.length > 1) items.push(["warn", t("Flere styrer samtidig:") + " " + ctlNames(ctl), null]);
+  if (!armed()) items.push(["warn", t("DMX ud er slået fra"), [t("Slå til"), function () { setArm(true); }]]);
+  if (m.blackout) items.push(["alarm", t("BLACKOUT"), [t("Slå fra"), function () { S.master.blackout = false; setv(["master", "blackout"], false, refresh); }]]);
+  if (m.freeze) items.push(["warn", t("Billedet er frosset"), [t("Slå fra"), function () { S.master.freeze = false; setv(["master", "freeze"], false, refresh); }]]);
   if (m.grand < 255) items.push([m.grand === 0 ? "alarm" : "info", "Grand " + Math.round(m.grand / 2.55) + " %", ["Pult", function () { gotoTab("v-pult"); }]]);
-  if (m.strobe >= 8) items.push(["warn", "Strobe er slået til", ["Pult", function () { gotoTab("v-pult"); }]]);
+  if (m.strobe >= 8) items.push(["warn", t("Strobe er slået til"), ["Pult", function () { gotoTab("v-pult"); }]]);
   var low = 0;
   for (k = 0; k < S.modules.length; k++) if (!S.modules[k].on || S.modules[k].level < 255) low++;
-  if (low) items.push(["info", (low === 1 ? "1 lampe er" : low + " lamper er") + " slukket eller skruet ned i Pult → Lamper", ["Vis", function () { gotoTab("v-pult"); }]]);
-  var ON = { enttec: "DMX-udgang", artnet: "Art-Net", sacn: "sACN" };
+  if (low) items.push(["info", (low === 1 ? t("1 lampe er") : low + " " + t("lamper er")) + " " + t("slukket eller skruet ned i Pult → Lamper"), [t("Vis"), function () { gotoTab("v-pult"); }]]);
+  var ON = { enttec: t("DMX-udgang"), artnet: "Art-Net", sacn: "sACN" };
   for (k in (ctlFrame.out || {})) {
     var v = String(ctlFrame.out[k] || ""), bad = k === "enttec" ? v.indexOf("FEJL") === 0 : (v !== "" && v !== "ok");
     if (bad && S.outputs[k] && S.outputs[k].on)
-      items.push(["alarm", (ON[k] || k) + ": " + v.replace(/^FEJL: */, "fejl — ").slice(0, 90), ["Output", function () { gotoTab("v-out"); }]]);
+      items.push(["alarm", (ON[k] || k) + ": " + v.replace(/^FEJL: */, "fejl — ").slice(0, 90), [t("Output"), function () { gotoTab("v-out"); }]]);
   }
   var lt = ctlFrame.lt;
-  if (lt) items.push(["warn", "Lampetest sender på U" + lt.uni + " / " + lt.addr, ["Stop", function () {
+  if (lt) items.push(["warn", t("Lampetest sender på") + " U" + lt.uni + " / " + lt.addr, ["Stop", function () {
     if (LT.on) { ltStop(); buildLampTest(true); } else api({ op: "lamptest", stop: true });
   }]]);
-  if (ctlFrame.probe) items.push(["warn", "Kanaltest kører", ["Stop", function () {
+  if (ctlFrame.probe) items.push(["warn", t("Kanaltest kører"), ["Stop", function () {
     if (PT.testOn) { ptTestStop(); buildProfileEditor(); } else api({ op: "profile_probe", clear: true });
   }]]);
   var sig = JSON.stringify(items.map(function (x) { return x[0] + x[1]; }));
@@ -2723,9 +2719,9 @@ function ctlBanners() {
     if (ctlOn(c[0])) { bn.style.display = "none"; return; }
     bn.style.display = "";
     bn.innerHTML = "";
-    bn.appendChild(el("span", "", c[1] + " styrer ikke lyset lige nu — det gør " + ctlNames(ctlNow()) +
-      ". Det du ændrer her, ses først på lamperne når " + c[1] + " styrer."));
-    var b = el("button", "lt-go", ctlMulti ? "Lad " + c[1] + " styre med" : "Lad " + c[1] + " styre");
+    bn.appendChild(el("span", "", c[1] + " " + t("styrer ikke lyset lige nu — det gør") + " " + ctlNames(ctlNow()) +
+      ". " + t("Det du ændrer her, ses først på lamperne når") + " " + c[1] + " " + t("styrer.")));
+    var b = el("button", "lt-go", ctlMulti ? t("Lad") + " " + c[1] + " " + t("styre med") : t("Lad") + " " + c[1] + " " + t("styre"));
     b.onclick = function () { ctlPick(c[0]); };
     bn.appendChild(b);
   });
@@ -2773,9 +2769,9 @@ function ekSend(lamps, values, fade) {
   api({ op: "live_lamps", lamps: lamps, values: values, fade: fade || 0 });
 }
 function ekNeedSel() {
-  if (S && !ctlOn("enkel")) toast("Enkel styrer ikke lyset — tryk “Lad Enkel styre” øverst");
+  if (S && !ctlOn("enkel")) toast(t("Enkel styrer ikke lyset — tryk “Lad Enkel styre” øverst"));
   if (ekSel.length) return false;
-  toast("Tryk først på de lamper du vil styre");
+  toast(t("Tryk først på de lamper du vil styre"));
   return true;
 }
 function ekColour(c) {
@@ -2810,7 +2806,7 @@ function ekInfo() {
   ekGroupsMark();
   var n = ekSel.length;
   b.textContent = n ? (n === 1 ? "1 lampe valgt" : n + " lamper valgt")
-                    : "Ingen lamper valgt — tryk på dem til venstre";
+                    : t("Ingen lamper valgt — tryk på dem til venstre");
   b.className = "ek-selinfo" + (n ? " on" : "");
   /* skyderen viser den første valgtes lysstyrke */
   var r = id("ek-level"), v = 255;
@@ -2831,24 +2827,24 @@ function buildEnkel() {
   if (!nm) {
     var e = el("div", "ek-empty");
     e.appendChild(el("p", "", "Der er ingen lamper endnu."));
-    var b = el("button", "wz-primary", "Gå til Patch");
+    var b = el("button", "wz-primary", t("Gå til Patch"));
     b.onclick = function () { gotoTab("v-patch"); };
     e.appendChild(b);
     box.appendChild(e);
   }
   S.modules.forEach(function (m, i) {
-    var t = el("button", "ek-tile" + (ekSel.indexOf(i) >= 0 ? " sel" : ""));
-    t.setAttribute("data-i", i);
-    t.appendChild(el("span", "no", String(m.num != null && m.num !== "" ? m.num : (i + 1))));
-    t.appendChild(el("span", "nm", m.name));
-    t.appendChild(el("span", "st", ""));
-    t.onclick = function () {
+    var tile = el("button", "ek-tile" + (ekSel.indexOf(i) >= 0 ? " sel" : ""));
+    tile.setAttribute("data-i", i);
+    tile.appendChild(el("span", "no", String(m.num != null && m.num !== "" ? m.num : (i + 1))));
+    tile.appendChild(el("span", "nm", m.name));
+    tile.appendChild(el("span", "st", ""));
+    tile.onclick = function () {
       var k = ekSel.indexOf(i);
       if (k >= 0) ekSel.splice(k, 1); else ekSel.push(i);
-      t.className = "ek-tile" + (k >= 0 ? "" : " sel");
+      tile.className = "ek-tile" + (k >= 0 ? "" : " sel");
       ekInfo();
     };
-    box.appendChild(t);
+    box.appendChild(tile);
   });
   /* farverne */
   var pb = id("ek-pal"); pb.innerHTML = "";
@@ -2934,27 +2930,27 @@ function ekPaint(px) {
    sender testen direkte på adressen (ovenpå riggen, uanset blackout), og
    /frame melder tilbage hvilket trin og hvilke kanalværdier den sender. */
 var LT_COL = {
-  red:   { n: "Rød",   r: 255 },
-  green: { n: "Grøn",  g: 255 },
-  blue:  { n: "Blå",   b: 255 },
-  yel:   { n: "Gul",   r: 255, g: 255 },
-  pur:   { n: "Lilla", r: 255, b: 255 },
-  cyan:  { n: "Cyan",  g: 255, b: 255 },
-  white: { n: "Hvid",  r: 255, g: 255, b: 255, w: 255 },
+  red:   { n: t("Rød"),   r: 255 },
+  green: { n: t("Grøn"),  g: 255 },
+  blue:  { n: t("Blå"),   b: 255 },
+  yel:   { n: t("Gul"),   r: 255, g: 255 },
+  pur:   { n: t("Lilla"), r: 255, b: 255 },
+  cyan:  { n: t("Cyan"),  g: 255, b: 255 },
+  white: { n: t("Hvid"),  r: 255, g: 255, b: 255, w: 255 },
   w:     { n: "Hvid LED (W)", w: 255 },
   a:     { n: "Ravgul (A)", a: 255 },
   uv:    { n: "UV", uv: 255 },
-  off:   { n: "Slukket" }
+  off:   { n: t("Slukket") }
 };
 var LT_PRESETS = [
-  ["seks", "Rød → grøn → blå → gul → lilla → hvid", ["red", "green", "blue", "yel", "pur", "white"]],
-  ["rgb", "Rød → grøn → blå", ["red", "green", "blue"]],
-  ["kanal", "Én farvekanal ad gangen: R → G → B → W → A → UV", ["red", "green", "blue", "w", "a", "uv"]],
-  ["blink", "Hvid / slukket (reagerer lampen overhovedet?)", ["white", "off"]],
-  ["egen", "Egen sekvens…", null]
+  ["seks", t("Rød → grøn → blå → gul → lilla → hvid"), ["red", "green", "blue", "yel", "pur", "white"]],
+  ["rgb", t("Rød → grøn → blå"), ["red", "green", "blue"]],
+  ["kanal", t("Én farvekanal ad gangen: R → G → B → W → A → UV"), ["red", "green", "blue", "w", "a", "uv"]],
+  ["blink", t("Hvid / slukket (reagerer lampen overhovedet?)"), ["white", "off"]],
+  ["egen", t("Egen sekvens…"), null]
 ];
 var LT = { on: false, uni: 1, addr: 1, type: "", preset: "seks", step_s: 1.0, hold: null,
-           custom: [{ n: "Rød", r: 255 }, { n: "Hvid LED (W)", w: 255 }], idx: 0, ch: null };
+           custom: [{ n: t("Rød"), r: 255 }, { n: t("Hvid LED (W)"), w: 255 }], idx: 0, ch: null };
 (function () {
   try {
     var sv = JSON.parse(localStorage.getItem("lyspult.lamptest") || "null");
@@ -3042,15 +3038,15 @@ function buildLampTest(force) {
 
   /* -- adresse -- */
   var r1 = el("div", "lt-row");
-  r1.appendChild(el("span", "k", "Adresse"));
-  var uw = el("label", "lt-in"); uw.appendChild(el("span", "", "Univers"));
+  r1.appendChild(el("span", "k", t("Adresse")));
+  var uw = el("label", "lt-in"); uw.appendChild(el("span", "", t("Univers")));
   var ui = el("input"); ui.type = "number"; ui.min = 1; ui.max = 64; ui.value = LT.uni; ui.id = "lt-uni";
   uw.appendChild(ui); r1.appendChild(uw);
-  var aw = el("label", "lt-in"); aw.appendChild(el("span", "", "Start-adresse"));
+  var aw = el("label", "lt-in"); aw.appendChild(el("span", "", t("Start-adresse")));
   var ai = el("input"); ai.type = "number"; ai.min = 1; ai.max = 512; ai.value = LT.addr; ai.id = "lt-addr";
   aw.appendChild(ai); r1.appendChild(aw);
-  var ls = el("select"); ls.id = "lt-lamp"; ls.setAttribute("aria-label", "Hent adressen fra en lampe");
-  var o0 = el("option", "", S.modules.length ? "Hent adressen fra en lampe…" : "Ingen lamper i riggen"); o0.value = "";
+  var ls = el("select"); ls.id = "lt-lamp"; ls.setAttribute("aria-label", t("Hent adressen fra en lampe"));
+  var o0 = el("option", "", S.modules.length ? t("Hent adressen fra en lampe…") : t("Ingen lamper i riggen")); o0.value = "";
   ls.appendChild(o0);
   S.modules.forEach(function (m, i) {
     var o = el("option", "", (m.label || (i + 1)) + " · " + m.name + " — U" + (m.universe || 1) + " / " + m.address);
@@ -3077,7 +3073,7 @@ function buildLampTest(force) {
 
   /* -- sekvens og fart -- */
   var r2 = el("div", "lt-row");
-  r2.appendChild(el("span", "k", "Sekvens"));
+  r2.appendChild(el("span", "k", t("Sekvens")));
   var ps = el("select"); ps.id = "lt-preset";
   LT_PRESETS.forEach(function (p) { var o = el("option", "", p[1]); o.value = p[0]; ps.appendChild(o); });
   ps.value = LT.preset;
@@ -3087,7 +3083,7 @@ function buildLampTest(force) {
   if (LT.preset === "egen") box.appendChild(ltCustomEditor());
 
   var r3 = el("div", "lt-row");
-  r3.appendChild(el("span", "k", "Tid pr. farve"));
+  r3.appendChild(el("span", "k", t("Tid pr. farve")));
   var sp = el("input"); sp.type = "range"; sp.min = 2; sp.max = 50; sp.value = Math.round(LT.step_s * 10); sp.id = "lt-speed";
   var sv = el("span", "val", LT.step_s.toFixed(1).replace(".", ",") + " s");
   sp.oninput = function () { LT.step_s = parseInt(sp.value, 10) / 10; sv.textContent = LT.step_s.toFixed(1).replace(".", ",") + " s"; };
@@ -3097,13 +3093,13 @@ function buildLampTest(force) {
 
   /* -- opsætning -- */
   var r4 = el("div", "lt-row lt-typerow");
-  r4.appendChild(el("span", "k", "Opsætning"));
-  var pv = el("button", "", "◀ Forrige"); pv.id = "lt-prev"; pv.onclick = function () { ltCycle(-1); };
+  r4.appendChild(el("span", "k", t("Opsætning")));
+  var pv = el("button", "", t("◀ Forrige")); pv.id = "lt-prev"; pv.onclick = function () { ltCycle(-1); };
   var tsel = el("select"); tsel.id = "lt-type";
   var all = profilesAll(), gen = {};
   (META.generic_order || []).forEach(function (g) { gen[g.id] = 1; });
-  var og1 = el("optgroup"); og1.label = "Standardopsætninger";
-  var og2 = el("optgroup"); og2.label = "Lampetyper";
+  var og1 = el("optgroup"); og1.label = t("Standardopsætninger");
+  var og2 = el("optgroup"); og2.label = t("Lampetyper");
   ts.forEach(function (k) {
     var o = el("option", "", all[k].name + " — " + all[k].channels.length + " kan."); o.value = k;
     (gen[k] ? og1 : og2).appendChild(o);
@@ -3112,13 +3108,13 @@ function buildLampTest(force) {
   if (og2.children.length) tsel.appendChild(og2);
   tsel.value = LT.type;
   tsel.onchange = function () { LT.type = tsel.value; ltSend(); buildLampTest(true); };
-  var nx = el("button", "", "Næste ▶"); nx.id = "lt-next"; nx.onclick = function () { ltCycle(1); };
+  var nx = el("button", "", t("Næste ▶")); nx.id = "lt-next"; nx.onclick = function () { ltCycle(1); };
   r4.appendChild(pv); r4.appendChild(tsel); r4.appendChild(nx);
   box.appendChild(r4);
 
   /* -- start/stop og hvad lampen skal vise lige nu -- */
   var r5 = el("div", "lt-run");
-  var go = el("button", LT.on ? "alarm" : "lt-go", LT.on ? "■ Stop test" : "▶ Start test"); go.id = "lt-go";
+  var go = el("button", LT.on ? "alarm" : "lt-go", LT.on ? t("■ Stop test") : t("▶ Start test")); go.id = "lt-go";
   go.onclick = function () {
     if (LT.on) ltStop();
     else { LT.on = true; LT.hold = null; ltSend(); }
@@ -3126,11 +3122,11 @@ function buildLampTest(force) {
   };
   r5.appendChild(go);
   var stp = el("div", "lt-steps");
-  var b1 = el("button", "sm", "◀ Trin"); b1.id = "lt-sback";
+  var b1 = el("button", "sm", t("◀ Trin")); b1.id = "lt-sback";
   b1.onclick = function () { ltSetHold((LT.hold === null ? LT.idx : LT.hold) - 1); buildLampTest(true); };
-  var b2 = el("button", "sm", LT.hold === null ? "❚❚ Pause" : "▶ Fortsæt"); b2.id = "lt-pause";
+  var b2 = el("button", "sm", LT.hold === null ? t("❚❚ Pause") : t("▶ Fortsæt")); b2.id = "lt-pause";
   b2.onclick = function () { ltSetHold(LT.hold === null ? LT.idx : null); buildLampTest(true); };
-  var b3 = el("button", "sm", "Trin ▶"); b3.id = "lt-sfwd";
+  var b3 = el("button", "sm", t("Trin ▶")); b3.id = "lt-sfwd";
   b3.onclick = function () { ltSetHold((LT.hold === null ? LT.idx : LT.hold) + 1); buildLampTest(true); };
   [b1, b2, b3].forEach(function (b) { b.disabled = !LT.on; stp.appendChild(b); });
   r5.appendChild(stp);
@@ -3142,30 +3138,27 @@ function buildLampTest(force) {
   var r6 = el("div", "lt-row lt-apply"); r6.id = "lt-apply"; box.appendChild(r6);
 
   box.appendChild(el("div", "hint",
-    "Start testen og tryk Næste, indtil lampen lyser i den farve der står i den store boks. " +
-    "Så passer opsætningen — tryk på knappen nedenfor for at give lampen den. " +
-    "Testen sender kun på de kanaler opsætningen fylder, og gør det oven i alt andet (også blackout). " +
-    "Piletasterne ← → skifter opsætning, mens testen kører. Den stopper når du forlader Patch, og af sig selv efter 10 minutter."));
+    t("Start testen og tryk Næste, indtil lampen lyser i den farve der står i den store boks. Så passer opsætningen — tryk på knappen nedenfor for at give lampen den. Testen sender kun på de kanaler opsætningen fylder, og gør det oven i alt andet (også blackout). Piletasterne ← → skifter opsætning, mens testen kører. Den stopper når du forlader Patch, og af sig selv efter 10 minutter.")));
   ltShowUse(); ltShowNow();
 }
 
 function ltCustomEditor() {
   var wrap = el("div", "lt-custom");
   var row = el("div", "lt-seq");
-  if (!LT.custom.length) row.appendChild(el("span", "hint", "Tom — tilføj farver nedenfor."));
+  if (!LT.custom.length) row.appendChild(el("span", "hint", t("Tom — tilføj farver nedenfor.")));
   LT.custom.forEach(function (st, i) {
     var c = el("button", "lt-chip", (i + 1) + " · " + st.n);
     c.style.borderColor = ltCss(st);
-    c.title = "Klik for at fjerne";
+    c.title = t("Klik for at fjerne");
     var dot = el("span", "dot"); dot.style.background = ltCss(st); c.insertBefore(dot, c.firstChild);
     c.onclick = function () { LT.custom.splice(i, 1); LT.hold = null; ltSend(); buildLampTest(true); };
     row.appendChild(c);
   });
   wrap.appendChild(row);
   var add = el("div", "lt-add");
-  add.appendChild(el("span", "k2", "Tilføj:"));
+  add.appendChild(el("span", "k2", t("Tilføj:")));
   function push(st) {
-    if (LT.custom.length >= 32) { toast("Højst 32 trin"); return; }
+    if (LT.custom.length >= 32) { toast(t("Højst 32 trin")); return; }
     LT.custom.push(st); LT.hold = null; ltSend(); buildLampTest(true);
   }
   Object.keys(LT_COL).forEach(function (k) {
@@ -3176,14 +3169,14 @@ function ltCustomEditor() {
   });
   wrap.appendChild(add);
   var pal = el("div", "lt-add");
-  pal.appendChild(el("span", "k2", "Fra paletten:"));
+  pal.appendChild(el("span", "k2", t("Fra paletten:")));
   activePalette().forEach(function (c, i) {
     var b = el("button", "lt-palb"); b.style.background = hex(c); b.title = "Palettefarve " + (PAL_KEYS[i] || (i + 1));
     b.onclick = function () { push({ n: hex(c).toUpperCase(), r: c[0], g: c[1], b: c[2], w: 0, a: 0, uv: 0 }); };
     pal.appendChild(b);
   });
   wrap.appendChild(pal);
-  var clr = el("button", "sm", "Ryd sekvensen");
+  var clr = el("button", "sm", t("Ryd sekvensen"));
   clr.onclick = function () { LT.custom = []; ltSend(); buildLampTest(true); };
   wrap.appendChild(clr);
   return wrap;
@@ -3196,18 +3189,18 @@ function ltShowUse() {
   var rng = "U" + LT.uni + " · kanal " + LT.addr + (n > 1 ? "–" + (LT.addr + n - 1) : "");
   u.innerHTML = "";
   if (LT.addr + n - 1 > 512) {
-    u.appendChild(el("span", "lt-warn", rng + " — opsætningen løber ud over kanal 512."));
+    u.appendChild(el("span", "lt-warn", rng + " — " + t("opsætningen løber ud over kanal 512.")));
   } else if (!hit.length) {
-    u.appendChild(el("span", "", rng + " — ingen lamper er patchet her. Testen sender direkte på adressen."));
+    u.appendChild(el("span", "", rng + " — " + t("ingen lamper er patchet her. Testen sender direkte på adressen.")));
   } else {
-    u.appendChild(el("span", "", rng + " — her sidder: " + hit.map(function (i) {
+    u.appendChild(el("span", "", rng + " — " + t("her sidder:") + " " + hit.map(function (i) {
       var m = S.modules[i];
       return (m.label || (i + 1)) + " · " + m.name + " (" + lampProfile(m).name + ", fra " + m.address + ")";
     }).join("; ")));
   }
   if (!armed()) {
-    var w = el("div", "lt-warn", "DMX ud er slået fra, så testen når ikke ud til lamperne. ");
-    var on = el("button", "sm", "Slå DMX ud til");
+    var w = el("div", "lt-warn", t("DMX ud er slået fra, så testen når ikke ud til lamperne.") + " ");
+    var on = el("button", "sm", t("Slå DMX ud til"));
     on.onclick = function () { setArm(true); setTimeout(ltShowUse, 400); };
     w.appendChild(on); u.appendChild(w);
   }
@@ -3217,9 +3210,9 @@ function ltShowUse() {
   if (exact.length) {
     var i0 = exact[0], m0 = S.modules[i0];
     if (m0.type === LT.type) {
-      ap.appendChild(el("span", "hint", "Lampe " + (m0.label || (i0 + 1)) + " har allerede denne opsætning."));
+      ap.appendChild(el("span", "hint", "Lampe " + (m0.label || (i0 + 1)) + " " + t("har allerede denne opsætning.")));
     } else {
-      var sb = el("button", "lt-go", "Giv lampe " + (m0.label || (i0 + 1)) + " opsætningen “" + p.name + "”");
+      var sb = el("button", "lt-go", t("Giv lampe") + " " + (m0.label || (i0 + 1)) + " " + t("opsætningen") + " “" + p.name + "”");
       sb.id = "lt-settype";
       sb.onclick = function () {
         api({ op: "fixture_settype", indices: [i0], type: LT.type }, function () {
@@ -3229,7 +3222,7 @@ function ltShowUse() {
       ap.appendChild(sb);
     }
   } else {
-    var ab = el("button", "lt-go", "Tilføj en lampe her med “" + p.name + "”");
+    var ab = el("button", "lt-go", t("Tilføj en lampe her med") + " “" + p.name + "”");
     ab.id = "lt-addlamp";
     ab.onclick = function () {
       api({ op: "fixture_add", type: LT.type, qty: 1, universe: LT.uni, address: LT.addr }, function () {
@@ -3237,7 +3230,7 @@ function ltShowUse() {
       });
     };
     ap.appendChild(ab);
-    if (hit.length) ap.appendChild(el("span", "lt-warn", "Bemærk: den vil overlappe en lampe der allerede er patchet."));
+    if (hit.length) ap.appendChild(el("span", "lt-warn", t("Bemærk: den vil overlappe en lampe der allerede er patchet.")));
   }
 }
 
@@ -3248,7 +3241,7 @@ function ltShowNow() {
   if (!LT.on) {
     nb.className = "lt-now off";
     nb.innerHTML = "";
-    nb.appendChild(el("span", "lbl", "Testen kører ikke"));
+    nb.appendChild(el("span", "lbl", t("Testen kører ikke")));
     cb.innerHTML = "";
     if (p) p.channels.forEach(function (c, i) {
       var ch = el("span", "lt-ch");
@@ -3263,9 +3256,9 @@ function ltShowNow() {
   nb.innerHTML = "";
   var sw = el("span", "sw"); sw.style.background = ltCss(st); nb.appendChild(sw);
   var tx = el("span", "txt");
-  tx.appendChild(el("span", "small", "Lampen skal nu lyse"));
+  tx.appendChild(el("span", "small", t("Lampen skal nu lyse")));
   tx.appendChild(el("span", "big", st.n.toUpperCase()));
-  tx.appendChild(el("span", "small", "Trin " + (idx + 1) + " af " + steps.length + (LT.hold !== null ? " · på pause" : "")));
+  tx.appendChild(el("span", "small", t("Trin") + " " + (idx + 1) + " " + t("af") + " " + steps.length + (LT.hold !== null ? " · " + t("på pause") : "")));
   nb.appendChild(tx);
   cb.innerHTML = "";
   if (p) p.channels.forEach(function (c, i) {
@@ -3298,32 +3291,30 @@ function ltFrame(lt) {
 function openResetDialog() {
   var body = id("rstdlg-body"); body.innerHTML = "";
   var n = S.modules.length, sc = (S.scenes || []).length, gr = (S.group_labels || []).length;
-  body.appendChild(el("p", "rst-lead", "Riggen tømmes, så du kan bygge et nyt setup op fra bunden."));
+  body.appendChild(el("p", "rst-lead", t("Riggen tømmes, så du kan bygge et nyt setup op fra bunden.")));
   var ul1 = el("ul", "rst-list");
-  [["Fjernes", n + " lamper med adresser og placering, " + gr + " grupper, " + sc + " scener, cuelisten, " +
-     "det der kører i Afvikling, lagene i Pult, egne mønstre og guiden."],
-   ["Bliver", "DMX-udgangen (Output), indstillinger, dine egne lampetyper, farvepaletter og fanernes rækkefølge."]
+  [[t("Fjernes"), n + " " + t("lamper med adresser og placering,") + " " + gr + " " + t("grupper,") + " " + sc + " " + t("scener, cuelisten, det der kører i Afvikling, lagene i Pult, egne mønstre og guiden.")],
+   [t("Bliver"), t("DMX-udgangen (Output), indstillinger, dine egne lampetyper, farvepaletter og fanernes rækkefølge.")]
   ].forEach(function (r) {
     var li = el("li"); li.appendChild(el("b", "", r[0] + ": ")); li.appendChild(document.createTextNode(r[1])); ul1.appendChild(li);
   });
   body.appendChild(ul1);
-  body.appendChild(el("p", "hint", "Inden der nulstilles, gemmes en kopi af det hele under Show → Gemte shows " +
-    "(med “før nulstilling” og tidspunktet i navnet). Hent den der, hvis du fortryder."));
+  body.appendChild(el("p", "hint", t("Inden der nulstilles, gemmes en kopi af det hele under Show → Gemte shows (med “før nulstilling” og tidspunktet i navnet). Hent den der, hvis du fortryder.")));
   var row = el("div", "pal-btn-row");
-  var yes = el("button", "alarm", "Nulstil setup"); yes.id = "rst-yes";
-  var no = el("button", "", "Annullér");
+  var yes = el("button", "alarm", t("Nulstil setup")); yes.id = "rst-yes";
+  var no = el("button", "", t("Annullér"));
   no.onclick = function () { id("rstdlg").className = ""; };
   yes.onclick = function () {
     yes.disabled = true;
     if (LT.on) { LT.on = false; LT.hold = null; LT.ch = null; }
     api({ op: "reset_setup" }, function (r) {
       id("rstdlg").className = "";
-      if (!r || !r.ok) { toast("Kunne ikke nulstille"); return; }
+      if (!r || !r.ok) { toast(t("Kunne ikke nulstille")); return; }
       afSel = []; afSelG = []; laySel = []; laySelG = []; layEdSel = -1; ekSel = [];
       refresh(function () {
         if (typeof afSelChanged === "function" && id("v-afvikling").className.indexOf("active") >= 0) afSelChanged();
         buildLampTest(true);
-        toast(r.backup ? "Nulstillet — kopi gemt som “" + r.backup + "”" : "Nulstillet");
+        toast(r.backup ? t("Nulstillet — kopi gemt som") + " “" + r.backup + "”" : t("Nulstillet"));
         if (id("v-show").className.indexOf("active") >= 0) loadShowList();
       });
     });
@@ -3422,12 +3413,12 @@ function buildPatchTypes() {
 }
 function updatePatchHint() {
   var e = id("pa-hint"); if (!e || !id("pa-type").value) return;
-  var all = profilesAll(), t = id("pa-type").value;
-  var span = all[t] ? all[t].channels.length : 1;
+  var all = profilesAll(), typ = id("pa-type").value;
+  var span = all[typ] ? all[typ].channels.length : 1;
   var qty = parseInt(id("pa-qty").value, 10) || 1;
   var addr = parseInt(id("pa-addr").value, 10) || 1;
   var last = addr + qty * span - 1;
-  e.innerHTML = qty + " × " + span + " kanaler = " + (qty * span) +
+  e.innerHTML = qty + " × " + span + " " + t("kanaler") + " = " + (qty * span) +
     " kanaler, adresse " + addr + "–" + last +
     (last > 512 ? " <b style='color:var(--alarm)'>(over 512 — brug nyt univers eller lavere start)</b>" : "");
 }
@@ -3438,13 +3429,13 @@ function newProfileDialog() { ptNew(); }
    type, der så kan finpudses kanal for kanal. */
 var PT = { sel: null, draft: null, dirty: false, testSlot: -1, testVal: 0, testOn: false };
 var PT_HELP = {
-  dimmer: "Styres af pulten (lysstyrke)", dimmer_fine: "Styres af pulten (samme som dimmer)",
-  r: "Styres af pulten", g: "Styres af pulten", b: "Styres af pulten",
-  w: "Fast kanal — sættes i Pult", a: "Fast kanal — sættes i Pult", uv: "Fast kanal — sættes i Pult",
-  strobe: "Fast kanal — sættes i Pult", duration: "Fast kanal — sættes i Pult",
-  macro: "Fast kanal — sættes i Pult", generic: "Fast kanal — sættes i Pult",
-  fixed: "Sender altid standardværdien", preset: "Holdes på standardværdien",
-  sound: "Holdes på standardværdien", delay: "Holdes på standardværdien"
+  dimmer: t("Styres af pulten (lysstyrke)"), dimmer_fine: t("Styres af pulten (samme som dimmer)"),
+  r: t("Styres af pulten"), g: t("Styres af pulten"), b: t("Styres af pulten"),
+  w: t("Fast kanal — sættes i Pult"), a: t("Fast kanal — sættes i Pult"), uv: t("Fast kanal — sættes i Pult"),
+  strobe: t("Fast kanal — sættes i Pult"), duration: t("Fast kanal — sættes i Pult"),
+  macro: t("Fast kanal — sættes i Pult"), generic: t("Fast kanal — sættes i Pult"),
+  fixed: t("Sender altid standardværdien"), preset: t("Holdes på standardværdien"),
+  sound: t("Holdes på standardværdien"), delay: t("Holdes på standardværdien")
 };
 function ptIsBuiltin(t) { return !!(META.builtin_profiles || {})[t] && !(S.profiles || {})[t]; }
 function ptUsers(t) {
@@ -3471,7 +3462,7 @@ function ptSelect(t) {
 }
 function ptDirty() {
   PT.dirty = true;
-  var e = id("pt-dirtymark"); if (e) e.textContent = "Ikke gemt";
+  var e = id("pt-dirtymark"); if (e) e.textContent = t("Ikke gemt");
 }
 function buildProfileEditor() {
   var sel = id("pt-sel"); if (!sel || !S || !META) return;
@@ -3485,7 +3476,7 @@ function buildProfileEditor() {
     PT.draft = ptCopyProfile(all[PT.sel]);
   }
   sel.innerHTML = "";
-  [["Egne lampetyper", false], ["Indbyggede", true]].forEach(function (grp) {
+  [[t("Egne lampetyper"), false], [t("Indbyggede"), true]].forEach(function (grp) {
     var og = document.createElement("optgroup"); og.label = grp[0]; var n = 0;
     for (k in all) {
       if (ptIsBuiltin(k) !== grp[1]) continue;
@@ -3501,7 +3492,7 @@ function buildProfileEditor() {
   id("pt-del").style.display = builtin ? "none" : "";
   var info = id("pt-info"); info.innerHTML = "";
   info.appendChild(document.createTextNode(builtin
-    ? "Indbygget type, lavet efter producentens manual. Den kan ikke rettes direkte — tryk Lav kopi for at få en egen type du kan finpudse. "
+    ? t("Indbygget type, lavet efter producentens manual. Den kan ikke rettes direkte — tryk Lav kopi for at få en egen type du kan finpudse.")
     : "Egen lampetype. Ret kanalerne herunder og tryk Gem. "));
   var ub = el("b", "", users.length ? "Bruges af " + users.length + " lamper (" +
     users.map(function (i) { return S.modules[i].num || (i + 1); }).join(", ") + ")." : "Bruges ikke af nogen lamper endnu.");
@@ -3525,10 +3516,10 @@ function buildProfileEditor() {
   f.appendChild(r1);
 
   var wrap = el("div", "tbl");
-  var t = el("table", "pt-tbl");
-  t.innerHTML = "<thead><tr><th>DMX</th><th>Funktion</th><th>Navn</th>" +
-    "<th title='Værdien kanalen har, indtil du sætter den i Pult (og altid for Fast værdi)'>Standard</th>" +
-    "<th title='Kanalen sendes aldrig højere end dette. Fx 159 hvis lampen strober over 159.'>Maks</th>" +
+  var ptbl = el("table", "pt-tbl");
+  ptbl.innerHTML = "<thead><tr><th>DMX</th><th>Funktion</th><th>Navn</th>" +
+    "<th title='" + t("Værdien kanalen har, indtil du sætter den i Pult (og altid for Fast værdi)") + "'>" + t("Standard") + "</th>" +
+    "<th title='" + t("Kanalen sendes aldrig højere end dette. Fx 159 hvis lampen strober over 159.") + "'>" + t("Maks") + "</th>" +
     "<th title='Vend kanalen: 0 bliver 255 og omvendt'>Vend</th><th></th></tr></thead>";
   var tb = document.createElement("tbody");
   var pal = META.channel_palette || [];
@@ -3588,23 +3579,21 @@ function buildProfileEditor() {
     tr.appendChild(tda);
     tb.appendChild(tr);
   });
-  t.appendChild(tb); wrap.appendChild(t); f.appendChild(wrap);
+  ptbl.appendChild(tb); wrap.appendChild(ptbl); f.appendChild(wrap);
 
   if (!builtin) {
     var br = el("div", "pt-row");
-    var add = el("button", "", "+ Tilføj kanal");
+    var add = el("button", "", t("+ Tilføj kanal"));
     add.onclick = function () { d.channels.push({ k: "generic", n: "Ekstra kanal" }); ptDirty(); buildProfileEditor(); };
-    var sv = el("button", "wz-primary", "Gem lampetype");
+    var sv = el("button", "wz-primary", t("Gem lampetype"));
     sv.onclick = ptSave;
     var rv = el("button", "", "Fortryd");
     rv.onclick = function () { PT.dirty = false; buildProfileEditor(); };
     br.appendChild(add); br.appendChild(sv); br.appendChild(rv);
-    var dm = el("span", "pt-dirty", PT.dirty ? "Ikke gemt" : ""); dm.id = "pt-dirtymark";
+    var dm = el("span", "pt-dirty", PT.dirty ? t("Ikke gemt") : ""); dm.id = "pt-dirtymark";
     br.appendChild(dm);
     f.appendChild(br);
-    f.appendChild(el("div", "hint", "Funktioner med grøn kant styres af pulten. Faste kanaler (hvid, strobe, ekstra …) sættes i Pult " +
-      "under Faste kanaler og har standardværdien indtil da. Fast værdi sender altid standardværdien — brug den til " +
-      "mode- eller indstillingskanaler. Maks er en grænse, fx 159 hvis lampen begynder at strobe over 159."));
+    f.appendChild(el("div", "hint", t("Funktioner med grøn kant styres af pulten. Faste kanaler (hvid, strobe, ekstra …) sættes i Pult under Faste kanaler og har standardværdien indtil da. Fast værdi sender altid standardværdien — brug den til mode- eller indstillingskanaler. Maks er en grænse, fx 159 hvis lampen begynder at strobe over 159.")));
   }
 
   /* --- brug typen til lamper --- */
@@ -3619,16 +3608,16 @@ function buildProfileEditor() {
   ur.appendChild(from);
   ur.appendChild(el("span", "", "til denne"));
   var ra = el("label", "chk"); var rc = document.createElement("input"); rc.type = "checkbox"; rc.checked = true;
-  ra.appendChild(rc); ra.appendChild(document.createTextNode(" og adressér alle igen"));
+  ra.appendChild(rc); ra.appendChild(document.createTextNode(" " + t("og adressér alle igen")));
   var go = el("button", "", "Skift");
   go.disabled = !tk.length || PT.dirty;
-  go.title = PT.dirty ? "Gem typen først" : "";
+  go.title = PT.dirty ? t("Gem typen først") : "";
   go.onclick = function () {
     var idx = []; S.modules.forEach(function (m, i) { if (m.type === from.value) idx.push(i); });
     if (!idx.length) return;
     if (!confirm("Skift " + idx.length + " lamper fra \u201c" + (all[from.value] ? all[from.value].name : from.value) +
                  "\u201d til \u201c" + all[PT.sel].name + "\u201d?" +
-                 (rc.checked ? "\n\nAlle lamper får nye adresser bagefter." : ""))) return;
+                 (rc.checked ? "\n\n" + t("Alle lamper får nye adresser bagefter.") : ""))) return;
     api({ op: "fixture_settype", indices: idx, type: PT.sel, readdress: rc.checked }, function () {
       refresh(function () { toast(idx.length + " lamper skiftet til " + all[PT.sel].name); });
     });
@@ -3640,9 +3629,8 @@ function buildProfileEditor() {
   /* --- kanaltest --- */
   var te = id("pt-test"); te.innerHTML = "";
   te.appendChild(el("div", "pt-sec", "Kanaltest"));
-  if (!users.length) { te.appendChild(el("div", "hint", "Ingen lamper bruger typen, så der er intet at teste på.")); return; }
-  te.appendChild(el("div", "hint", "Hold én DMX-kanal på en bestemt værdi på alle lamper af denne type — så kan du se, hvad kanalen gør. " +
-    "Kræver at DMX ud er slået til. Testen slipper af sig selv efter 2 minutter." + (PT.dirty ? " Tester den gemte udgave." : "")));
+  if (!users.length) { te.appendChild(el("div", "hint", t("Ingen lamper bruger typen, så der er intet at teste på."))); return; }
+  te.appendChild(el("div", "hint", t("Hold én DMX-kanal på en bestemt værdi på alle lamper af denne type — så kan du se, hvad kanalen gør. Kræver at DMX ud er slået til. Testen slipper af sig selv efter 2 minutter.") + (PT.dirty ? " " + t("Tester den gemte udgave.") : "")));
   var tr2 = el("div", "pt-test");
   tr2.appendChild(el("span", "", "Kanal"));
   var ss = el("select");
@@ -3653,7 +3641,7 @@ function buildProfileEditor() {
   var rg = document.createElement("input"); rg.type = "range"; rg.min = 0; rg.max = 255; rg.value = PT.testVal;
   var vv = el("span", "val", String(PT.testVal));
   var st = el("button", PT.testOn ? "alarm" : "", PT.testOn ? "Stop test" : "Start test");
-  var live = el("span", "pt-live", PT.testOn ? "● Test kører" : "");
+  var live = el("span", "pt-live", PT.testOn ? t("● Test kører") : "");
   function send() {
     if (!PT.testOn) return;
     api({ op: "profile_probe", type: PT.sel, slot: PT.testSlot, value: PT.testVal });
@@ -3689,20 +3677,20 @@ function ptSave() {
     function (r) {
       if (!r || !r.ok) { toast((r && r.err) || "Kunne ikke gemme"); return; }
       PT.sel = r.id; PT.dirty = false;
-      refresh(function () { buildProfileEditor(); toast("Lampetype gemt"); });
+      refresh(function () { buildProfileEditor(); toast(t("Lampetype gemt")); });
     });
 }
 function ptNew() {
   if (PT.testOn) ptTestStop();
-  api({ op: "profile_save", name: "Egen lampe", shape: "par",
-        channels: [{ k: "dimmer", n: "Dimmer" }, { k: "r", n: "Rød" }, { k: "g", n: "Grøn" }, { k: "b", n: "Blå" }] },
+  api({ op: "profile_save", name: t("Egen lampe"), shape: "par",
+        channels: [{ k: "dimmer", n: "Dimmer" }, { k: "r", n: t("Rød") }, { k: "g", n: t("Grøn") }, { k: "b", n: t("Blå") }] },
     function (r) {
       if (!r || !r.ok) return;
       PT.sel = r.id; PT.dirty = false;
       refresh(function () {
         buildProfileEditor();
         var p = id("pt-pan"); if (p && p.scrollIntoView) p.scrollIntoView();
-        toast("Ny lampetype oprettet — ret navn og kanaler");
+        toast(t("Ny lampetype oprettet — ret navn og kanaler"));
       });
     });
 }
@@ -3744,7 +3732,7 @@ function openGroupDialog(gid) {
     laySel.forEach(function (i) { grpEdit.members.push({ t: "lamp", i: i }); });
     laySelG.forEach(function (x) { if (x !== gid) grpEdit.members.push({ t: "grp", id: x }); });
   }
-  id("grpdlg-title").textContent = gid ? "Redigér gruppe" : "Ny gruppe";
+  id("grpdlg-title").textContent = gid ? t("Redigér gruppe") : t("Ny gruppe");
   buildGroupDialog();
   id("grpdlg").className = "on";
 }
@@ -3757,8 +3745,8 @@ function buildGroupDialog() {
   nm.style.flex = "1 1 auto"; nm.oninput = function () { grpEdit.name = nm.value; };
   r.appendChild(nm); box.appendChild(r);
 
-  box.appendChild(el("div", "af-sec", "Indhold og rækkefølge (= nummerering til chase)"));
-  if (!grpEdit.members.length) box.appendChild(el("div", "hint", "Ingen medlemmer endnu. Tilføj lamper eller grupper herunder."));
+  box.appendChild(el("div", "af-sec", t("Indhold og rækkefølge (= nummerering til chase)")));
+  if (!grpEdit.members.length) box.appendChild(el("div", "hint", t("Ingen medlemmer endnu. Tilføj lamper eller grupper herunder.")));
   grpEdit.members.forEach(function (mem, idx) {
     var row = el("div", "grpmem");
     row.appendChild(el("span", "no", String(idx + 1)));
@@ -3777,18 +3765,18 @@ function buildGroupDialog() {
   });
 
   /* tilføj lamper (dem der ikke allerede er med) */
-  box.appendChild(el("div", "af-sec", "Tilføj lamper"));
+  box.appendChild(el("div", "af-sec", t("Tilføj lamper")));
   var haveL = {}; grpEdit.members.forEach(function (m) { if (m.t === "lamp") haveL[m.i] = 1; });
   var ll = el("div", "grpadd-list"); var anyL = false;
   S.modules.forEach(function (m, i) {
     if (haveL[i]) return; anyL = true;
     var rr = el("div", "row");
     rr.appendChild(el("span", "", (m.num != null ? m.num : i + 1) + " · " + (m.name || ("Lampe " + (i + 1)))));
-    var b = el("button", "sm", "+ Tilføj");
+    var b = el("button", "sm", t("+ Tilføj"));
     b.onclick = function () { grpEdit.members.push({ t: "lamp", i: i }); buildGroupDialog(); };
     rr.appendChild(b); ll.appendChild(rr);
   });
-  if (!anyL) ll.appendChild(el("div", "hint", "Alle lamper er med."));
+  if (!anyL) ll.appendChild(el("div", "hint", t("Alle lamper er med.")));
   box.appendChild(ll);
 
   /* tilføj andre grupper (ikke sig selv, ikke dem der allerede er med) */
@@ -3801,12 +3789,12 @@ function buildGroupDialog() {
     return true;
   });
   if (others.length) {
-    box.appendChild(el("div", "af-sec", "Tilføj grupper (indlejring)"));
+    box.appendChild(el("div", "af-sec", t("Tilføj grupper (indlejring)")));
     var gl = el("div", "grpadd-list");
     others.forEach(function (g) {
       var rr = el("div", "row");
-      rr.appendChild(el("span", "", g.name + " (" + groupLeaves(g.id).length + " lamper)"));
-      var b = el("button", "sm", "+ Tilføj");
+      rr.appendChild(el("span", "", g.name + " (" + groupLeaves(g.id).length + " " + t("lamper") + ")"));
+      var b = el("button", "sm", t("+ Tilføj"));
       b.onclick = function () { grpEdit.members.push({ t: "grp", id: g.id }); buildGroupDialog(); };
       rr.appendChild(b); gl.appendChild(rr);
     });
@@ -3814,9 +3802,9 @@ function buildGroupDialog() {
   }
 
   var bar = el("div", "btns"); bar.style.marginTop = "14px";
-  var save = el("button", "wz-primary", grpEdit.id ? "Gem gruppe" : "Opret gruppe");
+  var save = el("button", "wz-primary", grpEdit.id ? t("Gem gruppe") : t("Opret gruppe"));
   save.onclick = saveGroupDialog;
-  var cancel = el("button", "", "Annullér"); cancel.onclick = closeGroupDialog;
+  var cancel = el("button", "", t("Annullér")); cancel.onclick = closeGroupDialog;
   bar.appendChild(save); bar.appendChild(cancel);
   box.appendChild(bar);
 }
@@ -4114,7 +4102,7 @@ function afTitle() {
    sektionerne Mønster og bevægelse / Farve / Lysstyrke i den rækkefølge
    brugeren har valgt (▲▼ på sektionen - huskes på denne skærm). */
 var AF_SECS = ["moenster", "farve", "lys"];
-var AF_SEC_NAME = { moenster: "Mønster og bevægelse", farve: "Farve", lys: "Lysstyrke" };
+var AF_SEC_NAME = { moenster: t("Mønster og bevægelse"), farve: t("Farve"), lys: t("Lysstyrke") };
 function afOrder() {
   var o = null;
   try { o = JSON.parse(localStorage.getItem("lyspult.afOrder")); } catch (e) {}
@@ -4152,7 +4140,7 @@ function buildAfCtrl() {
   if (!afHasSel()) {
     afGlobalRow(box);
     if (info) info.innerHTML = "";
-    box.appendChild(el("div", "af-empty", "Vælg en lampe eller en gruppe — i oversigten, eller i gruppe-kolonnen ved siden af. Tasterne 1–9 og 0 vælger en gruppe direkte."));
+    box.appendChild(el("div", "af-empty", t("Vælg en lampe eller en gruppe — i oversigten, eller i gruppe-kolonnen ved siden af. Tasterne 1–9 og 0 vælger en gruppe direkte.")));
     return;
   }
   if (!afDraft) afDraft = afDefaultDraft();
@@ -4164,16 +4152,16 @@ function buildAfCtrl() {
   head.appendChild(afNames());
   var top = el("div", "af-toprow");
   top.appendChild(el("span", "big", afTitle()));
-  var onb = el("button", afDraft.on ? "on" : "", afDraft.on ? "Tændt" : "Slukket");
+  var onb = el("button", afDraft.on ? "on" : "", afDraft.on ? t("Tændt") : t("Slukket"));
   press(onb, afDraft.on);
   onb.onclick = function () {
     afSend({ on: !afDraft.on }, false);
-    press(onb, afDraft.on); onb.textContent = afDraft.on ? "Tændt" : "Slukket";
+    press(onb, afDraft.on); onb.textContent = afDraft.on ? t("Tændt") : t("Slukket");
     buildAfIcons();
   };
   top.appendChild(onb);
-  var clr = el("button", "sm", "Nulstil");
-  clr.title = "Fjern dette looks styring";
+  var clr = el("button", "sm", t("Nulstil"));
+  clr.title = t("Fjern dette looks styring");
   clr.onclick = function () { api({ op: "live_del", key: lookKeyOf(afTarget()) }, function () { refresh(function () { afDraft = afDefaultDraft(); buildAfCtrl(); drawAfStage(); }); }); };
   top.appendChild(clr);
   head.appendChild(top);
@@ -4207,7 +4195,7 @@ function buildAfCtrl() {
   lv.appendChild(lvi); lv.appendChild(lvv); box.appendChild(lv);
 
   var fd = el("div", "af-row");
-  fd.appendChild(el("span", "k", "Overgangstid"));
+  fd.appendChild(el("span", "k", t("Overgangstid")));
   var fdi = document.createElement("input"); fdi.type = "range";
   fdi.min = 0; fdi.max = 300; fdi.value = Math.round(afDraft.fade * 10);
   var fdn = document.createElement("input"); fdn.type = "number";
@@ -4227,13 +4215,12 @@ function buildAfCtrl() {
   };
   var fw = el("span", "af-fadewrap"); fw.appendChild(fdn); fw.appendChild(el("span", "hint", "sek."));
   fd.appendChild(fdi); fd.appendChild(fw); box.appendChild(fd);
-  box.appendChild(el("div", "hint", "Gælder når du trykker på et farvefelt — så toner lyset blødt over. " +
-    "Tiden hører til dette valg og huskes, når du vælger gruppen igen."));
+  box.appendChild(el("div", "hint", t("Gælder når du trykker på et farvefelt — så toner lyset blødt over. Tiden hører til dette valg og huskes, når du vælger gruppen igen.")));
 
   /* farve */
   box = sec("farve");
   var pb = el("div", "af-pickbtns");
-  [["felt", "Farvefelt"], ["skydere", "Skydere"], ["palet", "Paletter"]].forEach(function (o) {
+  [["felt", t("Farvefelt")], ["skydere", t("Skydere")], ["palet", t("Paletter")]].forEach(function (o) {
     var b = el("button", "sm", o[1]); press(b, afPicker === o[0]);
     b.onclick = function () { afPicker = o[0]; buildAfCtrl(); };
     pb.appendChild(b);
@@ -4242,7 +4229,7 @@ function buildAfCtrl() {
 
   var cur = el("div", "af-cur");
   var chip = el("span", "chip"); chip.id = "af-chip"; chip.style.background = hex(afDraft.colour);
-  cur.appendChild(chip); cur.appendChild(el("span", "hint", "Aktuel farve")); box.appendChild(cur);
+  cur.appendChild(chip); cur.appendChild(el("span", "hint", t("Aktuel farve"))); box.appendChild(cur);
 
   if (afPicker === "felt") afBuildField(box, chip);
   else if (afPicker === "skydere") afBuildSliders(box, chip);
@@ -4251,7 +4238,7 @@ function buildAfCtrl() {
   /* mønster m.m. */
   box = sec("moenster");
   var pr = el("div", "af-row");
-  pr.appendChild(el("span", "k", "Mønster"));
+  pr.appendChild(el("span", "k", t("Mønster")));
   var ps = el("select");
   (META.patterns || []).forEach(function (p) { if (p[0] === "egen") return; var o = el("option", "", p[1]); o.value = p[0]; if (afDraft.pattern === p[0]) o.selected = true; ps.appendChild(o); });
   ps.onchange = function () { afSend({ pattern: ps.value }, false); buildAfCtrl(); };
@@ -4265,18 +4252,18 @@ function buildAfCtrl() {
   cm.appendChild(cms); box.appendChild(cm);
 
   if (afDraft.pattern !== "fyldt") {
-    afRow(box, "Fart", 0, 200, afDraft.speed, function (v) { afDraft.speed = v; throttledLive("speed", { speed: v }); });
-    afRow(box, "Størrelse", 0, 100, afDraft.size, function (v) { afDraft.size = v; throttledLive("size", { size: v }); });
+    afRow(box, t("Fart"), 0, 200, afDraft.speed, function (v) { afDraft.speed = v; throttledLive("speed", { speed: v }); });
+    afRow(box, t("Størrelse"), 0, 100, afDraft.size, function (v) { afDraft.size = v; throttledLive("size", { size: v }); });
     afRow(box, "Forskydning", 0, 100, afDraft.spread, function (v) { afDraft.spread = v; throttledLive("spread", { spread: v }); });
     var dr = el("div", "af-row"); dr.appendChild(el("span", "k", "Retning"));
-    var db = el("button", "", afDraft.dir > 0 ? "Fremad" : "Baglæns");
-    db.onclick = function () { afDraft.dir = -afDraft.dir; db.textContent = afDraft.dir > 0 ? "Fremad" : "Baglæns"; afSend({ dir: afDraft.dir }, false); };
+    var db = el("button", "", afDraft.dir > 0 ? t("Fremad") : t("Baglæns"));
+    db.onclick = function () { afDraft.dir = -afDraft.dir; db.textContent = afDraft.dir > 0 ? t("Fremad") : t("Baglæns"); afSend({ dir: afDraft.dir }, false); };
     dr.appendChild(db); box.appendChild(dr);
-    box.appendChild(el("div", "hint", "Chase o.l. løber efter gruppens nummerering (rediger den under Layout → Redigér gruppe)."));
+    box.appendChild(el("div", "hint", t("Chase o.l. løber efter gruppens nummerering (rediger den under Layout → Redigér gruppe).")));
   }
   if (afDraft.colour_mode === "gradient" || afDraft.colour_mode === "cyklus") {
     var grad = afDraft.colour_mode === "gradient";
-    box.appendChild(el("div", "af-sec", grad ? "Farver i gradienten" : "Farver i paletten"));
+    box.appendChild(el("div", "af-sec", grad ? t("Farver i gradienten") : t("Farver i paletten")));
     if (!afDraft.stops || afDraft.stops.length < 2) afDraft.stops = [[255, 0, 0], [0, 0, 255]];
     var sw = el("div", "af-stops");
     afDraft.stops.forEach(function (c, si) {
@@ -4286,7 +4273,7 @@ function buildAfCtrl() {
         throttledLive("stops", { stops: afDraft.stops.slice() });
       });
       var rm = el("button", "sm", "✕");
-      rm.title = "Fjern farven";
+      rm.title = t("Fjern farven");
       rm.disabled = afDraft.stops.length <= 2;
       rm.onclick = function () {
         afDraft.stops.splice(si, 1);
@@ -4294,7 +4281,7 @@ function buildAfCtrl() {
       };
       st.appendChild(rm); sw.appendChild(st);
     });
-    var addc = el("button", "sm", "+ Farve");
+    var addc = el("button", "sm", t("+ Farve"));
     addc.onclick = function () {
       afDraft.stops.push([255, 255, 255]);
       afSend({ stops: afDraft.stops.slice() }, false); buildAfCtrl();
@@ -4302,8 +4289,8 @@ function buildAfCtrl() {
     sw.appendChild(addc);
     box.appendChild(sw);
     box.appendChild(el("div", "hint", grad
-      ? "Farverne fordeles hen over gruppen i dens nummerering — første farve på nr. 1, sidste på den sidste lampe."
-      : "Farverne skifter efter hinanden på alle lamperne. Farvefart styrer hvor hurtigt."));
+      ? t("Farverne fordeles hen over gruppen i dens nummerering — første farve på nr. 1, sidste på den sidste lampe.")
+      : t("Farverne skifter efter hinanden på alle lamperne. Farvefart styrer hvor hurtigt.")));
     if (!grad)
       afRow(box, "Farvefart", 0, 100, afDraft.hue_speed, function (v) {
         afDraft.hue_speed = v; throttledLive("hue_speed", { hue_speed: v });
@@ -4311,7 +4298,7 @@ function buildAfCtrl() {
   }
   if (afDraft.colour_mode === "regnbue") {
     afRow(box, "Farvefart", 0, 100, afDraft.hue_speed, function (v) { afDraft.hue_speed = v; throttledLive("hue_speed", { hue_speed: v }); });
-    afRow(box, "Farvebredde", 0, 200, afDraft.hue_spread, function (v) { afDraft.hue_spread = v; throttledLive("hue_spread", { hue_spread: v }); });
+    afRow(box, t("Farvebredde"), 0, 200, afDraft.hue_spread, function (v) { afDraft.hue_spread = v; throttledLive("hue_spread", { hue_spread: v }); });
   }
   var order = afOrder();
   order.forEach(function (k, n) {
@@ -4324,7 +4311,7 @@ function buildAfCtrl() {
 function afGlobalRow(box) {
   var w = el("div", "af-global");
   var r = el("div", "af-fadewrap");
-  r.appendChild(el("span", "k", "Standard overgangstid"));
+  r.appendChild(el("span", "k", t("Standard overgangstid")));
   var ni = document.createElement("input");
   ni.type = "number"; ni.min = 0; ni.max = 30; ni.step = 0.1;
   ni.value = afGlobalFade().toFixed(1);
@@ -4337,7 +4324,7 @@ function afGlobalRow(box) {
     markBusy(); clearBusy(); setv(["live", "fade"], v);
   };
   r.appendChild(ni);
-  r.appendChild(el("span", "hint", "sek. — bruges af grupper der ikke har fået deres egen"));
+  r.appendChild(el("span", "hint", t("sek. — bruges af grupper der ikke har fået deres egen")));
   w.appendChild(r);
   box.appendChild(w);
 }
@@ -4413,7 +4400,7 @@ function afBuildField(box, chip) {
   hc.addEventListener("touchstart", function (e) { e.preventDefault(); hdown = true; pickHue(e); }, false);
   hc.addEventListener("touchmove", function (e) { e.preventDefault(); pickHue(e); }, false);
   window.addEventListener("mouseup", function () { fdown = false; hdown = false; });
-  box.appendChild(el("div", "hint", "Træk i feltet for at blande farven. Den øverste bjælke vælger kulør."));
+  box.appendChild(el("div", "hint", t("Træk i feltet for at blande farven. Den øverste bjælke vælger kulør.")));
 }
 function afBuildSwatches(box, chip) {
   var wrap = el("div", "af-swatches");
@@ -4427,7 +4414,7 @@ function afBuildSwatches(box, chip) {
     wrap.appendChild(b);
   });
   box.appendChild(wrap);
-  box.appendChild(el("div", "hint", "Tryk på et felt eller brug bogstavet som genvejstast."));
+  box.appendChild(el("div", "hint", t("Tryk på et felt eller brug bogstavet som genvejstast.")));
   /* palette management */
   buildPaletteBar(box);
 }
@@ -4449,13 +4436,13 @@ function buildPaletteBar(box) {
     bar.appendChild(sel);
   }
   /* redigér-knap */
-  var ed = el("button", "sm", "Redigér…");
+  var ed = el("button", "sm", t("Redigér…"));
   ed.onclick = function () { openPaletteEditor(aidx); };
   bar.appendChild(ed);
   /* gem som ny */
-  var sn = el("button", "sm", "Gem som ny…");
+  var sn = el("button", "sm", t("Gem som ny…"));
   sn.onclick = function () {
-    var nm = prompt("Navn på den nye palette:", "Palette " + (pals.length + 1));
+    var nm = prompt(t("Navn på den nye palette:"), "Palette " + (pals.length + 1));
     if (!nm) return;
     var cols = activePalette().map(function (c) { return [c[0], c[1], c[2]]; });
     api({ op: "palette_save", idx: -1, name: nm, colours: cols }, function () { refresh(buildAfCtrl); });
@@ -4463,9 +4450,9 @@ function buildPaletteBar(box) {
   bar.appendChild(sn);
   /* slet */
   if (pals.length > 1) {
-    var del = el("button", "sm", "Slet palette");
+    var del = el("button", "sm", t("Slet palette"));
     del.onclick = function () {
-      if (!confirm("Slet paletten \"" + (pals[aidx] && pals[aidx].name) + "\"?")) return;
+      if (!confirm(t("Slet paletten") + " \"" + (pals[aidx] && pals[aidx].name) + "\"?")) return;
       api({ op: "palette_del", idx: aidx }, function () { refresh(buildAfCtrl); });
     };
     bar.appendChild(del);
@@ -4504,14 +4491,14 @@ function openPaletteEditor(idx) {
   });
   body.appendChild(grid);
   var brow = el("div", "pal-btn-row");
-  var save = el("button", "", "Gem");
+  var save = el("button", "", t("Gem"));
   save.onclick = function () {
     api({ op: "palette_save", idx: idx, name: nm, colours: cols }, function () {
       dlg.className = ""; refresh(buildAfCtrl);
     });
   };
   brow.appendChild(save);
-  var cancel = el("button", "", "Annullér");
+  var cancel = el("button", "", t("Annullér"));
   cancel.onclick = function () { dlg.className = ""; };
   brow.appendChild(cancel);
   body.appendChild(brow);
@@ -4540,7 +4527,7 @@ function buildLibList(filter) {
   });
   if (!entries.length) {
     grid.appendChild(el("div", "hint",
-      "Ingen match. Prøv et andet ord, eller importér en QLC+ .qxf-fil.")); return;
+      t("Ingen match. Prøv et andet ord, eller importér en QLC+ .qxf-fil."))); return;
   }
   var cats = {}, order = [];
   entries.forEach(function (e) {
@@ -4560,7 +4547,7 @@ function buildLibList(filter) {
         r.appendChild(el("span", "libmode", mode.name));
         r.appendChild(el("span", "libch",
           mode.channels.map(function (c) { return c.k; }).join(" · ")));
-        var b = el("button", "sm", "Tilføj");
+        var b = el("button", "sm", t("Tilføj"));
         b.onclick = function () { addLibProfile(e, mode); };
         r.appendChild(b);
         card.appendChild(r);
@@ -4576,7 +4563,7 @@ function addLibProfile(e, mode) {
     function (d) {
       refresh(function () {
         if (d && d.id) { buildPatchTypes(); id("pa-type").value = d.id; updatePatchHint(); }
-        toast("Tilføjet: " + nm); closeLib();
+        toast(t("Tilføjet:") + " " + nm); closeLib();
       });
     });
 }
@@ -4899,12 +4886,12 @@ function buildLive() {
   id("lv-back").style.display = hasCues ? "" : "none";
   if (!S || !S.scenes.length) {
     grid.appendChild(el("div", "hint",
-      "Ingen scener endnu. Afslut live, sæt et look op og tryk Gem nuværende som scene."));
+      t("Ingen scener endnu. Afslut live, sæt et look op og tryk Gem nuværende som scene.")));
     return;
   }
   var shown = liveScenes();
   if (!shown.length) {
-    grid.appendChild(el("div", "hint", "Ingen scener i dette faneblad. Vælg et andet øverst."));
+    grid.appendChild(el("div", "hint", t("Ingen scener i dette faneblad. Vælg et andet øverst.")));
     return;
   }
   var w = grid.clientWidth || 900;
@@ -4931,7 +4918,7 @@ function buildLive() {
     var cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = liveAnimateFor(sc.id);
-    cb.title = "Animér denne flise";
+    cb.title = t("Animér denne flise");
     cb.onclick = function (e) { e.stopPropagation(); };
     cb.onchange = function () {
       setLiveAnimate(sc.id, cb.checked);
@@ -5334,14 +5321,14 @@ function buildScenes() {
   var rows = scenesInTab();
   var tabs = sceneTabs();
   id("sc-hint").textContent = sceneView === "matrix"
-    ? "Matrixvisning: kun navn, fadetid og Kald. Træk kortene for at sortere dem."
-    : "Listevisning: alle knapper. Træk i ⠿ (eller brug ▲▼) for at sortere.";
+    ? t("Matrixvisning: kun navn, fadetid og Kald. Træk kortene for at sortere dem.")
+    : t("Listevisning: alle knapper. Træk i ⠿ (eller brug ▲▼) for at sortere.");
 
   if (!rows.length) {
     box.className = "tbl";
     box.appendChild(el("div", "hint", S.scenes.length
-      ? "Ingen scener i dette faneblad. Vælg et andet faneblad, eller flyt en scene hertil fra listevisningen."
-      : "Ingen scener gemt endnu. Sæt et look op på Pult-fanen og tryk Gem nuværende som scene."));
+      ? t("Ingen scener i dette faneblad. Vælg et andet faneblad, eller flyt en scene hertil fra listevisningen.")
+      : t("Ingen scener gemt endnu. Sæt et look op på Pult-fanen og tryk Gem nuværende som scene.")));
   } else if (sceneView === "matrix") {
     box.className = "matrix";
     rows.forEach(function (r) {
@@ -5352,7 +5339,7 @@ function buildScenes() {
       card.appendChild(el("div", "nm", sc.name));
       var fr = el("div", "fr");
       fr.appendChild(fadeInput(i, sc.fade));
-      var go = el("button", "", "Kald");
+      var go = el("button", "", t("Kald"));
       go.onclick = function () { recallScene(i); };
       fr.appendChild(go);
       card.appendChild(fr);
@@ -5360,12 +5347,12 @@ function buildScenes() {
     });
   } else {
     box.className = "tbl";
-    var t = el("table");
+    var tbl = el("table");
     var head = "<tr><th>↕</th><th>#</th>" + (scenePrev ? "<th>Billede</th>" : "") +
                "<th>Navn</th><th>Fade</th>" +
                (tabs.length > 1 ? "<th>Faneblad</th>" : "") +
                "<th>Handling</th></tr>";
-    t.innerHTML = head;
+    tbl.innerHTML = head;
     rows.forEach(function (r, pos) {
       var sc = r.sc, i = r.i;
       var tr = el("tr");
@@ -5373,7 +5360,7 @@ function buildScenes() {
       sceneRowDrag(tr, i);
 
       var tdg = el("td", "draghandle");
-      tdg.title = "Træk for at flytte scenen";
+      tdg.title = t("Træk for at flytte scenen");
       tdg.appendChild(el("span", "grip", "⠿"));
       var bup = el("button", "nudge", "▲"); bup.title = "Flyt op";
       var bdn = el("button", "nudge", "▼"); bdn.title = "Flyt ned";
@@ -5415,22 +5402,22 @@ function buildScenes() {
 
       var tdb = el("td");
       var bt = el("div", "btns");
-      var go = el("button", "sm", "Kald");
+      var go = el("button", "sm", t("Kald"));
       go.onclick = function () { recallScene(i); };
-      var up = el("button", "sm", "Opdatér");
-      up.title = "Overskriv scenen med det der står nu";
-      up.onclick = function () { api({ op: "scene_update", index: i }, refresh); toast("Scene opdateret"); };
-      var cu = el("button", "sm", "Til cue");
+      var up = el("button", "sm", t("Opdatér"));
+      up.title = t("Overskriv scenen med det der står nu");
+      up.onclick = function () { api({ op: "scene_update", index: i }, refresh); toast(t("Scene opdateret")); };
+      var cu = el("button", "sm", t("Til cue"));
       cu.onclick = function () { api({ op: "cue_add", scene: i }, refresh); };
       var dl = el("button", "sm", "Slet");
       dl.onclick = function () {
-        if (confirm("Slet scenen " + sc.name + "?")) api({ op: "scene_del", index: i }, refresh);
+        if (confirm(t("Slet scenen") + " " + sc.name + "?")) api({ op: "scene_del", index: i }, refresh);
       };
       [go, up, cu, dl].forEach(function (b) { bt.appendChild(b); });
       tdb.appendChild(bt); tr.appendChild(tdb);
-      t.appendChild(tr);
+      tbl.appendChild(tr);
     });
-    box.appendChild(t);
+    box.appendChild(tbl);
   }
 
   function sceneForCue(c) {
@@ -5440,14 +5427,14 @@ function buildScenes() {
 
   var cbox = id("cuelist"); cbox.innerHTML = "";
   var ct = el("table");
-  ct.innerHTML = "<tr><th>#</th><th>Scene</th><th>Fade</th><th>Følg efter</th><th></th></tr>";
+  ct.innerHTML = "<tr><th>#</th><th>" + t("Scene") + "</th><th>Fade</th><th>" + t("Følg efter") + "</th><th></th></tr>";
   var totalFade = 0, totalFollow = 0;
   S.cuelist.forEach(function (c, i) {
     var sc = sceneForCue(c);
     totalFade += c.fade || 0; totalFollow += c.follow || 0;
     var tr = el("tr", i === cuePos ? "sel" : "");
     tr.appendChild(el("td", "", String(i + 1)));
-    tr.appendChild(el("td", "", sc ? sc.name : "(scene mangler)"));
+    tr.appendChild(el("td", "", sc ? sc.name : t("(scene mangler)")));
     var tdf = el("td");
     var f = document.createElement("input");
     f.type = "number"; f.step = "0.1"; f.value = c.fade; f.style.width = "76px";
@@ -5456,7 +5443,7 @@ function buildScenes() {
     var tdo = el("td");
     var o = document.createElement("input");
     o.type = "number"; o.step = "0.1"; o.value = c.follow; o.style.width = "76px";
-    o.title = "Sekunder efter fadet er færdigt, før den går videre selv (kræver Auto-følg)";
+    o.title = t("Sekunder efter fadet er færdigt, før den går videre selv (kræver Auto-følg)");
     o.onchange = function () { setv(["cuelist", i, "follow"], parseFloat(o.value)); };
     tdo.appendChild(o); tr.appendChild(tdo);
     var tdb = el("td");
@@ -5467,8 +5454,8 @@ function buildScenes() {
     var dn = el("button", "sm", "↓");
     dn.title = "Flyt ned"; dn.disabled = i === S.cuelist.length - 1;
     dn.onclick = function () { api({ op: "cue_move", index: i, dir: 1 }, refresh); };
-    var jump = el("button", "sm", "Hop til");
-    jump.title = "Kald denne cue uden at røre de andre";
+    var jump = el("button", "sm", t("Hop til"));
+    jump.title = t("Kald denne cue uden at røre de andre");
     jump.onclick = function () { cuePos = i - 1; cueGo(1); };
     var dl = el("button", "sm", "Slet");
     dl.onclick = function () { api({ op: "cue_del", index: i }, refresh); };
@@ -5483,8 +5470,8 @@ function buildScenes() {
   if (stats) {
     stats.textContent = S.cuelist.length
       ? S.cuelist.length + " cues · ca. " + Math.round(totalFade + totalFollow) +
-        " s hvis alle blev kørt i træk med Auto-følg"
-      : "Ingen cues endnu. Tryk Til cue på en scene i listen ovenfor.";
+        " " + t("s hvis alle blev kørt i træk med Auto-følg")
+      : t("Ingen cues endnu. Tryk Til cue på en scene i listen ovenfor.");
   }
 }
 
@@ -5510,11 +5497,9 @@ function enttecHint() {
   if (!e || !S) return;
   var err = META && META.ftdi_error;
   if (err) {
-    e.innerHTML = "<b>Ingen enhed:</b> " + escapeHtml(err);
+    e.innerHTML = "<b>" + t("Ingen enhed:") + "</b> " + escapeHtml(err);
   } else {
-    e.innerHTML = "Enttec Open DMX USB drives direkte via FTDI, præcis som QLC+ " +
-      "gør det. Vælg FTDI-enheden herover — det er ikke en /dev/tty-port. " +
-      "Kræver <code>pyftdi</code> og <code>pyusb</code>.";
+    e.innerHTML = t("Enttec Open DMX USB drives direkte via FTDI, præcis som QLC+ gør det. Vælg FTDI-enheden herover — det er ikke en /dev/tty-port. Kræver pyftdi og pyusb.");
   }
 }
 
@@ -5536,7 +5521,7 @@ function fillEnttecPorts() {
   if (cur && !list.some(function (d) { return d.url === cur; }))
     list.push({ url: cur, label: cur });
   if (!list.length) {
-    var o0 = el("option", "", "(ingen enhed fundet)"); o0.value = ""; sel.appendChild(o0);
+    var o0 = el("option", "", t("(ingen enhed fundet)")); o0.value = ""; sel.appendChild(o0);
     return;
   }
   list.forEach(function (d) {
@@ -5577,12 +5562,12 @@ function loadShowList() {
   req("GET", "/shows", null, function (d) {
     if (!d) return;
     var box = id("showlist"); box.innerHTML = "";
-    if (!d.shows.length) box.appendChild(el("div", "hint", "Ingen gemte shows."));
+    if (!d.shows.length) box.appendChild(el("div", "hint", t("Ingen gemte shows.")));
     d.shows.forEach(function (n) {
       var r = el("div", "btns");
       r.style.marginBottom = "4px";
       var lb = el("button", "", n);
-      lb.onclick = function () { api({ op: "load", name: n }, function () { refresh(); toast("Indlæst: " + n); }); };
+      lb.onclick = function () { api({ op: "load", name: n }, function () { refresh(); toast(t("Indlæst:") + " " + n); }); };
       var db = el("button", "ghost", "Slet");
       db.onclick = function () { if (confirm("Slet " + n + "?")) api({ op: "delete", name: n }, loadShowList); };
       r.appendChild(lb); r.appendChild(db);
@@ -5595,20 +5580,20 @@ function loadShowList() {
 function buildPlanList(plans) {
   var box = id("planlist"); if (!box) return;
   box.innerHTML = "";
-  if (!plans.length) { box.appendChild(el("div", "hint", "Ingen sceneplaner gemt endnu.")); return; }
+  if (!plans.length) { box.appendChild(el("div", "hint", t("Ingen sceneplaner gemt endnu."))); return; }
   plans.forEach(function (pl) {
     var r = el("div", "btns plrow");
     r.style.marginBottom = "4px";
     var tag = el("span", "pltag pl" + pl.kind, pl.kind === "3d" ? "3D" : "2D");
-    tag.title = pl.kind === "3d" ? "3D-sceneplan: rummet med ting og modeller" : "2D-sceneplan: formerne på gulvet";
+    tag.title = pl.kind === "3d" ? t("3D-sceneplan: rummet med ting og modeller") : t("2D-sceneplan: formerne på gulvet");
     var nm = el("span", "plname", pl.name);
     var tm = el("span", "plsaved", pl.saved);
     var lb = el("button", "", "Hent");
     lb.onclick = function () {
       if (!confirm("Hent " + (pl.kind === "3d" ? "3D" : "2D") + "-sceneplanen “" + pl.name + "” ind i showet? " +
-                   (pl.kind === "3d" ? "Rummet i 3D-simulatoren erstattes." : "Formerne på gulvet erstattes."))) return;
+                   (pl.kind === "3d" ? t("Rummet i 3D-simulatoren erstattes.") : t("Formerne på gulvet erstattes.")))) return;
       api({ op: "plan_load", kind: pl.kind, name: pl.name }, function (d) {
-        if (d && d.ok) { refresh(); toast("Hentet: " + pl.name); } else toast((d && d.err) || "Kunne ikke hente");
+        if (d && d.ok) { refresh(); toast(t("Hentet:") + " " + pl.name); } else toast((d && d.err) || t("Kunne ikke hente"));
       });
     };
     var db = el("button", "ghost", "Slet");
@@ -5677,7 +5662,7 @@ function poll() {
       var outs = [], k;
       for (k in d.out) if (S && S.outputs[k] && S.outputs[k].on)
         outs.push(k + " " + d.out[k]);
-      id("st-out").textContent = outs.length ? outs.join(" · ") : "kun simulering";
+      id("st-out").textContent = outs.length ? outs.join(" · ") : t("kun simulering");
       press(id("dmxarm"), armed());
       ltFrame(d.lt);
       ctlFrameIn(d);
@@ -5921,14 +5906,14 @@ function lcKnob(cid) {
   var cap = el("div", "lcv-cap");
   cap.setAttribute("role", "slider");
   cap.tabIndex = 0;
-  cap.setAttribute("aria-label", "Drejeknap");
+  cap.setAttribute("aria-label", t("Drejeknap"));
   var lab = el("div", "lcv-kl", "");
   var val = el("div", "lcv-kv", "");
   var row = el("div", "lcv-kb");
   var mi = el("button", "", "−"), pu = el("button", "push", "●"), pl = el("button", "", "+");
   mi.type = "button"; pu.type = "button"; pl.type = "button";
-  mi.setAttribute("aria-label", "Drej ned"); pl.setAttribute("aria-label", "Drej op");
-  pu.setAttribute("aria-label", "Tryk på knappen"); pu.title = "Tryk på knappen";
+  mi.setAttribute("aria-label", t("Drej ned")); pl.setAttribute("aria-label", t("Drej op"));
+  pu.setAttribute("aria-label", t("Tryk på knappen")); pu.title = t("Tryk på knappen");
   mi.onclick = function () { lcInput("turn", cid, -1); };
   pl.onclick = function () { lcInput("turn", cid, 1); };
   pu.onclick = function () { lcInput("press", "push_" + cid); lcInput("release", "push_" + cid); };
@@ -5976,7 +5961,7 @@ function lcTbarEl() {
   var h = el("div", "lcv-handle");
   tr.appendChild(h);
   var ind = el("div", "lcv-ind");
-  ind.title = "Lyser når T-baren styrer noget, blinker når den skal føres hen til værdien";
+  ind.title = t("Lyser når T-baren styrer noget, blinker når den skal føres hen til værdien");
   var lab = el("div", "lcv-sl", "T-bar");
   box.appendChild(ind); box.appendChild(tr); box.appendChild(lab);
   lcTb = { track: tr, handle: h, lab: lab, ind: ind, pos: 0, drag: false };
@@ -6068,7 +6053,7 @@ function lcBuildVirt() {
   osec.appendChild(el("span", "lcv-silk", "Overlay"));
   p.appendChild(osec);
   box.appendChild(p);
-  var off = el("div", "lcv-offmsg", "Slå LC-11 til for at bruge panelet");
+  var off = el("div", "lcv-offmsg", t("Slå LC-11 til for at bruge panelet"));
   off.id = "lcv-off";
   box.appendChild(off);
   lcVirtOn = null;
@@ -6100,12 +6085,12 @@ function lcPaintVirt(L) {
       b.style.background = ""; b.style.color = "";
       b.className = b._base + (hint ? " " + hint : "");
     }
-    b.setAttribute("aria-label", (lbl.replace("\n", " ") || (chip ? "Farve" : "Tom tast")) +
+    b.setAttribute("aria-label", (lbl.replace("\n", " ") || (chip ? t("Farve") : t("Tom tast"))) +
                    (hx ? " (lyser)" : "") + (hint ? " (scene klar)" : ""));
   }
   for (var kc in lcKnobEls) {
     var o = lcKnobEls[kc], kd = on && L.knobs ? L.knobs[kc] : null;
-    var t1 = kd ? (kd.label || "—") : "", t2 = kd ? (kd.need ? "før til " + kd.need : kd.txt) : "";
+    var t1 = kd ? (kd.label || "—") : "", t2 = kd ? (kd.need ? t("før til") + " " + kd.need : kd.txt) : "";
     if (o._sig === t1 + "|" + t2) continue;
     o._sig = t1 + "|" + t2;
     o.lab.textContent = t1;
@@ -6118,7 +6103,7 @@ function lcPaintVirt(L) {
     var ik = on && L.keys && L.keys.tbar_led && L.keys.tbar_led[1];
     if (lcTb.ind._on !== !!ik) { lcTb.ind._on = !!ik; lcTb.ind.className = "lcv-ind" + (ik ? " on" : ""); }
     var tl = on && L.tbar ? (L.tbar.label + (L.tbar.txt ? " · " + L.tbar.txt : "") +
-                             (L.tbar.need ? " — før til " + L.tbar.need : "")) : "T-bar";
+                             (L.tbar.need ? " — " + t("før til") + " " + L.tbar.need : "")) : "T-bar";
     tl = tl.replace(/ %/g, "\u00a0%").replace(/ s\b/g, "\u00a0s");
     if (lcTb.lab.textContent !== tl) lcTb.lab.textContent = tl;
   }
@@ -6126,11 +6111,11 @@ function lcPaintVirt(L) {
 
 /* ---- indstillinger ---- */
 function lcHwText(L) {
-  if (!L) return ["Henter status…", ""];
-  if (L.missing) return ["LC-11 kan ikke bruges: " + L.missing, "bad"];
+  if (!L) return [t("Henter status…"), ""];
+  if (L.missing) return [t("LC-11 kan ikke bruges:") + " " + L.missing, "bad"];
   var hw = L.hw || {};
-  if (!L.on) return ["Slået fra", ""];
-  if (hw.state === "ok") return ["Panelet er tilsluttet", "ok"];
+  if (!L.on) return [t("Slået fra"), ""];
+  if (hw.state === "ok") return [t("Panelet er tilsluttet"), "ok"];
   if (hw.state === "fejl") return [hw.text, "bad"];
   return [hw.text || "", "warn"];
 }
@@ -6138,7 +6123,7 @@ function lcPaintSettings(L) {
   var on = !!(L && L.on), s = (L && L.settings) || {};
   var b = id("lc11-on"); if (!b) return;
   press(b, on);
-  b.textContent = on ? "LC-11 er slået til" : "Brug LC-11";
+  b.textContent = on ? t("LC-11 er slået til") : t("Brug LC-11");
   b.disabled = !!(L && L.missing);
   var ht = lcHwText(L), hw = id("lc11-hw");
   if (hw.textContent !== ht[0]) hw.textContent = ht[0];
@@ -6156,7 +6141,7 @@ function lcPaintSettings(L) {
   id("lc11-bar").checked = lcPref("bar");
   id("lc11-marks").checked = lcPref("marks");
   id("lc11-follow").checked = lcPref("follow");
-  var last = (L && L.last) ? "Sidste input: " + L.last : "";
+  var last = (L && L.last) ? t("Sidste input:") + " " + L.last : "";
   if (id("lc11-last").textContent !== last) id("lc11-last").textContent = last;
   id("lc11-test").disabled = !on;
 }
@@ -6165,9 +6150,9 @@ function lcPortList(L) {
   var sel = id("lc11-port"); if (!sel || document.activeElement === sel) return;
   var cur = (L && L.settings && L.settings.port) || "";
   var ports = (L && L.hw && L.hw.ports) || [];
-  var opts = [["", "Find selv (NewTek Control Surface)"]];
+  var opts = [["", t("Find selv (NewTek Control Surface)")]];
   ports.forEach(function (p) { opts.push([p.dev, p.dev + (p.desc ? " — " + p.desc : "") + (p.lc11 ? "  ✓ LC-11" : "")]); });
-  if (cur && !ports.some(function (p) { return p.dev === cur; })) opts.push([cur, cur + " (ikke fundet)"]);
+  if (cur && !ports.some(function (p) { return p.dev === cur; })) opts.push([cur, cur + " " + t("(ikke fundet)")]);
   var sig = JSON.stringify(opts) + "|" + cur;
   if (sel._sig === sig) return;
   sel._sig = sig;
@@ -6337,11 +6322,10 @@ function wire() {
     setv(["settings", "scene_tempo"], this.checked);
   };
   id("m-sync-all").onclick = function () {
-    if (!confirm("Slå Følg tempo til på alle lag — både nu og i alle gemte scener?\n\n" +
-                 "Farten regnes om, så intet ser anderledes ud før du tapper.")) return;
+    if (!confirm(t("Slå Følg tempo til på alle lag — både nu og i alle gemte scener?\n\nFarten regnes om, så intet ser anderledes ud før du tapper."))) return;
     api({ op: "sync_all" }, function (d) {
       refresh();
-      toast((d && d.changed ? d.changed : 0) + " lag følger nu tempoet");
+      toast(t("{n} lag følger nu tempoet", {n: (d && d.changed ? d.changed : 0)}));
     });
   };
   /* T tapper tempo overalt - i alle faner og i live-matrixen - men ikke
@@ -6448,7 +6432,7 @@ function wire() {
   id("le-grpdel").onclick = function(){
     if (!laySelG.length) return;
     var names = laySelG.map(function(gid){ var g = groupById(gid); return g ? g.name : ""; }).join(", ");
-    if (!confirm("Slet gruppen “" + names + "”? (lamperne bevares, kun gruppen fjernes)")) return;
+    if (!confirm(t("Slet gruppen “{name}”? (lamperne bevares, kun gruppen fjernes)", {name: names}))) return;
     var todo = laySelG.slice();
     (function next(){
       if (!todo.length) { laySelG = []; refresh(function(){ updateGrpInfo(); drawStage(); }); return; }
@@ -6543,16 +6527,16 @@ function wire() {
       }
     }, false);
     id("af-savescene").onclick = function(){
-      var n = prompt("Navn på scenen", afHasSel() ? afTitle() : ("Scene " + (S.scenes.length + 1)));
+      var n = prompt(t("Navn på scenen"), afHasSel() ? afTitle() : (t("Scene") + " " + (S.scenes.length + 1)));
       if (!n) return;
       /* en scene gemmer hele billedet - alle gruppe-looks, Pultens lag,
          master og lampeniveauer - og lander i det viste scene-faneblad */
       api({ op: "scene_store", name: n, tab: curTabId() }, function(){
-        refresh(function(){ toast("Gemt som scene “" + n + "”"); });
+        refresh(function(){ toast(t("Gemt som scene “{name}”", {name: n})); });
       });
     };
     id("af-blackall").onclick = function(){
-      if (!confirm("Nulstil alle gruppe-looks i Afvikling? Alt styret herfra slukkes.")) return;
+      if (!confirm(t("Nulstil alle gruppe-looks i Afvikling? Alt styret herfra slukkes."))) return;
       api({ op: "live_clear" }, function(){ refresh(function(){ afDraft = afDefaultDraft(); buildAfCtrl(); drawAfStage(); }); });
     };
   }
@@ -6645,7 +6629,7 @@ function wire() {
   try { layToolsOpen = localStorage.getItem("layTools") !== "0"; } catch (e) {}
   function applyLayTools() {
     id("laytools").style.display = layToolsOpen ? "" : "none";
-    id("lay-tools-tgl").textContent = layToolsOpen ? "▾ Skjul værktøjer" : "▸ Vis værktøjer";
+    id("lay-tools-tgl").textContent = layToolsOpen ? t("▾ Skjul værktøjer") : t("▸ Vis værktøjer");
     id("lay-tools-note").style.display = layToolsOpen ? "" : "none";
     id("stage").className = layToolsOpen ? "" : "tall";
     id("stage")._w = 0;          /* tving ny opmaaling af laerredet */
@@ -6703,10 +6687,10 @@ function wire() {
     ekInfo();
   };
   id("ek-scene").onclick = function () {
-    var n = prompt("Navn på scenen", "Scene " + (S.scenes.length + 1));
+    var n = prompt(t("Navn på scenen"), t("Scene") + " " + (S.scenes.length + 1));
     if (!n) return;
     api({ op: "scene_store", name: n, tab: curTabId() }, function () {
-      refresh(function () { toast("Gemt som scene “" + n + "”"); });
+      refresh(function () { toast(t("Gemt som scene “{name}”", {name: n})); });
     });
   };
   (function () {
@@ -6746,7 +6730,7 @@ function wire() {
   id("ed-next").onclick = function () { edCycle(1); };
   id("ed-custom").onclick = newProfileDialog;
   id("ed-del").onclick = function () {
-    if (S.modules.length <= 1) { toast("Kan ikke fjerne den sidste lampe"); return; }
+    if (S.modules.length <= 1) { toast(t("Kan ikke fjerne den sidste lampe")); return; }
     api({ op: "fixture_del", index: edLamp }, function () {
       if (edLamp > 0) edLamp--;
       refresh(buildEditor);
@@ -6767,7 +6751,7 @@ function wire() {
   pc.addEventListener("touchend", function () { patDown = false; pushPattern(); }, false);
   id("pat-pick").onchange = function () { patIdx = parseInt(this.value, 10); buildPatternPick(); drawPattern(); };
   id("pat-new").onclick = function () {
-    var n = prompt("Navn", "Eget " + (S.patterns.length + 1));
+    var n = prompt(t("Navn"), t("Eget {n}", {n: S.patterns.length + 1}));
     if (n) api({ op: "pattern_new", name: n }, function () { refresh(function () { patIdx = S.patterns.length - 1; buildPatternPick(); drawPattern(); }); });
   };
   id("pat-del").onclick = function () { api({ op: "pattern_del", index: patIdx }, function () { patIdx = 0; refresh(drawPattern); }); };
@@ -6792,7 +6776,7 @@ function wire() {
 
   /* scener */
   id("sc-store").onclick = function () {
-    var n = prompt("Navn på scenen", "Scene " + (S.scenes.length + 1));
+    var n = prompt(t("Navn på scenen"), t("Scene") + " " + (S.scenes.length + 1));
     /* den nye scene lander i det faneblad man kigger paa */
     if (n) api({ op: "scene_store", name: n, tab: curTabId() }, refresh);
   };
@@ -6802,7 +6786,7 @@ function wire() {
   };
   id("lv-exit").onclick = function () { setLive(false); };
   id("pt-sel").onchange = function () {
-    if (PT.dirty && !confirm("Du har ændringer der ikke er gemt. Kassér dem?")) { this.value = PT.sel; return; }
+    if (PT.dirty && !confirm(t("Du har ændringer der ikke er gemt. Kassér dem?"))) { this.value = PT.sel; return; }
     ptSelect(this.value);
   };
   id("pt-new").onclick = ptNew;
@@ -6811,14 +6795,14 @@ function wire() {
       if (!r || !r.ok) return;
       if (PT.testOn) ptTestStop();
       PT.sel = r.id; PT.dirty = false;
-      refresh(function () { buildProfileEditor(); toast("Kopi oprettet — nu kan du rette i den"); });
+      refresh(function () { buildProfileEditor(); toast(t("Kopi oprettet — nu kan du rette i den")); });
     });
   };
   id("pt-del").onclick = function () {
     var p = profilesAll()[PT.sel]; if (!p) return;
-    if (!confirm("Slet lampetypen \u201c" + p.name + "\u201d?")) return;
+    if (!confirm(t("Slet lampetypen \u201c{name}\u201d?", {name: p.name}))) return;
     api({ op: "profile_del", id: PT.sel }, function (r) {
-      if (!r || !r.ok) { toast("Kan ikke slette: " + ((r && r.err) || "")); return; }
+      if (!r || !r.ok) { toast(t("Kan ikke slette: ") + ((r && r.err) || "")); return; }
       if (PT.testOn) ptTestStop();
       PT.sel = null; PT.dirty = false; refresh();
     });
@@ -6827,7 +6811,7 @@ function wire() {
   id("wz-back").onclick = function () { if (WZ) wzGo(WZ.step - 1); };
   id("wz-next").onclick = function () { if (WZ) wzGo(WZ.step + 1); };
   id("wz-restart").onclick = function () {
-    if (confirm("Start guiden forfra?\n\nDine valg i guiden nulstilles. Scener der allerede er oprettet, bliver liggende."))
+    if (confirm(t("Start guiden forfra?\n\nDine valg i guiden nulstilles. Scener der allerede er oprettet, bliver liggende.")))
       wzOpen(true);
   };
   id("lv-black").onclick = function () {
@@ -6859,7 +6843,7 @@ function wire() {
 
   /* faneblade med grupper af scener */
   id("tab-add").onclick = function () {
-    var nm = prompt("Navn på det nye faneblad:", "Gruppe " + (sceneTabs().length + 1));
+    var nm = prompt(t("Navn på det nye faneblad:"), t("Gruppe") + " " + (sceneTabs().length + 1));
     if (nm === null) return;
     api({ op: "tab_add", name: nm }, function (d) {
       if (d && d.id) sceneTab = d.id;
@@ -6870,7 +6854,7 @@ function wire() {
     var tid = curTabId();
     var cur = sceneTabs().filter(function (t) { return t.id === tid; })[0];
     if (!cur) return;
-    var nm = prompt("Nyt navn til fanebladet:", cur.name);
+    var nm = prompt(t("Nyt navn til fanebladet:"), cur.name);
     if (nm === null || !nm) return;
     api({ op: "tab_rename", id: tid, name: nm }, refresh);
   };
@@ -6878,10 +6862,10 @@ function wire() {
     var tid = curTabId();
     var cur = sceneTabs().filter(function (t) { return t.id === tid; })[0];
     if (!cur) return;
-    if (sceneTabs().length <= 1) { toast("Det sidste faneblad kan ikke fjernes"); return; }
+    if (sceneTabs().length <= 1) { toast(t("Det sidste faneblad kan ikke fjernes")); return; }
     var n = S.scenes.filter(function (s) { return (s.tab || sceneTabs()[0].id) === tid; }).length;
-    var msg = "Fjern fanebladet " + cur.name + "?";
-    if (n) msg += "\n\nDe " + n + " scener i det flyttes til det første faneblad — de slettes ikke.";
+    var msg = t("Fjern fanebladet {name}?", {name: cur.name});
+    if (n) msg += "\n\n" + t("De {n} scener i det flyttes til det første faneblad — de slettes ikke.", {n: n});
     if (!confirm(msg)) return;
     api({ op: "tab_del", id: tid }, function () { sceneTab = null; refresh(); });
   };
@@ -6916,7 +6900,7 @@ function wire() {
     setv(["outputs", "enttec", "universe"], parseInt(this.value, 10) || 0);
   };
   id("o-enttec-scan").onclick = function () {
-    refresh(function () { enttecHint(); fillEnttecPorts(); toast("Søgte efter enheder"); });
+    refresh(function () { enttecHint(); fillEnttecPorts(); toast(t("Søgte efter enheder")); });
   };
   H.fps    = slider(id("s-fps"), id("s-fps-v"), ["settings", "fps"]);
   H.bright = slider(id("s-bright"), id("s-bright-v"), ["settings", "bright"]);
@@ -6924,14 +6908,14 @@ function wire() {
   bindTxt("s-abase", ["settings", "artnet_base"], true);
 
   /* show */
-  id("sh-name").onchange = function () { setv(["name"], this.value); document.title = "Lyspult · " + this.value; };
+  id("sh-name").onchange = function () { setv(["name"], this.value); document.title = t("Lyspult · {name}", {name: this.value}); };
   id("sh-save").onclick = function () {
     api({ op: "save", name: id("sh-name").value }, function (d) {
-      toast(d && d.ok ? "Gemt" : "Kunne ikke gemme"); loadShowList();
+      toast(d && d.ok ? t("Gemt") : t("Kunne ikke gemme")); loadShowList();
     });
   };
   id("sh-new").onclick = function () {
-    if (confirm("Nyt show? Alt ugemt går tabt.")) api({ op: "new" }, refresh);
+    if (confirm(t("Nyt show? Alt ugemt går tabt."))) api({ op: "new" }, refresh);
   };
   id("sh-export").onclick = function () {
     var blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
@@ -6945,8 +6929,8 @@ function wire() {
     var f = this.files[0]; if (!f) return;
     var r = new FileReader();
     r.onload = function () {
-      try { api({ op: "import", show: JSON.parse(r.result) }, function () { refresh(); toast("Importeret"); }); }
-      catch (e) { toast("Filen kunne ikke læses"); }
+      try { api({ op: "import", show: JSON.parse(r.result) }, function () { refresh(); toast(t("Importeret")); }); }
+      catch (e) { toast(t("Filen kunne ikke læses")); }
     };
     r.readAsText(f);
   };
@@ -6973,6 +6957,22 @@ wireTabDrag();
 initHelp();
 wire();
 lcWire();
+/* ---- i18n: sprogvælger og sprogskift ---- */
+(function () {
+  var sel = id("set-lang");
+  if (sel) {
+    var langs = getLanguages();
+    for (var i = 0; i < langs.length; i++) {
+      var o = document.createElement("option");
+      o.value = langs[i].code;
+      o.textContent = langs[i].name;
+      sel.appendChild(o);
+    }
+    sel.value = getLang();
+    sel.onchange = function () { setLang(this.value); };
+  }
+})();
+if (typeof applyLang === "function") applyLang();
 refresh(function () {
   /* den fane der er aaben ved start skal have sin opsaetning koert, nu
      hvor showet er hentet (fx Afviklings tilpas-zoom) */

@@ -2728,9 +2728,9 @@ def ui_bytes(name):
 
 
 def ui_source():
-    ondisk = [n for n in ("ui.html", "ui.css", "ui.js")
+    ondisk = [n for n in ("ui.html", "ui.css", "ui.js", "lang.js")
               if os.path.exists(os.path.join(HERE, n))]
-    if len(ondisk) == 3:
+    if len(ondisk) == 4:
         return "filer ved siden af scriptet"
     if not ondisk:
         return "indbygget kopi"
@@ -2761,7 +2761,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path in ("/", "/index.html"):
             return self._file("ui.html")
-        if path in ("/ui.css", "/ui.js"):
+        if path in ("/ui.css", "/ui.js", "/lang.js"):
             return self._file(path[1:])
         if path in ("/sim", "/sim.html"):
             return self._file("sim.html")

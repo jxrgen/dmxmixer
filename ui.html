@@ -11,7 +11,7 @@
 
 <div id="top">
   <h1>Lyspult</h1>
-  <button id="dmxarm" class="sm">DMX ud</button>
+  <button id="dmxarm" class="sm" data-t="DMX ud">DMX ud</button>
   <div id="tabs"></div>
   <div id="topright">
     <span class="ctlsel" id="ctlsel"></span>
@@ -25,16 +25,16 @@
   <!-- ============ GUIDE ============ -->
   <div class="view" id="v-guide">
     <div class="pan wz">
-      <h2>Guide <span>byg dit eget show trin for trin</span></h2>
+      <h2 data-t="Guide">Guide <span data-t="byg dit eget show trin for trin">byg dit eget show trin for trin</span></h2>
       <div class="pan-body">
       <div id="wz-steps" class="wz-steps"></div>
       <div id="wz-note" class="wz-note" style="display:none"></div>
       <div id="wz-body"></div>
       <div class="wz-nav">
-        <button id="wz-back">◀ Tilbage</button>
-        <button id="wz-next" class="wz-primary">Næste ▶</button>
+        <button id="wz-back" data-t="◀ Tilbage">◀ Tilbage</button>
+        <button id="wz-next" class="wz-primary" data-t="Næste ▶">Næste ▶</button>
         <span id="wz-saved" class="hint"></span>
-        <button id="wz-restart" class="sm">Start forfra</button>
+        <button id="wz-restart" class="sm" data-t="Start forfra">Start forfra</button>
       </div>
       </div>
     </div>
@@ -100,7 +100,7 @@
     </div>
 
     <div class="pan" data-panel="manual">
-      <h2>Faste kanaler <span>rammer lamperne i det lag du redigerer</span></h2>
+      <h2 data-t="Faste kanaler">Faste kanaler <span data-t="rammer lamperne i det lag du redigerer">rammer lamperne i det lag du redigerer</span></h2>
       <div class="pan-body">
       <div id="manual"></div>
       <div class="hint">Hvid, ravgul, UV, strobe og makro sættes direkte på
@@ -111,7 +111,7 @@
     </div>
 
     <div class="pan" data-panel="groups">
-      <h2>Grupper <span>gul kant = hele gruppen er med i det lag du redigerer</span></h2>
+      <h2 data-t="Grupper">Grupper <span data-t="gul kant = hele gruppen er med i det lag du redigerer">gul kant = hele gruppen er med i det lag du redigerer</span></h2>
       <div class="pan-body">
       <div id="pgroups"></div>
       <div class="hint">Grupperne laves under <b>Layout</b>. <b>Lysstyrke</b> og
@@ -122,10 +122,10 @@
     </div>
 
     <div class="pan" data-panel="fixtures">
-      <h2>Lamper <span>gul kant = med i det lag du redigerer</span></h2>
+      <h2 data-t="Lamper">Lamper <span data-t="gul kant = med i det lag du redigerer">gul kant = med i det lag du redigerer</span></h2>
       <div class="pan-body">
       <div class="btns" style="margin-bottom:9px">
-        <button id="st-compact" class="sm">Kompakt visning</button>
+        <button id="st-compact" class="sm" data-t="Kompakt visning">Kompakt visning</button>
         <span class="hint" style="margin:0;align-self:center">Mindre felter, så alle lamper
           kan være der ved siden af simulatoren.</span>
       </div>
@@ -138,7 +138,7 @@
   <!-- ============ LAYOUT ============ -->
   <div class="view" id="v-layout">
     <div class="pan">
-      <h2>Scenegulv <span>træk lamperne derhen hvor de hænger</span></h2>
+      <h2 data-t="Scenegulv">Scenegulv <span data-t="træk lamperne derhen hvor de hænger">træk lamperne derhen hvor de hænger</span></h2>
       <canvas id="stage"></canvas>
       <div class="btns" style="margin-top:9px">
         <button id="lay-tools-tgl" class="sm">▾ Skjul værktøjer</button>
@@ -147,18 +147,18 @@
       </div>
       <div id="laytools">
       <div class="btns" style="margin-top:9px">
-        <button id="lay-auto">Stil på række</button>
-        <button id="lay-grid">Stil i gitter</button>
-        <button id="lay-arc">Bue bag scenen</button>
-        <button id="lay-snap">Snap til ½ meter</button>
+        <button id="lay-auto" data-t="Stil på række">Stil på række</button>
+        <button id="lay-grid" data-t="Stil i gitter">Stil i gitter</button>
+        <button id="lay-arc" data-t="Bue bag scenen">Bue bag scenen</button>
+        <button id="lay-snap" data-t="Snap til ½ meter">Snap til ½ meter</button>
         <span style="display:inline-block;width:1px;height:22px;background:var(--rule);margin:0 4px;vertical-align:middle"></span>
-        <button id="le-lamp" aria-pressed="true">Flyt lamper</button>
+        <button id="le-lamp" aria-pressed="true" data-t="Flyt lamper">Flyt lamper</button>
         <button id="le-pan" title="Træk for at flytte hele visningen">✋ Flyt visning</button>
-        <button id="le-rect">Rektangel</button>
-        <button id="le-circ">Cirkel</button>
-        <button id="le-tri">Trekant</button>
-        <button id="le-sel">Flyt former</button>
-        <button id="le-del">Slet form</button>
+        <button id="le-rect" data-t="Rektangel">Rektangel</button>
+        <button id="le-circ" data-t="Cirkel">Cirkel</button>
+        <button id="le-tri" data-t="Trekant">Trekant</button>
+        <button id="le-sel" data-t="Flyt former">Flyt former</button>
+        <button id="le-del" data-t="Slet form">Slet form</button>
         <span style="display:inline-block;width:1px;height:22px;background:var(--rule);margin:0 4px;vertical-align:middle"></span>
         <input type="color" id="le-color" value="#2a3040" title="Formfarve"
           style="width:28px;height:26px;border:1px solid var(--rule);background:none;padding:0;vertical-align:middle;border-radius:4px">
@@ -166,11 +166,11 @@
           style="width:80px;vertical-align:middle">
       </div>
       <div class="btns" style="margin-top:7px">
-        <span class="k" style="align-self:center">Grupper:</span>
-        <button id="le-grpsel">⬚ Vælg lamper</button>
-        <button id="le-grpadd" class="wz-primary">+ Gruppe</button>
-        <button id="le-grpedit">Redigér gruppe</button>
-        <button id="le-grpdel" class="alarm">Slet gruppe</button>
+        <span class="k" style="align-self:center" data-t="Grupper:">Grupper:</span>
+        <button id="le-grpsel" data-t="⬚ Vælg lamper">⬚ Vælg lamper</button>
+        <button id="le-grpadd" class="wz-primary" data-t="+ Gruppe">+ Gruppe</button>
+        <button id="le-grpedit" data-t="Redigér gruppe">Redigér gruppe</button>
+        <button id="le-grpdel" class="alarm" data-t="Slet gruppe">Slet gruppe</button>
         <span class="hint" id="le-grpinfo" style="margin:0;align-self:center"></span>
       </div>
       <div class="hint">Tryk <b>⬚ Vælg lamper</b>, markér et vilkårligt antal lamper (og
@@ -178,25 +178,25 @@
         label med stiplede streger til sit indhold. En gruppe kan indeholde andre grupper.
         Træk i en label for at flytte den.</div>
       <div class="btns" style="margin-top:7px">
-        <button id="le-beams">Stråler</button>
-        <button id="le-labels">Navne</button>
-        <button id="le-lblall">Vis alle navne</button>
-        <button id="le-lblnone">Skjul alle navne</button>
-        <button id="le-lblreset">Nulstil navnepladser</button>
+        <button id="le-beams" data-t="Stråler">Stråler</button>
+        <button id="le-labels" data-t="Navne">Navne</button>
+        <button id="le-lblall" data-t="Vis alle navne">Vis alle navne</button>
+        <button id="le-lblnone" data-t="Skjul alle navne">Skjul alle navne</button>
+        <button id="le-lblreset" data-t="Nulstil navnepladser">Nulstil navnepladser</button>
         <span style="display:inline-block;width:1px;height:22px;background:var(--rule);margin:0 4px;vertical-align:middle"></span>
         <button id="le-zin">+</button>
         <button id="le-zout">−</button>
-        <button id="le-zfit">Tilpas</button>
+        <button id="le-zfit" data-t="Tilpas">Tilpas</button>
         <button id="le-zarea" title="Træk et område op på scenen, så zoomes der ind på det">⬚ Zoom område</button>
-        <label class="chk lockchk" title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="le-lock"> Lås visning</label>
+        <label class="chk lockchk" data-t-title="Lås zoom og panorering, så visningen bliver stående" title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="le-lock"> <span data-t="Lås visning">Lås visning</span></label>
         <a href="/sim" target="_blank" rel="noopener" class="simbtn"
            style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
                   padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
-                  color:var(--accent);font-weight:800;font-size:13px">◱ 2D-simulator</a>
+                  color:var(--accent);font-weight:800;font-size:13px" data-t="◱ 2D-simulator">◱ 2D-simulator</a>
         <a href="/sim3d" target="_blank" rel="noopener" class="simbtn"
            style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;
                   padding:.55rem .85rem;border:1px solid var(--accent);border-radius:8px;
-                  color:var(--accent);font-weight:800;font-size:13px">◳ 3D-simulator</a>
+                  color:var(--accent);font-weight:800;font-size:13px" data-t="◳ 3D-simulator">◳ 3D-simulator</a>
       </div>
       <div class="hint">Træk i et <b>navn</b> for at flytte det væk fra lampen — så
         tegnes der en henvisningsstreg til den. <b>✋ Flyt visning</b> (eller musehjul
@@ -204,17 +204,17 @@
 
       <div class="cols" style="margin-top:11px">
         <div class="col">
-          <div class="rowline"><span class="k">Zoom</span>
+          <div class="rowline"><span class="k" data-t="Zoom">Zoom</span>
             <input type="range" id="lay-scale" min="10" max="140"><span class="v" id="lay-scale-v">40</span></div>
-          <div class="rowline"><span class="k">Drej lampe</span>
+          <div class="rowline"><span class="k" data-t="Drej lampe">Drej lampe</span>
             <input type="range" id="lay-rot" min="-180" max="180"><span class="v" id="lay-rot-v">0</span></div>
-          <div class="rowline"><span class="k">Navnefarve</span>
+          <div class="rowline"><span class="k" data-t="Navnefarve">Navnefarve</span>
             <input type="color" id="vw-lblcol" value="#e8ecf4" style="width:46px">
-            <span class="k" style="flex:0 0 auto">Synlighed</span>
+            <span class="k" style="flex:0 0 auto" data-t="Synlighed">Synlighed</span>
             <input type="range" id="vw-lblop" min="10" max="100"><span class="v" id="vw-lblop-v">85</span></div>
         </div>
         <div class="col">
-          <div class="rowline"><span class="k">Lyspøl</span>
+          <div class="rowline"><span class="k" data-t="Lyspøl">Lyspøl</span>
             <input type="range" id="vw-pool" min="5" max="100"><span class="v" id="vw-pool-v">15</span></div>
           <div class="rowline"><span class="k">Strålekraft</span>
             <input type="range" id="vw-beam" min="10" max="100"><span class="v" id="vw-beam-v">50</span></div>
@@ -583,17 +583,17 @@
   <!-- ============ HJÆLP ============ -->
   <div class="view" id="v-help">
     <div class="pan" id="set-pan">
-      <h2>Indstillinger <span>gælder kun denne skærm</span></h2>
-      <div class="rowline"><span class="k">Farvetema</span>
+      <h2 data-t="Indstillinger">Indstillinger <span data-t="gælder kun denne skærm">gælder kun denne skærm</span></h2>
+      <div class="rowline"><span class="k" data-t="Farvetema">Farvetema</span>
         <select id="theme" style="width:auto;min-width:240px;max-width:100%" aria-label="Farvetema">
-          <optgroup label="Pultens egne">
-          <option value="rav">Rav</option>
-          <option value="nat">Nat</option>
-          <option value="lys">Lys</option>
-          <option value="kontrast">Kontrast</option>
+          <optgroup label="Pultens egne" data-t-option="Pultens egne">
+          <option value="rav" data-t="Rav">Rav</option>
+          <option value="nat" data-t="Nat">Nat</option>
+          <option value="lys" data-t="Lys">Lys</option>
+          <option value="kontrast" data-t="Kontrast">Kontrast</option>
           <option value="scope">Scope</option>
           </optgroup>
-          <optgroup label="I stil med kendte flader">
+          <optgroup label="I stil med kendte flader" data-t-option="I stil med kendte flader">
           <option value="fluent">Windows 11</option>
           <option value="macos">macOS</option>
           <option value="material">Material (Google, lys)</option>
@@ -606,26 +606,29 @@
           <option value="ableton">Ableton-stil</option>
           </optgroup>
         </select>
-        <button id="theme-advbtn" class="sm" aria-expanded="false">▸ Avanceret</button></div>
+        <button id="theme-advbtn" class="sm" aria-expanded="false" data-t="▸ Avanceret">▸ Avanceret</button></div>
       <div class="hint">Valget gemmes i browseren, så hver skærm kan have sit eget tema.
         <b>Kontrast</b> er den mest læsbare i mørke. <b>Lys</b>, <b>Material</b> og
         <b>Office</b> er til, når du rigger i dagslys. De øvrige låner farver, skrift og
         hjørner fra kendte programmer, men holder samme læsbarhed.</div>
       <div id="theme-adv" class="theme-adv" style="display:none"></div>
-      <div class="rowline" style="margin-top:12px"><span class="k">Skift af styring</span>
+      <div class="rowline" style="margin-top:12px"><span class="k" data-t="Skift af styring">Skift af styring</span>
         <select id="set-ctlxfer" style="width:auto;min-width:240px;max-width:100%" aria-label="Når Enkel eller Afvikling overtager styringen">
-          <option value="ask">Spørg om farverne skal overtages</option>
-          <option value="always">Overtag altid de farver der lyser</option>
-          <option value="never">Overtag aldrig farverne</option>
+          <option value="ask" data-t="Spørg om farverne skal overtages">Spørg om farverne skal overtages</option>
+          <option value="always" data-t="Overtag altid de farver der lyser">Overtag altid de farver der lyser</option>
+          <option value="never" data-t="Overtag aldrig farverne">Overtag aldrig farverne</option>
         </select></div>
-      <div class="hint">Når <b>Enkel</b> eller <b>Afvikling</b> tager styringen over (fx fra Pult),
+      <div class="hint" data-t-html="Når &lt;b&gt;Enkel&lt;/b&gt; eller &lt;b&gt;Afvikling&lt;/b&gt; tager styringen over (fx fra Pult), kan de starte med de farver, der lyser i øjeblikket — så står lyset stille ved skiftet.">Når <b>Enkel</b> eller <b>Afvikling</b> tager styringen over (fx fra Pult),
         kan de starte med de farver, der lyser i øjeblikket — så står lyset stille ved skiftet.</div>
+      <div class="rowline" style="margin-top:12px"><span class="k" data-t="Sprog">Sprog</span>
+        <select id="set-lang" style="width:auto;min-width:240px;max-width:100%" aria-label="Sprog"></select></div>
+      <div class="hint" data-t="Valget gemmes i browseren. Hjælpeteksten er kun på dansk.">Valget gemmes i browseren. Hjælpeteksten er kun på dansk.</div>
     </div>
 
     <div class="pan" id="lc11-pan">
-      <h2>LC-11 <span>NewTek LiveControl som styring af pulten</span></h2>
+      <h2>LC-11 <span data-t="NewTek LiveControl som styring af pulten">NewTek LiveControl som styring af pulten</span></h2>
       <div class="lc11-top">
-        <button id="lc11-on" aria-pressed="false">Brug LC-11</button>
+        <button id="lc11-on" aria-pressed="false" data-t="Brug LC-11">Brug LC-11</button>
         <span id="lc11-hw" class="lc11-hw">Henter status…</span>
       </div>
       <div class="lc11-cols">
@@ -1056,21 +1059,21 @@
 <!-- ============ LIVE-MATRIX ============ -->
 <div id="live">
   <div id="livebar">
-    <button id="lv-exit">Afslut live</button>
+    <button id="lv-exit" data-t="Afslut live">Afslut live</button>
     <select id="lv-tab" aria-label="Vis scener fra faneblad" title="Hvilke scener live-matrixen viser"></select>
     <span id="lv-ctl" title="Hvem styrer lyset"></span>
     <button id="lv-black" class="alarm">Blackout</button>
     <div id="lv-grandwrap">
-      <span class="k">Grand</span>
+      <span class="k" data-t="Grand">Grand</span>
       <input type="range" id="lv-grand" min="0" max="255">
       <span id="lv-grand-v">255</span>
     </div>
-    <button id="lv-back">◀ Forrige</button>
-    <button id="lv-go">GO ▶</button>
+    <button id="lv-back" data-t="◀ Forrige">◀ Forrige</button>
+    <button id="lv-go" data-t="GO ▶">GO ▶</button>
     <button id="lv-tap" class="tapbtn" title="Tap tempo - eller tasten T">TAP <span id="lv-bpm">120</span><span class="beat" aria-hidden="true"></span></button>
     <label id="lv-animwrap"><input type="checkbox" id="lv-animall" checked> Animér</label>
     <span id="lv-now">—</span>
-    <span id="lv-hint">1–9 kalder · mellemrum GO · T tap · B blackout · Esc ud</span>
+    <span id="lv-hint" data-t="1–9 kalder · mellemrum GO · T tap · B blackout · Esc ud">1–9 kalder · mellemrum GO · T tap · B blackout · Esc ud</span>
   </div>
   <div id="lv-fadewrap"><div id="lv-fade"></div></div>
   <div id="livegrid"></div>
@@ -1080,8 +1083,8 @@
 <div id="grpdlg">
   <div class="grpdlg-box">
     <div class="grpdlg-hd">
-      <b id="grpdlg-title">Ny gruppe</b>
-      <button id="grpdlg-close" class="sm">Luk</button>
+      <b id="grpdlg-title" data-t="Ny gruppe">Ny gruppe</b>
+      <button id="grpdlg-close" class="sm" data-t="Luk">Luk</button>
     </div>
     <div class="grpdlg-body" id="grpdlg-body"></div>
   </div>
@@ -1090,8 +1093,8 @@
 <div id="xferdlg">
   <div class="grpdlg-box" style="max-width:560px">
     <div class="grpdlg-hd">
-      <b>Overtag farverne?</b>
-      <button onclick="document.getElementById('xferdlg').className=''" class="sm">Luk</button>
+      <b data-t="Overtag farverne?">Overtag farverne?</b>
+      <button onclick="document.getElementById('xferdlg').className=''" class="sm" data-t="Luk">Luk</button>
     </div>
     <div class="grpdlg-body" id="xferdlg-body"></div>
   </div>
@@ -1100,8 +1103,8 @@
 <div id="rstdlg">
   <div class="grpdlg-box" style="max-width:560px">
     <div class="grpdlg-hd">
-      <b>Nulstil setup</b>
-      <button onclick="id('rstdlg').className=''" class="sm">Luk</button>
+      <b data-t="Nulstil setup">Nulstil setup</b>
+      <button onclick="id('rstdlg').className=''" class="sm" data-t="Luk">Luk</button>
     </div>
     <div class="grpdlg-body" id="rstdlg-body"></div>
   </div>
@@ -1110,8 +1113,8 @@
 <div id="paldlg">
   <div class="grpdlg-box" style="max-width:520px">
     <div class="grpdlg-hd">
-      <b>Redigér palette</b>
-      <button onclick="id('paldlg').className=''" class="sm">Luk</button>
+      <b data-t="Redigér palette">Redigér palette</b>
+      <button onclick="id('paldlg').className=''" class="sm" data-t="Luk">Luk</button>
     </div>
     <div class="grpdlg-body" id="paldlg-body"></div>
   </div>
@@ -1119,15 +1122,17 @@
 
 <div id="lib">
   <div id="libbar">
-    <b>Fixture-bibliotek</b>
-    <input type="text" id="lib-search" placeholder="Søg lampe eller mærke…" aria-label="Søg">
+    <b data-t="Fixture-bibliotek">Fixture-bibliotek</b>
+    <input type="text" id="lib-search" placeholder="Søg lampe eller mærke…" data-t-placeholder="Søg lampe eller mærke…" aria-label="Søg">
     <span id="lib-note" class="hint" style="margin:0">Vælg den mode der matcher lampens display. Direkte-farve-modes er de sikre.</span>
-    <button id="lib-close">Luk</button>
+    <button id="lib-close" data-t="Luk">Luk</button>
   </div>
   <div id="libgrid"></div>
 </div>
 
 <div id="toast"></div>
+<script>if(typeof window.t!=="function"){window.t=function(k){return k};window.applyLang=function(){}}</script>
+<script src="lang.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>

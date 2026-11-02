@@ -71,92 +71,94 @@ a.btn:hover{border-color:#9aa4b6}
 <body>
 <canvas id="stage"></canvas>
 <div id="bar">
-  <div class="grp"><span class="dot" id="dot"></span><b>2D-simulator</b></div>
-  <div class="grp mut" id="stat">forbinder…</div>
+  <div class="grp"><span class="dot" id="dot"></span><b data-t="2D-simulator">2D-simulator</b></div>
+  <div class="grp mut" id="stat" data-t="forbinder…">forbinder…</div>
   <div class="grow"></div>
   <div class="grp">
-    <button id="tBeams">Stråler</button>
-    <button id="tLabels">Navne</button>
-    <button id="tGrid" class="on">Gulv</button>
-    <button id="tEdit">Editor</button>
-    <button id="tCfg">Indstillinger</button>
-    <button id="zIn">+</button><button id="zOut">−</button><button id="zFit">Tilpas</button>
-    <button id="zArea" title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
-    <label class="lock" title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="zLock"> Lås visning</label>
-    <button id="tFull">Fuldskærm</button>
-    <a class="btn" href="sim3d" target="_blank" rel="noopener">◳ 3D-simulator</a>
+    <button id="tBeams" data-t="Stråler">Stråler</button>
+    <button id="tLabels" data-t="Navne">Navne</button>
+    <button id="tGrid" class="on" data-t="Gulv">Gulv</button>
+    <button id="tEdit" data-t="Editor">Editor</button>
+    <button id="tCfg" data-t="Indstillinger">Indstillinger</button>
+    <button id="zIn">+</button><button id="zOut">−</button><button id="zFit" data-t="Tilpas">Tilpas</button>
+    <button id="zArea" title="Træk et område op, så zoomes der ind på det" data-t="⬚ Zoom område" data-t-title="Træk et område op, så zoomes der ind på det">⬚ Zoom område</button>
+    <label class="lock" title="Lås zoom og panorering, så visningen bliver stående" data-t-title="Lås zoom og panorering, så visningen bliver stående"><input type="checkbox" id="zLock"> <span data-t="Lås visning">Lås visning</span></label>
+    <button id="tFull" data-t="Fuldskærm">Fuldskærm</button>
+    <a class="btn" href="sim3d" target="_blank" rel="noopener" data-t="◳ 3D-simulator">◳ 3D-simulator</a>
   </div>
 </div>
 <div id="msg"></div>
 <div id="lampbox">
-  <div class="row" style="margin-top:0"><b id="lbName" style="flex:1">Lampe</b><button id="lbClose" aria-label="Luk">✕</button></div>
-  <div class="row"><span class="k">Lysstyrke</span><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
-  <div class="row"><span class="k"></span><button id="lbOn">Tændt</button></div>
-  <div class="row"><span class="k">Drejet</span><input type="range" id="lbRot" min="-180" max="180" step="1"><span class="v" id="lbRotV"></span></div>
-  <div class="tip">Lampens rigtige niveau — det samme som under Pult → Lamper. <b>Drejet</b> er den samme
+  <div class="row" style="margin-top:0"><b id="lbName" style="flex:1" data-t="Lampe">Lampe</b><button id="lbClose" aria-label="Luk" data-t-aria="Luk">✕</button></div>
+  <div class="row"><span class="k" data-t="Lysstyrke">Lysstyrke</span><input type="range" id="lbLevel" min="0" max="100"><span class="v" id="lbLevelV"></span></div>
+  <div class="row"><span class="k"></span><button id="lbOn" data-t="Tændt">Tændt</button></div>
+  <div class="row"><span class="k" data-t="Drejet">Drejet</span><input type="range" id="lbRot" min="-180" max="180" step="1"><span class="v" id="lbRotV"></span></div>
+  <div class="tip" data-t-html="Lampens rigtige niveau — det samme som under Pult → Lamper. &lt;b&gt;Drejet&lt;/b&gt; er den samme drejning som i Layout og 3D-simulatoren. Tryk på en anden lampe for at vælge den, eller på tom baggrund for at lukke.">Lampens rigtige niveau — det samme som under Pult → Lamper. <b>Drejet</b> er den samme
     drejning som i Layout og 3D-simulatoren. Tryk på en anden lampe for at vælge den, eller på tom
     baggrund for at lukke.</div>
 </div>
 
 <div id="cfg">
-  <h4>Lys</h4>
-  <div class="cfgrow"><span>Lyspøl</span><input type="range" id="cPool" min="5" max="100" value="15"><span class="v" id="cPoolV">15</span></div>
-  <div class="cfgrow"><span>Intensitet</span><input type="range" id="cInten" min="5" max="100" value="40"><span class="v" id="cIntenV">40</span></div>
-  <div class="cfgrow"><span>Strålekraft</span><input type="range" id="cBeam" min="10" max="100" value="50"><span class="v" id="cBeamV">50</span></div>
-  <div class="cfgrow"><span>Strålevinkel</span><input type="range" id="cBang" min="3" max="45" value="14"><span class="v" id="cBangV">14</span></div>
-  <div class="cfgrow"><span>Gulvlysstyrke</span><input type="range" id="cGrid" min="1" max="12" value="4"><span class="v" id="cGridV">4</span></div>
-  <h4 class="sep">Navne</h4>
-  <div class="cfgrow"><span>Farve</span>
+  <h4 data-t="Lys">Lys</h4>
+  <div class="cfgrow"><span data-t="Lyspøl">Lyspøl</span><input type="range" id="cPool" min="5" max="100" value="15"><span class="v" id="cPoolV">15</span></div>
+  <div class="cfgrow"><span data-t="Intensitet">Intensitet</span><input type="range" id="cInten" min="5" max="100" value="40"><span class="v" id="cIntenV">40</span></div>
+  <div class="cfgrow"><span data-t="Strålekraft">Strålekraft</span><input type="range" id="cBeam" min="10" max="100" value="50"><span class="v" id="cBeamV">50</span></div>
+  <div class="cfgrow"><span data-t="Strålevinkel">Strålevinkel</span><input type="range" id="cBang" min="3" max="45" value="14"><span class="v" id="cBangV">14</span></div>
+  <div class="cfgrow"><span data-t="Gulvlysstyrke">Gulvlysstyrke</span><input type="range" id="cGrid" min="1" max="12" value="4"><span class="v" id="cGridV">4</span></div>
+  <h4 class="sep" data-t="Navne">Navne</h4>
+  <div class="cfgrow"><span data-t="Farve">Farve</span>
     <input type="color" id="cLblCol" value="#e8ecf4" style="flex:0 0 42px;height:26px;border:1px solid #555;background:none;padding:0">
     <span style="flex:1"></span></div>
-  <div class="cfgrow"><span>Synlighed</span><input type="range" id="cLblOp" min="10" max="100" value="85"><span class="v" id="cLblOpV">85</span></div>
+  <div class="cfgrow"><span data-t="Synlighed">Synlighed</span><input type="range" id="cLblOp" min="10" max="100" value="85"><span class="v" id="cLblOpV">85</span></div>
   <div class="edrow" style="margin-top:8px">
-    <button id="cLblAll">Vis alle</button>
-    <button id="cLblNone">Skjul alle</button>
-    <button id="cLblReset">Nulstil pladser</button>
+    <button id="cLblAll" data-t="Vis alle">Vis alle</button>
+    <button id="cLblNone" data-t="Skjul alle">Skjul alle</button>
+    <button id="cLblReset" data-t="Nulstil pladser">Nulstil pladser</button>
   </div>
-  <div class="tip">Indstillingerne deles med Layout i pulten.</div>
+  <div class="tip" data-t="Indstillingerne deles med Layout i pulten.">Indstillingerne deles med Layout i pulten.</div>
 </div>
 
 <div id="edpan">
-  <h4>Editor</h4>
+  <h4 data-t="Editor">Editor</h4>
   <div class="edrow">
-    <button class="edbtn on" id="edSel">Vælg/flyt</button>
-    <button class="edbtn" id="edPan">✋ Flyt visning</button>
-    <button class="edbtn" id="edLbl">Navn til/fra</button>
+    <button class="edbtn on" id="edSel" data-t="Vælg/flyt">Vælg/flyt</button>
+    <button class="edbtn" id="edPan" data-t="✋ Flyt visning">✋ Flyt visning</button>
+    <button class="edbtn" id="edLbl" data-t="Navn til/fra">Navn til/fra</button>
   </div>
   <div class="edrow">
-    <button class="edbtn" id="edRect">Rektangel</button>
-    <button class="edbtn" id="edCirc">Cirkel</button>
-    <button class="edbtn" id="edTri">Trekant</button>
+    <button class="edbtn" id="edRect" data-t="Rektangel">Rektangel</button>
+    <button class="edbtn" id="edCirc" data-t="Cirkel">Cirkel</button>
+    <button class="edbtn" id="edTri" data-t="Trekant">Trekant</button>
   </div>
   <div class="edrow">
-    <span class="mut" style="font-size:.78rem">Farve</span>
+    <span class="mut" style="font-size:.78rem" data-t="Farve">Farve</span>
     <input type="color" id="edColor" value="#2a3040" style="width:32px;height:24px;border:1px solid #555;background:none;padding:0">
-    <span class="mut" style="font-size:.78rem">Navn</span>
-    <input type="text" id="edName" value="Scene" style="width:80px;font:inherit;font-size:.78rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:2px 5px">
-    <button id="edDel" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8">Slet valgt</button>
+    <span class="mut" style="font-size:.78rem" data-t="Navn">Navn</span>
+    <input type="text" id="edName" value="Scene" data-t-value="Scene" style="width:80px;font:inherit;font-size:.78rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:2px 5px">
+    <button id="edDel" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8" data-t="Slet valgt">Slet valgt</button>
   </div>
   <div id="edlist"></div>
   <div class="edrow" style="margin-top:6px">
-    <button id="edClear" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8">Ryd alle former</button>
+    <button id="edClear" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8" data-t="Ryd alle former">Ryd alle former</button>
   </div>
-  <h4 style="margin-top:10px">2D-sceneplaner</h4>
+  <h4 style="margin-top:10px" data-t="2D-sceneplaner">2D-sceneplaner</h4>
   <div class="edrow">
-    <input type="text" id="plName" placeholder="Navn på sceneplanen" style="flex:1;min-width:120px;font:inherit;font-size:.82rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:4px 6px">
-    <button id="plSave">Gem 2D-sceneplan</button>
+    <input type="text" id="plName" placeholder="Navn på sceneplanen" data-t-placeholder="Navn på sceneplanen" style="flex:1;min-width:120px;font:inherit;font-size:.82rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:4px 6px">
+    <button id="plSave" data-t="Gem 2D-sceneplan">Gem 2D-sceneplan</button>
   </div>
   <div class="edrow">
     <select id="plList" style="flex:1;min-width:120px;font:inherit;font-size:.82rem;color:#f4f6fb;background:#0d0f13;border:1px solid #3a4150;border-radius:5px;padding:4px"></select>
-    <button id="plLoad">Hent</button>
-    <button id="plDel" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8">Slet</button>
+    <button id="plLoad" data-t="Hent">Hent</button>
+    <button id="plDel" style="background:#3a1418;border-color:#7a2830;color:#ffb3b8" data-t="Slet">Slet</button>
   </div>
-  <div class="tip" id="plTip">Gemmes i Show-mappen ved siden af dine shows som
+  <div class="tip" id="plTip" data-t="Gemmes i Show-mappen ved siden af dine shows som «navn.sceneplan-2d.json» — en 2D-sceneplan er formerne på gulvet.">Gemmes i Show-mappen ved siden af dine shows som
     «navn.sceneplan-2d.json» — en 2D-sceneplan er formerne på gulvet.</div>
-  <div class="tip">Træk i et navn for at flytte det væk fra lampen — så tegnes
+  <div class="tip" data-t="Træk i et navn for at flytte det væk fra lampen — så tegnes der en henvisningsstreg. Træk på tom baggrund for at panorere.">Træk i et navn for at flytte det væk fra lampen — så tegnes
     der en henvisningsstreg. Træk på tom baggrund for at panorere.</div>
 </div>
 
+<script>if(typeof window.t!=="function"){window.t=function(k){return k};window.applyLang=function(){}}</script>
+<script src="lang.js"></script>
 <script>
 "use strict";
 var cv = document.getElementById("stage"), g = cv.getContext("2d");
@@ -269,10 +271,10 @@ function loadFrame(){
 function setStat(d){
   document.getElementById("dot").className = "dot" + (connected ? " live" : "");
   document.getElementById("stat").textContent = connected
-    ? (mods.length + " lamper" + (d && d.fps!=null ? " · " + d.fps + " fps" : "") + " · zoom " + Math.round(zoom*100) + "%")
-    : "ingen forbindelse til pulten";
+    ? (mods.length + " " + t("lamper") + (d && d.fps!=null ? " · " + d.fps + " fps" : "") + " · zoom " + Math.round(zoom*100) + "%")
+    : t("ingen forbindelse til pulten");
   var m = document.getElementById("msg");
-  if (!connected){ m.textContent = "Ingen forbindelse — kører lyspulten?"; m.style.display="block"; }
+  if (!connected){ m.textContent = t("Ingen forbindelse — kører lyspulten?"); m.style.display="block"; }
   else m.style.display = "none";
 }
 
@@ -348,7 +350,7 @@ function drawGroupLabels(){
   g.font = "700 13px ui-sans-serif,system-ui,sans-serif";
   g.textAlign = "center"; g.textBaseline = "middle";
   glabels.forEach(function(gr){
-    var ax = sx(gr.x), ay = sy(gr.y), txt = gr.name || "Gruppe";
+    var ax = sx(gr.x), ay = sy(gr.y), txt = gr.name || t("Gruppe");
     var wTxt = g.measureText(txt).width, bw = wTxt+22, bh = 24, l = ax-bw/2, t = ay-bh/2;
     g.fillStyle = "rgba(10,12,18,.78)";
     rrect(l,t,bw,bh,6); g.fill();
@@ -433,7 +435,7 @@ function labelPos(m){
 }
 function drawLabel(m, idx){
   var p = labelPos(m);
-  var txt = m.name || ("Lampe " + (idx+1));
+  var txt = m.name || (t("Lampe") + " " + (idx+1));
   var op = Math.max(0, Math.min(100, V.label_opacity == null ? 85 : V.label_opacity)) / 100;
   var r = lampRadius();
   g.save();
@@ -464,7 +466,7 @@ function hitLabel(mx, my){
   for (var i = mods.length - 1; i >= 0; i--){
     var m = mods[i]; if (m.lbl === false) continue;
     var p = labelPos(m);
-    var txt = m.name || ("Lampe " + (i+1));
+    var txt = m.name || (t("Lampe") + " " + (i+1));
     var wT = g.measureText(txt).width;
     if (mx >= p.x - wT/2 - 5 && mx <= p.x + wT/2 + 5 &&
         my >= p.y - 13 && my <= p.y + 5) return i;
@@ -882,38 +884,38 @@ function postCb(msg, cb){
 function planList(d){
   if (d && d.plans) plans = d.plans.filter(function(p){ return p.kind === "2d"; });
   var sel = byId("plList"), cur = sel.value; sel.innerHTML = "";
-  if (!plans.length){ var o = document.createElement("option"); o.value = ""; o.textContent = "Ingen 2D-sceneplaner gemt"; sel.appendChild(o); }
+  if (!plans.length){ var o = document.createElement("option"); o.value = ""; o.textContent = t("Ingen 2D-sceneplaner gemt"); sel.appendChild(o); }
   plans.forEach(function(p){ var o = document.createElement("option"); o.value = p.name; o.textContent = "2D · " + p.name + "  (" + p.saved + ")"; sel.appendChild(o); });
   if (cur) sel.value = cur;
   byId("plLoad").disabled = byId("plDel").disabled = !plans.length;
 }
-function planTip(t){ var e = byId("plTip"); e.textContent = t; e.style.color = "#ffd166"; }
+function planTip(txt){ var e = byId("plTip"); e.textContent = txt; e.style.color = "#ffd166"; }
 function planRefresh(){ postCb({ op:"plan_list" }, planList); }
 byId("plSave").onclick = function(){
   var name = byId("plName").value.trim();
-  if (!name){ planTip("Skriv et navn på sceneplanen først."); byId("plName").focus(); return; }
+  if (!name){ planTip(t("Skriv et navn på sceneplanen først.")); byId("plName").focus(); return; }
   clearTimeout(_pushTimer);
   function save(over){
     postCb({ op:"plan_save", kind:"2d", name:name, objects: ED.objs, overwrite: !!over }, function(d){
-      if (d.exists){ if (confirm("Der findes allerede en 2D-sceneplan, der hedder “" + d.name + "”. Skal den overskrives?")) save(true); return; }
-      if (!d.ok){ planTip("Kunne ikke gemme: " + (d.err || "ukendt fejl")); return; }
-      planList(d); byId("plList").value = d.name; planTip("Gemt som 2D-sceneplanen “" + d.name + "”.");
+      if (d.exists){ if (confirm(t("Der findes allerede en 2D-sceneplan, der hedder") + " “" + d.name + "”. " + t("Skal den overskrives?"))) save(true); return; }
+      if (!d.ok){ planTip(t("Kunne ikke gemme:") + " " + (d.err || "ukendt fejl")); return; }
+      planList(d); byId("plList").value = d.name; planTip(t("Gemt som 2D-sceneplanen") + " “" + d.name + "”.");
     });
   }
   save(false);
 };
 byId("plLoad").onclick = function(){
   var name = byId("plList").value; if (!name) return;
-  if (ED.objs.length && !confirm("Hent 2D-sceneplanen “" + name + "”? Formerne, der står nu, erstattes.")) return;
+  if (ED.objs.length && !confirm(t("Hent 2D-sceneplanen") + " “" + name + "”? " + t("Formerne, der står nu, erstattes."))) return;
   postCb({ op:"plan_load", kind:"2d", name:name }, function(d){
-    if (!d.ok){ planTip(d.err || "Kunne ikke hente sceneplanen."); return; }
-    byId("plName").value = name; planTip("Hentet: 2D-sceneplanen “" + name + "”."); loadState();
+    if (!d.ok){ planTip(d.err || t("Kunne ikke hente sceneplanen.")); return; }
+    byId("plName").value = name; planTip(t("Hentet: 2D-sceneplanen") + " “" + name + "”."); loadState();
   });
 };
 byId("plDel").onclick = function(){
   var name = byId("plList").value; if (!name) return;
-  if (!confirm("Slet 2D-sceneplanen “" + name + "”?")) return;
-  postCb({ op:"plan_delete", kind:"2d", name:name }, function(d){ planList(d); planTip("Slettet."); });
+  if (!confirm(t("Slet 2D-sceneplanen") + " “" + name + "”?")) return;
+  postCb({ op:"plan_delete", kind:"2d", name:name }, function(d){ planList(d); planTip(t("Slettet.")); });
 };
 planRefresh();
 byId("tEdit").addEventListener("click", planRefresh);
@@ -925,12 +927,12 @@ function updLampBox(){
   var b = byId("lampbox"), m = mods[lampSel];
   if (!m){ lampSel = -1; b.classList.remove("on"); return; }
   b.classList.add("on");
-  byId("lbName").textContent = (m.num != null ? m.num : lampSel + 1) + " · " + (m.name || "Lampe");
+  byId("lbName").textContent = (m.num != null ? m.num : lampSel + 1) + " · " + (m.name || t("Lampe"));
   var p = Math.round(m.level / 2.55);
   if (document.activeElement !== byId("lbLevel") && Date.now() - levelTouch > 800){
     byId("lbLevel").value = p; byId("lbLevelV").textContent = p + " %";
   }
-  byId("lbOn").textContent = m.on ? "Tændt — tryk for at slukke" : "Slukket — tryk for at tænde";
+  byId("lbOn").textContent = m.on ? t("Tændt — tryk for at slukke") : t("Slukket — tryk for at tænde");
   byId("lbOn").classList.toggle("on", !!m.on);
   if (document.activeElement !== byId("lbRot") && Date.now() - rotTouch > 900){
     byId("lbRot").value = Math.round(m.rot || 0); byId("lbRotV").textContent = Math.round(m.rot || 0) + "°";
@@ -967,6 +969,7 @@ resize(); doAutoFit(); syncCfgUI(); setLock(viewLocked);
 loadState(); loadFrame();
 setInterval(loadState, 600);
 setInterval(loadFrame, 80);
+applyLang();
 requestAnimationFrame(draw);
 </script>
 </body>
