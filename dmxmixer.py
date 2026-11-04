@@ -159,6 +159,17 @@ CHANNEL_PALETTE = [
 CHANNEL_KEYS = set(k for k, _ in CHANNEL_PALETTE)
 # nøgler der styres automatisk af pulten (resten er manuelle)
 ENGINE_KEYS = ("dimmer", "dimmer_fine", "r", "g", "b")
+# Største antal segmenter i en pixel bar. 170 x 3 kanaler fylder lige et
+# univers, så der er ingen grund til at tillade mere på én lampe.
+MAX_PIXELS = 170
+# Manuelle kanaler der SELV lyser med en farve. De hører til den styring
+# der ejer lampen: har Afvikling eller Enkel taget en lampe, er det deres
+# egne værdier der gælder (0 = slukket), ikke Pultens. Ellers kunne
+# Pultens hvid/ravgul ikke slukkes derfra, og en ren farve var umulig.
+COLOUR_OVR_KEYS = ("w", "a", "uv")
+# Hvad de lyser med på skærmen. Bruges kun til simulatoren, så billedet
+# der vises svarer til det lamperne faktisk sender ud.
+OVR_TINT = {"w": (255, 255, 255), "a": (255, 148, 42), "uv": (92, 30, 200)}
 
 
 def _chs(pairs):
@@ -330,6 +341,48 @@ def clean_channels(chans):
 
 def profile_span(show, typ):
     return len(profile_for(show, typ)["channels"])
+
+
+def pixel_count(m):
+    """Antal segmenter. 1 for en almindelig lampe; en pixel bar har flere,
+    og profilen beskriver da ÉT segment."""
+    try:
+        return int(clamp(int(m.get("pixels", 1) or 1), 1, MAX_PIXELS))
+    except (TypeError, ValueError):
+        return 1
+
+
+def pixel_addrs(m, block):
+    """Adressen (1-baseret) for hvert segment i en lampe. Normalt ligger de
+    lige efter hinanden fra lampens adresse. En pixel bar kan have sine egne
+    i 'paddr', saa segmenterne kan ligge hvor som helst - i et andet spring,
+    bagvendt, eller med huller, som riggen nu er kablet."""
+    n = pixel_count(m)
+    if n <= 1:
+        return [int(m.get("address", 1) or 1)]
+    custom = m.get("paddr") or []
+    step = int(m.get("pstep") or block or 1)
+    a0 = int(m.get("address", 1) or 1)
+    out = []
+    for i in range(n):
+        v = custom[i] if i < len(custom) else None
+        try:
+            v = int(v)
+        except (TypeError, ValueError):
+            v = 0
+        out.append(v if v > 0 else a0 + i * step)
+    return out
+
+
+def module_span(show, m):
+    """Hvor mange kanaler lampen fylder fra sin laveste adresse - brugt til
+    overlap og auto-adressering. En pixel bar med egne adresser kan have
+    huller; vi regner fra foerste til sidste kanal, saa to barer ikke
+    lander oven i hinanden."""
+    block = profile_span(show, m["type"])
+    addrs = pixel_addrs(m, block)
+    lo, hi = min(addrs), max(addrs) + block - 1
+    return max(block, hi - lo + 1)
 
 GAMMA_LUT = [round(255 * ((i / 255) ** 2.2)) for i in range(256)]
 DUTY_TO_SRGB = [round(255 * ((i / 255) ** (1 / 2.2))) for i in range(256)]
@@ -1008,13 +1061,20 @@ def _place_demo(show):
 
 
 def auto_address(show):
-    """Pakker adresser tæt fra 1 pr. univers, i listens rækkefølge."""
+    """Pakker adresser tæt fra 1 pr. univers, i listens rækkefølge.
+    En pixel bar fylder alle sine segmenter, og de lægges sammenhængende -
+    egne segmentadresser ryddes, så auto-adressering giver en tæt rig."""
     per = {}
     for m in show["modules"]:
         u = m.get("universe", 1)
         per.setdefault(u, 1)
         m["address"] = per[u]
-        per[u] += profile_span(show, m["type"])
+        block = profile_span(show, m["type"])
+        n = pixel_count(m)
+        if n > 1:
+            m["paddr"] = []
+            m["pstep"] = block
+        per[u] += block * n
 
 
 # ======================================================================
@@ -1391,6 +1451,10 @@ class Engine:
         self.rev = 1                      # stiger hver gang showet aendres
         self.pixels = []                  # [modul][pixel] = [r,g,b] 0..255
         self.dmx = {}                     # univers -> bytearray(512)
+        # Lysfaktoren pr. lampe i sidste frame (niveau x hovedskyder x
+        # strobe x blackout). De faste farvekanaler daempes med den.
+        self.light = []
+        self._light = []
         self.sparkle = {}
         self.preview_sparkle = {}
         self.fade = None                  # {"from": frame, "t0":, "dur":}
@@ -1484,12 +1548,13 @@ class Engine:
 
     # -- koordinat -----------------------------------------------------
     def _coord(self, layer, mi, i, n, base):
-        # Gruppe-look: u er lampens plads i gruppens nummerering (0..1), saa
-        # chase, gradient og regnbue loeber hen over gruppen i raekkefoelge.
+        # Gruppe-look: u er pladsen i gruppens nummerering (0..1), saa chase,
+        # gradient og regnbue loeber hen over gruppen i raekkefoelge. Pladsen
+        # taelles i segmenter, saa en pixel bar fylder alle sine.
         order = layer.get("order")
         if order is not None:
             n_ord = max(1, layer.get("order_n", 1))
-            pos = order.get(mi, 0)
+            pos = order.get(mi, 0) + i
             if layer.get("pattern") in SPAN_PATTERNS:
                 u = pos / max(1, n_ord - 1)      # fejer: begge ender med
             else:
@@ -1551,12 +1616,21 @@ class Engine:
             col, lvl = look_eased(look, now)
             if lvl <= 0:
                 continue
+            # Nummereringen regnes i SEGMENTER, ikke i lamper: en pixel bar
+            # fylder lige saa mange pladser som den har segmenter, saa
+            # chase, gradient og regnbue loeber hen over den i stedet for at
+            # give hele baren én farve. Almindelige lamper fylder én plads,
+            # saa det er praecis som foer for en rig uden barer.
+            order, total = {}, 0
+            for mi in order_list:
+                order[mi] = total
+                total += pixel_count(self.show["modules"][mi])
             L = default_layer(0)
             L.update({
                 "name": look.get("name", "Look"),
                 "on": True, "opacity": int(clamp(lvl, 0, 255)), "blend": "max",
-                "mask": order_list, "order": dict((mi, k) for k, mi in enumerate(order_list)),
-                "order_n": len(order_list), "domain": "order",
+                "mask": order_list, "order": order,
+                "order_n": max(1, total), "domain": "order",
                 "pattern": look.get("pattern", "fyldt"),
                 "custom": int(look.get("custom", 0)),
                 "speed": look.get("speed", 30), "size": look.get("size", 30),
@@ -1573,14 +1647,15 @@ class Engine:
             out.append(L)
         return out
 
-    def _coord_col(self, layer, mi, u):
+    def _coord_col(self, layer, mi, u, i=0):
         """Koordinatet FARVEN laeses ved. En gradient skal spaende hele
-        gruppen fra foerste til sidste lampe, ogsaa selv om moensteret
-        koerer cyklisk og derfor bruger en anden fordeling."""
+        gruppen fra foerste til sidste plads, ogsaa selv om moensteret
+        koerer cyklisk og derfor bruger en anden fordeling. Pladserne er
+        segmenter, saa gradienten ogsaa loeber hen over en pixel bar."""
         order = layer.get("order")
         if order is None:
             return u
-        uc = order.get(mi, 0) / max(1, layer.get("order_n", 1) - 1)
+        uc = (order.get(mi, 0) + i) / max(1, layer.get("order_n", 1) - 1)
         if layer.get("mirror"):
             uc = abs(uc * 2.0 - 1.0)
         return clamp(uc, 0.0, 1.0)
@@ -1672,15 +1747,21 @@ class Engine:
                     sparkle[key] = st
                 ctx = {"count": n, "sparkle": st["buf"], "mem": st["mem"],
                        "i": 0, "first": True, "custom": custom, "smooth": smooth}
+                ord0 = None
                 if layer.get("order") is not None:
                     # gruppens egen nummerering - moenstre der taeller i
-                    # trin (teater, skiftevis) skal bruge den, ikke u
-                    ctx["ord"] = layer["order"].get(mi, 0)
+                    # trin (teater, skiftevis) skal bruge den, ikke u.
+                    # Den taelles i segmenter, saa hvert segment paa en
+                    # pixel bar er sit eget trin.
+                    ord0 = layer["order"].get(mi, 0)
+                    ctx["ord"] = ord0
                     ctx["ordn"] = layer.get("order_n", 1)
                 dst = acc[mi]
                 bi = base_index[mi]
                 for i in range(n):
                     ctx["i"] = i
+                    if ord0 is not None:
+                        ctx["ord"] = ord0 + i
                     u = self._coord(layer, mi, i, n, bi)
                     v = fn(u, ph, layer, ctx)
                     ctx["first"] = False
@@ -1690,7 +1771,7 @@ class Engine:
                         elif layer["blend"] == "replace":
                             dst[i][0] = dst[i][1] = dst[i][2] = 0.0
                         continue
-                    cr, cg, cb = colour_for(layer, self._coord_col(layer, mi, u), t, ph)
+                    cr, cg, cb = colour_for(layer, self._coord_col(layer, mi, u, i), t, ph)
                     k = v * op
                     src = (cr * k, cg * k, cb * k)
                     bl = layer["blend"]
@@ -1717,12 +1798,14 @@ class Engine:
         grand = 0 if master.get("blackout") else master.get("grand", 255)
         strobe_on = self._strobe(master["strobe"], t)
         out = []
+        light = []
         for mi, m in enumerate(mods):
             if levels is not None and mi < len(levels):
                 m_on, m_lvl = levels[mi]["on"], levels[mi]["level"]
             else:
                 m_on, m_lvl = m["on"], m["level"]
             lvl = 0 if (not m_on or not strobe_on) else (m_lvl * grand) // 255
+            light.append(lvl)
             row = []
             for px in acc[mi]:
                 if lvl == 0:
@@ -1731,6 +1814,10 @@ class Engine:
                     row.append([int(clamp(px[c] * lvl / 255.0, 0, 255))
                                 for c in range(3)])
             out.append(row)
+        # Samme faktor som farven fik. De faste FARVEkanaler (hvid/ravgul/UV)
+        # skal daempes med den, ellers lyser de videre ved niveau 0, slukket
+        # lampe, hovedskyder 0 og BLACKOUT - og "Alt moerkt" blev ikke moerkt.
+        self._light = light
         return out
 
     @staticmethod
@@ -1742,22 +1829,85 @@ class Engine:
         return (t % period) < min(period * 0.25, 0.020)
 
     # -- DMX-pakning ---------------------------------------------------
-    def module_channels(self, mi, pixels):
-        """DMX-kanalerne for én lampe, efter dens profil. Farven r/g/b
-        kommer fra det rendered pixel (som allerede har niveau, grand og
-        strobe regnet ind). Har profilen r/g/b, saettes dimmer til 255 og
-        dimpningen ligger i farven - ligesom pixelmode. Har den ingen
+    def live_ovr_map(self):
+        """Hvilke faste farvekanaler der gaelder pr. lampe, naar Afvikling
+        eller Enkel har taget den. Den styring der ejer lampen, ejer ogsaa
+        dens hvid/ravgul/UV - ellers blev Pultens vaerdier liggende ovenpaa,
+        og en ren farve kunne ikke saettes i Afvikling. Et look uden egne
+        vaerdier giver 0 paa dem alle, saa kun r/g/b bestemmer farven.
+        Looket's egen Lysstyrke daemper dem med - praecis som den daemper
+        farven - og er looket slukket, er de moerke."""
+        ctl = control_of(self.show)
+        now = time.monotonic()
+        out = {}
+        for lk in self.live_looks():
+            if look_src(lk) not in ctl:
+                continue
+            lovr = lk.get("ovr") or {}
+            if not lk.get("on", True):
+                k = 0.0
+            else:
+                k = clamp(look_eased(lk, now)[1], 0, 255) / 255.0
+            if k >= 1.0:
+                scaled = lovr
+            else:
+                scaled = dict((kk, int(clamp(int(vv or 0) * k, 0, 255)))
+                              for kk, vv in lovr.items())
+            for mi in look_targets(self.show, lk):
+                out[mi] = scaled
+        return out
+
+    def colour_ovr_for(self, mi, chans, live_ovr=None, light=None):
+        """De faste FARVEkanalers vaerdier for én lampe: hvem der ejer dem,
+        og med samme daempning som farven fik. Bruges baade til DMX og til
+        simulatoren, saa skaermen viser det lamperne faktisk sender."""
+        m = self.show["modules"][mi]
+        covr = None if live_ovr is None else live_ovr.get(mi)
+        ck = 255 if light is None else (light[mi] if mi < len(light) else 255)
+        defs = dict((c["k"], c.get("def", 0)) for c in chans)
+        out = {}
+        for k in COLOUR_OVR_KEYS:
+            if k not in defs:
+                continue
+            if covr is not None:
+                v = covr.get(k, 0)           # live-styringen ejer dem
+            else:
+                v = (m.get("ovr") or {}).get(k, defs[k])
+            try:
+                v = int(v)
+            except (TypeError, ValueError):
+                v = 0
+            if ck < 255:
+                v = int(v * ck / 255.0)
+            out[k] = int(clamp(v, 0, 255))
+        return out
+
+    def module_channels(self, mi, pixels, live_ovr=None, light=None, pix=0):
+        """DMX-kanalerne for ét segment af én lampe, efter dens profil.
+        Farven r/g/b kommer fra det rendered pixel (som allerede har niveau,
+        grand og strobe regnet ind). Har profilen r/g/b, saettes dimmer til
+        255 og dimpningen ligger i farven - ligesom pixelmode. Har den ingen
         farvekanaler (fx en hvid spot), baerer dimmeren lysstyrken.
-        w/a/uv/strobe/macro tages fra lampens manuelle 'ovr'."""
+        strobe/macro/duration m.fl. tages fra lampens manuelle 'ovr'.
+        De faste FARVEkanaler (hvid/ravgul/UV) tages fra det look der ejer
+        lampen, hvis Afvikling eller Enkel styrer den - se live_ovr_map.
+        'pix' er segmentet: en almindelig lampe har kun 0, en pixel bar har
+        ét pr. segment og profilen beskriver ét segment."""
         m = self.show["modules"][mi]
         prof = profile_for(self.show, m["type"])
         chans = prof["channels"]
         row = pixels[mi] if mi < len(pixels) else []
-        px = row[0] if row else [0, 0, 0]
+        if row:
+            px = row[pix] if 0 <= pix < len(row) else row[0]
+        else:
+            px = [0, 0, 0]
         r, g, b = int(px[0]), int(px[1]), int(px[2])
         has_rgb = any(c["k"] in ("r", "g", "b") for c in chans)
         inten = max(r, g, b)
         ovr = m.get("ovr", {})
+        # Hvid/ravgul/UV: ejet af den styring der har lampen, og daempet
+        # med samme faktor som farven (niveau, hovedskyder, strobe, blackout).
+        covr = self.colour_ovr_for(mi, chans, live_ovr, light)
         buf = bytearray(len(chans))
         dim_max = next((c.get("max") for c in chans if c["k"] == "dimmer"), None)
         for off, c in enumerate(chans):
@@ -1777,6 +1927,8 @@ class Engine:
                 v = b
             elif k == "fixed":
                 v = c.get("def", 0)          # altid samme vaerdi (fx en mode-kanal)
+            elif k in covr:
+                v = covr[k]
             else:
                 v = ovr.get(k, c.get("def", 0))
             try:
@@ -1800,13 +1952,17 @@ class Engine:
     def pack(self, pixels):
         universes = {}
         base = self.show["settings"].get("artnet_base", 0)
+        live_ovr = self.live_ovr_map()
+        light = self.light
         for mi, m in enumerate(self.show["modules"]):
             uni = (m.get("universe", 1) - 1) + base
             buf = universes.setdefault(uni, bytearray(512))
-            chans = self.module_channels(mi, pixels)
-            a = m["address"] - 1
-            if 0 <= a and a + len(chans) <= 512:
-                buf[a:a + len(chans)] = chans
+            block = profile_span(self.show, m["type"])
+            for pi, a1 in enumerate(pixel_addrs(m, block)):
+                chans = self.module_channels(mi, pixels, live_ovr, light, pi)
+                a = a1 - 1
+                if 0 <= a and a + len(chans) <= 512:
+                    buf[a:a + len(chans)] = chans
         self._apply_lamptest(universes, base)
         return universes
 
@@ -1865,15 +2021,38 @@ class Engine:
             out.append(([int(round(v * 255.0 / mx)) for v in avg], int(round(mx))))
         return out
 
+    def _add_ovr_light(self, mi, row, live_ovr):
+        """Laeg lampens faste farvekanaler oveni de viste pixels. Kun til
+        skaermen: DMX'en sender dem paa deres egne kanaler."""
+        prof = profile_for(self.show, self.show["modules"][mi]["type"])
+        covr = self.colour_ovr_for(mi, prof["channels"], live_ovr, self.light)
+        add = [0.0, 0.0, 0.0]
+        for k, v in covr.items():
+            if not v:
+                continue
+            tint = OVR_TINT.get(k)
+            if not tint:
+                continue
+            for c in range(3):
+                add[c] += tint[c] * v / 255.0
+        if add[0] <= 0 and add[1] <= 0 and add[2] <= 0:
+            return row
+        return [[int(clamp(px[c] + add[c], 0, 255)) for c in range(3)]
+                for px in row]
+
     def display(self, pixels):
         """Hvad skaermen skal vise: firmwarens gamma og stroembegraensning,
         derefter tilbage til sRGB saa gammaen ikke rammer to gange."""
         st = self.show["settings"]
         rows, meta = [], []
+        live_ovr = self.live_ovr_map()
         for mi, m in enumerate(self.show["modules"]):
             # Lige efter at der er kommet lamper til, kan framen vaere
             # tegnet til faerre lamper - de nye vises sorte til naeste frame.
             row = pixels[mi] if mi < len(pixels) else [[0, 0, 0]] * m["pixels"]
+            # Hvid, ravgul og UV er ogsaa lys. Laeg dem oveni det viste, saa
+            # skaermen svarer til lampen - ellers ses de slet ikke.
+            row = self._add_ovr_light(mi, row, live_ovr)
             total = sum(sum(px) for px in row)
             est_ma = (total * 20) // 255 + len(row)
             limit = 255
@@ -1951,6 +2130,10 @@ class Engine:
                             self.fade_k = 1.0
                         else:
                             px = self._blend_fade(px, self.fade["from"], k)
+                    # kun den rigtige render saetter lysfaktorerne; under
+                    # freeze beholder vi dem fra sidste frame, saa de faste
+                    # farvekanaler staar stille sammen med farven
+                    self.light = self._light
                 self.pixels = px
                 self.dmx = self.pack(px)
                 cfgs = json.loads(json.dumps(self.show["outputs"]))
@@ -2652,6 +2835,8 @@ def default_look(target, fade=1.0):
         "pattern": "fyldt", "custom": 0,
         "colour_mode": "fast", "colour": [255, 120, 40],
         "cfrom": [255, 120, 40], "lfrom": 255,
+        # looket's egne faste farvekanaler (hvid/ravgul/UV), 0 = slukket
+        "ovr": {},
         "stops": [[255, 0, 0], [0, 0, 255]],
         "hue_speed": 10, "hue_spread": 100,
         "speed": 30, "size": 30, "density": 50, "tail": 40, "steps": 3,
@@ -3492,12 +3677,18 @@ class Handler(BaseHTTPRequestHandler):
                         for c in took:
                             show["live"]["looks"] = [lk for lk in show["live"]["looks"] if look_src(lk) != c]
                         for i, (rgb, lvl) in enumerate(snap):
+                            # tag ogsaa lampens faste farvekanaler med, ellers
+                            # slukkede hvid/ravgul i samme oejeblik som skiftet
+                            mov = show["modules"][i].get("ovr", {}) or {}
+                            cov = dict((k, int(mov[k])) for k in COLOUR_OVR_KEYS
+                                       if mov.get(k))
                             for c in took:
                                 if lvl < 3:
                                     fields = {"on": False}
                                 else:
                                     fields = {"on": True, "level": lvl, "colour": rgb,
-                                              "pattern": "fyldt", "colour_mode": "fast"}
+                                              "pattern": "fyldt", "colour_mode": "fast",
+                                              "ovr": cov}
                                 live_apply(show, {"lamps": [i]}, fields, None, src=c)
                 if ctl != old:
                     # krydsfade med standard-overgangstiden, saa skiftet ikke klipper
@@ -3611,6 +3802,85 @@ class Handler(BaseHTTPRequestHandler):
                     show["modules"].append(mod)
                 eng.touch()
                 return {"ok": True}
+
+            # Pixel bar: én lampe med flere segmenter, hver paa sin egen
+            # adresse. Profilen beskriver ÉT segment (fx RGB = 3 kanaler).
+            # Spring: hvor mange kanaler der er fra et segment til det
+            # naeste - er den 0 bruges profilens egen bredde (taet pakket).
+            # Bagvendt vender raekkefoelgen, saa barens segment 1 ligger
+            # paa den hoejeste adresse - det sker naar baren er kablet
+            # omvendt af hvordan den staar.
+            if op == "pixelbar_add":
+                typ = m.get("type", "gen_rgb3")
+                if typ not in FIXTURE_PROFILES and \
+                        typ not in (show.get("profiles") or {}):
+                    return {"ok": False, "err": "ukendt lampetype"}
+                npx = int(clamp(int(m.get("pixels", 8) or 8), 1, MAX_PIXELS))
+                uni = int(clamp(int(m.get("universe", 1) or 1), 1, 8))
+                addr = int(clamp(int(m.get("address", 1) or 1), 1, 512))
+                block = profile_span(show, typ)
+                # 0 gemmes som 0 = "taet pakket", saa springet foelger med,
+                # hvis segmenttypen senere skiftes til en med flere kanaler
+                raw = int(clamp(int(m.get("step") or 0), 0, 512))
+                step = raw or block
+                if addr + (npx - 1) * step + block - 1 > 512:
+                    return {"ok": False, "err":
+                            "der er ikke plads: %d segmenter á %d kanaler med "
+                            "spring %d fra adresse %d går ud over 512"
+                            % (npx, block, step, addr)}
+                start = len(show["modules"])
+                mod = default_module(start)
+                mod["type"] = typ
+                mod["universe"] = uni
+                mod["address"] = addr
+                mod["pixels"] = npx
+                mod["pstep"] = raw
+                if m.get("reverse_addr"):
+                    mod["paddr"] = [addr + (npx - 1 - i) * step
+                                    for i in range(npx)]
+                else:
+                    mod["paddr"] = []
+                mod["name"] = m.get("name") or ("Pixel bar %d" % (start + 1))
+                mod["len"] = float(clamp(float(m.get("len") or 1.0), 0.1, 12.0))
+                mod["x"] = -2.0
+                mod["y"] = 2.2 - (start // 12) * 1.4
+                show["modules"].append(mod)
+                eng.touch()
+                return {"ok": True, "index": start, "pixels": npx,
+                        "addrs": pixel_addrs(mod, block)}
+
+            # Ret segmenterne paa en pixel bar: antal, spring og de enkelte
+            # adresser. En tom/0 adresse foelger springet fra start.
+            if op == "pixelbar_set":
+                i = int(m.get("index", -1))
+                if not (0 <= i < len(show["modules"])):
+                    return {"ok": False, "err": "ukendt lampe"}
+                mod = show["modules"][i]
+                block = profile_span(show, mod["type"])
+                if "pixels" in m:
+                    mod["pixels"] = int(clamp(int(m.get("pixels") or 1), 1, MAX_PIXELS))
+                if "step" in m:
+                    mod["pstep"] = int(clamp(int(m.get("step") or 0), 0, 512))
+                if "addrs" in m:
+                    out = []
+                    for v in (m.get("addrs") or [])[:pixel_count(mod)]:
+                        try:
+                            out.append(int(clamp(int(v or 0), 0, 512)))
+                        except (TypeError, ValueError):
+                            out.append(0)
+                    mod["paddr"] = out
+                if "reverse_addr" in m:
+                    npx = pixel_count(mod)
+                    step = int(mod.get("pstep") or block)
+                    a0 = int(mod["address"])
+                    mod["paddr"] = ([a0 + (npx - 1 - k) * step for k in range(npx)]
+                                    if m.get("reverse_addr") else [])
+                # segmenter der ikke kan vaere i universet, meldes tilbage -
+                # de sendes ikke, men vaerdien bliver staaende saa den kan rettes
+                bad = [a for a in pixel_addrs(mod, block) if a < 1 or a + block - 1 > 512]
+                eng.touch()
+                return {"ok": True, "addrs": pixel_addrs(mod, block),
+                        "outside": bad}
 
             if op == "fixture_del":
                 i = int(m.get("index", len(show["modules"]) - 1))
@@ -4104,6 +4374,23 @@ def migrate_show(show):
         m.setdefault("lbl", True)
         m.setdefault("lx", 0.0)
         m.setdefault("ly", 0.0)
+        # pixel bar: antal segmenter, spring og eventuelle egne adresser
+        m["pixels"] = pixel_count(m)
+        try:
+            m["pstep"] = int(clamp(int(m.get("pstep") or 0), 0, 512))
+        except (TypeError, ValueError):
+            m["pstep"] = 0
+        pa = m.get("paddr")
+        if not isinstance(pa, list):
+            m["paddr"] = []
+        else:
+            out = []
+            for v in pa[:m["pixels"]]:
+                try:
+                    out.append(int(clamp(int(v), 0, 512)))
+                except (TypeError, ValueError):
+                    out.append(0)
+            m["paddr"] = out
     tabs = show.setdefault("scene_tabs", [{"id": "main", "name": "Scener"}])
     if not tabs:
         tabs.append({"id": "main", "name": "Scener"})

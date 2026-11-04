@@ -250,6 +250,43 @@ function lampProfile(m) {
   return all[m.type] || { name: m.type, shape: "par", channels: [{ k: "dimmer", n: "Dimmer" }] };
 }
 function lampSpan(m) { return lampProfile(m).channels.length; }
+/* Pixel bar: én lampe med flere segmenter, hver på sin egen adresse.
+   Profilen beskriver ÉT segment, og "pixels" siger hvor mange der er.
+   Spejler dmxmixer.py — ret begge steder hvis reglerne ændres. */
+var MAX_PIXELS = 170;
+function lampPixels(m) {
+  var n = parseInt(m && m.pixels, 10);
+  if (!n || n < 1) return 1;
+  return n > MAX_PIXELS ? MAX_PIXELS : n;
+}
+function isPixelBar(m) { return lampPixels(m) > 1; }
+/* adressen for hvert segment - 0/tom i paddr følger springet fra start */
+function lampAddrs(m) {
+  var n = lampPixels(m), a0 = parseInt(m.address, 10) || 1;
+  if (n <= 1) return [a0];
+  var block = lampSpan(m);
+  var step = parseInt(m.pstep, 10) || block;
+  var pa = m.paddr || [], out = [], i, v;
+  for (i = 0; i < n; i++) {
+    v = parseInt(pa[i], 10) || 0;
+    out.push(v > 0 ? v : a0 + i * step);
+  }
+  return out;
+}
+/* hvor mange kanaler lampen fylder fra sin laveste adresse */
+function lampTotalSpan(m) {
+  var block = lampSpan(m);
+  if (!isPixelBar(m)) return block;
+  var a = lampAddrs(m), lo = a[0], hi = a[0], i;
+  for (i = 1; i < a.length; i++) { if (a[i] < lo) lo = a[i]; if (a[i] > hi) hi = a[i]; }
+  var sp = hi + block - 1 - lo + 1;
+  return sp > block ? sp : block;
+}
+function lampLastCh(m) {
+  var a = lampAddrs(m), hi = a[0], i;
+  for (i = 1; i < a.length; i++) if (a[i] > hi) hi = a[i];
+  return hi + lampSpan(m) - 1;
+}
 function lampHasKey(m, k) {
   var ch = lampProfile(m).channels, i;
   for (i = 0; i < ch.length; i++) if (ch[i].k === k) return true;
@@ -1623,7 +1660,10 @@ function paintGroupSwatches(px) {
 /* ------------------------------------------------------- faste kanaler */
 /* Manuelle kanaler (hvid, ravgul, UV, strobe, makro) der ligger uden for
    farvemotoren. Rammer lamperne i det lag du redigerer (tom maske = alle).
-   Kun kanaler som mindst én af mållamperne faktisk har, vises. */
+   Kun kanaler som mindst én af mållamperne faktisk har, vises.
+   Hvid, ravgul og UV hører til Pulten: har Afvikling eller Enkel taget
+   lampen, er det DERES værdier der gælder, så en ren farve er mulig der.
+   Afvikling har sine egne under Farve → Faste farvekanaler. */
 function manualTargets() {
   var mask = S.layers[layer].mask, idxs = [];
   S.modules.forEach(function (m, i) {
@@ -1941,6 +1981,15 @@ function drawStage() {
     var col = (frame && frame[i]) ? ("#" + frame[i].substr(0, 6)) : "#202530";
     var lit = m.on && frame && frame[i] && frame[i].substr(0, 6) !== "000000";
 
+    /* en pixel bar tegnes med sine segmenter, så chasen kan ses */
+    if (isPixelBar(m)) {
+      drawPixelBar(g, m, cx2, cy2, rad, scale, frame && frame[i], sel);
+      g.fillStyle = cssvar("--muted");
+      g.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+      g.textAlign = "left";
+      g.fillText(String(m.num != null ? m.num : (i + 1)), cx2 + rad + 3, cy2 - rad + 2);
+      return;
+    }
     if (lit) {
       g.save(); g.globalAlpha = 0.35; g.fillStyle = col;
       g.beginPath(); g.arc(cx2, cy2, rad * 1.9, 0, 6.283); g.fill(); g.restore();
@@ -2119,6 +2168,48 @@ function roundRect(g, x, y, w, h, r) {
   g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r);
   g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y);
   g.closePath();
+}
+/* Pixel bar på en scenetegning: ét felt pr. segment i barens egen
+   længde og drejning, hvert med sin egen farve fra framen. Så kan man se
+   en chase løbe hen over baren i stedet for bare én samlet farve.
+   hexrow er framens hex-streng for lampen: 6 tegn pr. segment. */
+function segColour(hexrow, k) {
+  if (!hexrow) return null;
+  var h = hexrow.substr(k * 6, 6);
+  return (h && h.length === 6) ? h : null;
+}
+function drawPixelBar(g, m, cx, cy, rad, scale, hexrow, sel) {
+  var n = lampPixels(m);
+  var lenM = parseFloat(m.len) || 1.0;
+  var wpx = Math.max(n * 3, lenM * scale);
+  var hpx = Math.max(5, rad * 0.64);
+  var ang = -(m.rot || 0) * Math.PI / 180;
+  var seg = wpx / n, k, h, any = false;
+  g.save();
+  g.translate(cx, cy); g.rotate(ang);
+  /* glød hvis noget lyser */
+  for (k = 0; k < n; k++) { if (segColour(hexrow, k) && segColour(hexrow, k) !== "000000") { any = true; break; } }
+  if (any && m.on) {
+    g.save(); g.globalAlpha = 0.3;
+    for (k = 0; k < n; k++) {
+      h = segColour(hexrow, k);
+      if (!h || h === "000000") continue;
+      g.fillStyle = "#" + h;
+      g.fillRect(-wpx / 2 + k * seg - seg * 0.3, -hpx * 1.5, seg * 1.6, hpx * 3);
+    }
+    g.restore();
+  }
+  /* segmenterne */
+  for (k = 0; k < n; k++) {
+    h = segColour(hexrow, k);
+    g.fillStyle = (m.on && h) ? ("#" + h) : cssvar("--panel2");
+    g.fillRect(-wpx / 2 + k * seg, -hpx / 2, Math.max(1, seg - 1), hpx);
+  }
+  /* ramme om hele baren */
+  g.lineWidth = sel ? 4 : 2;
+  g.strokeStyle = sel ? cssvar("--accent") : (m.on ? cssvar("--ink") : cssvar("--dim"));
+  g.strokeRect(-wpx / 2, -hpx / 2, wpx, hpx);
+  g.restore();
 }
 /* raa skaermposition i canvas-pixels */
 function stageRaw(ev) {
@@ -2398,7 +2489,9 @@ function buildPatch() {
   var bad = patchConflicts();
   var all = profilesAll();
   S.modules.forEach(function (m, i) {
-    var span = lampSpan(m), end = m.address + span - 1;
+    var bar = isPixelBar(m);
+    var span = bar ? lampSpan(m) * lampPixels(m) : lampSpan(m);
+    var end = bar ? lampLastCh(m) : m.address + span - 1;
     var tr = el("tr", bad[i] ? "conflict" : "");
     tr.setAttribute("draggable", "true");
     tr.dataset.idx = i;
@@ -2452,7 +2545,16 @@ function buildPatch() {
 
     tr.appendChild(patchNum(m, i, "universe", 1, 8));
     tr.appendChild(patchNum(m, i, "address", 1, 512));
-    tr.appendChild(el("td", "", String(span)));
+    var tdsp = el("td");
+    if (bar) {
+      /* en bar: vis kanaltallet og en knap til segmenternes adresser */
+      tdsp.appendChild(el("span", "", String(span)));
+      var bseg = el("button", "sm", lampPixels(m) + "×" + lampSpan(m));
+      bseg.title = t("Ret segmenternes adresser");
+      bseg.onclick = function () { openPixelBar(i); };
+      tdsp.appendChild(bseg);
+    } else tdsp.textContent = String(span);
+    tr.appendChild(tdsp);
     var tde = el("td", "", String(end));
     if (end > 512) tde.style.color = "var(--alarm)";
     tr.appendChild(tde);
@@ -3382,23 +3484,24 @@ function patchNum(m, i, key, min, max) {
   };
   td.appendChild(inp); return td;
 }
+/* Hvilke lamper deler kanaler med en anden - eller rækker ud over 512.
+   Vi lægger hver lampes kanaler ned i et kort pr. univers. Det er præcist
+   også for en pixel bar, hvis segmenter kan ligge spredt med huller
+   imellem: kun de kanaler den faktisk bruger, tæller med. */
 function patchConflicts() {
-  var bad = {}, byU = {};
-  S.modules.forEach(function (m, i) { (byU[m.universe] = byU[m.universe] || []).push(i); });
-  var u;
-  for (u in byU) {
-    var arr = byU[u].slice().sort(function (a, b) {
-      return S.modules[a].address - S.modules[b].address;
-    });
-    for (var p = 0; p < arr.length; p++) {
-      var A = arr[p], aEnd = S.modules[A].address + lampSpan(S.modules[A]) - 1;
-      if (aEnd > 512) bad[A] = true;
-      for (var q = p + 1; q < arr.length; q++) {
-        var B = arr[q];
-        if (S.modules[B].address <= aEnd) { bad[A] = true; bad[B] = true; } else break;
+  var bad = {}, maps = {};
+  S.modules.forEach(function (m, i) {
+    var u = m.universe || 1;
+    var mp = maps[u] || (maps[u] = {});
+    var block = lampSpan(m), addrs = lampAddrs(m);
+    addrs.forEach(function (a) {
+      if (a < 1 || a + block - 1 > 512) { bad[i] = true; return; }
+      for (var c = a; c < a + block; c++) {
+        if (mp[c] !== undefined && mp[c] !== i) { bad[i] = true; bad[mp[c]] = true; }
+        else mp[c] = i;
       }
-    }
-  }
+    });
+  });
   return bad;
 }
 function buildPatchTypes() {
@@ -3896,8 +3999,14 @@ function drawAfStage() {
     var prof = lampProfile(m), X = afX(m.x), Y = afY(m.y), rad = Math.max(8, afScale * 0.26);
     var col = (frame && frame[i]) ? ("#" + frame[i].substr(0, 6)) : "#202530";
     var lit = m.on && frame && frame[i] && frame[i].substr(0, 6) !== "000000";
-    if (lit) { g.save(); g.globalAlpha = 0.35; g.fillStyle = col; g.beginPath(); g.arc(X, Y, rad * 1.9, 0, 6.283); g.fill(); g.restore(); }
     var selp = inArr(afSel, i);
+    if (isPixelBar(m)) {
+      drawPixelBar(g, m, X, Y, rad, afScale, frame && frame[i], selp);
+      g.fillStyle = cssvar("--muted"); g.font = "bold 11px " + getComputedStyle(document.body).fontFamily; g.textAlign = "left";
+      g.fillText(String(m.num != null ? m.num : (i + 1)), X + rad + 3, Y - rad + 2);
+      return;
+    }
+    if (lit) { g.save(); g.globalAlpha = 0.35; g.fillStyle = col; g.beginPath(); g.arc(X, Y, rad * 1.9, 0, 6.283); g.fill(); g.restore(); }
     g.lineWidth = selp ? 4 : 2;
     g.strokeStyle = selp ? cssvar("--accent") : (m.on ? cssvar("--ink") : cssvar("--dim"));
     g.fillStyle = m.on ? col : cssvar("--panel2");
@@ -3980,6 +4089,11 @@ function afLook() {
   for (var i = 0; i < ll.length; i++) if (ll[i].key === k) return ll[i];
   return null;
 }
+/* de lamper det valgte rammer - til at se hvilke faste kanaler de har */
+function afLamps() {
+  var tgt = afTarget();
+  return tgt.group ? groupLeaves(tgt.group) : (tgt.lamps || []);
+}
 function afGlobalFade() {
   return (S && S.live && S.live.fade != null) ? S.live.fade : 1.0;
 }
@@ -4054,7 +4168,7 @@ function afBadges(g) {
 function afDefaultDraft() {
   return { on: true, level: 255, fade: afGlobalFade(), pattern: "fyldt", colour_mode: "fast",
     colour: [255, 120, 40], stops: [[255, 0, 0], [0, 0, 255]], hue_speed: 10, hue_spread: 100,
-    speed: 30, size: 30, density: 50, tail: 40, steps: 3, dir: 1, spread: 0 };
+    speed: 30, size: 30, density: 50, tail: 40, steps: 3, dir: 1, spread: 0, ovr: {} };
 }
 function afSelChanged() {
   var lk = afLook();
@@ -4062,6 +4176,9 @@ function afSelChanged() {
     afDraft = {};
     var d = afDefaultDraft(); for (var k in d) afDraft[k] = (lk[k] != null ? lk[k] : d[k]);
     afDraft.colour = (lk.colour || [255, 120, 40]).slice();
+    /* egen kopi, så skyderne ikke retter direkte i showets look */
+    afDraft.ovr = {};
+    if (lk.ovr) for (var ok in lk.ovr) afDraft.ovr[ok] = lk.ovr[ok];
   } else afDraft = afDefaultDraft();
   var hv = rgb2hsv(afDraft.colour[0], afDraft.colour[1], afDraft.colour[2]); afHue = hv[0];
   buildAfCtrl(); buildAfIcons(); drawAfStage();
@@ -4234,6 +4351,7 @@ function buildAfCtrl() {
   if (afPicker === "felt") afBuildField(box, chip);
   else if (afPicker === "skydere") afBuildSliders(box, chip);
   else afBuildSwatches(box, chip);
+  afBuildOvr(box);
 
   /* mønster m.m. */
   box = sec("moenster");
@@ -4346,6 +4464,56 @@ var throttledLive = (function () {
   };
 })();
 
+/* Afviklings egne faste farvekanaler: hvid, ravgul og UV hører til det
+   look man redigerer - ikke til Pulten. Står de på 0, bestemmer R/G/B
+   farven helt alene, så en ren farve er mulig. Vises kun for de kanaler
+   mindst én af lamperne faktisk har. */
+var AF_OVR_KEYS = ["w", "a", "uv"];
+function afBuildOvr(box) {
+  var lamps = afLamps(); if (!lamps.length) return;
+  var LAB = { w: t("Hvid"), a: t("Ravgul"), uv: "UV" };
+  var have = AF_OVR_KEYS.filter(function (k) {
+    for (var i = 0; i < lamps.length; i++) {
+      var m = S.modules[lamps[i]];
+      if (m && lampHasKey(m, k)) return true;
+    }
+    return false;
+  });
+  if (!have.length) return;
+  if (!afDraft.ovr) afDraft.ovr = {};
+  box.appendChild(el("div", "af-sec", t("Faste farvekanaler")));
+  var any = false;
+  have.forEach(function (k) {
+    var cur = parseInt(afDraft.ovr[k], 10) || 0;
+    if (cur > 0) any = true;
+    var r = el("div", "af-row");
+    r.appendChild(el("span", "k", LAB[k] || k));
+    var i = document.createElement("input");
+    i.type = "range"; i.min = 0; i.max = 255; i.value = cur;
+    i.setAttribute("data-ovr", k);
+    var v = el("span", "v", String(cur));
+    i.oninput = function () {
+      var x = parseInt(i.value, 10);
+      v.textContent = x; afDraft.ovr[k] = x;
+      var cp = {}; for (var kk in afDraft.ovr) cp[kk] = afDraft.ovr[kk];
+      throttledLive("ovr", { ovr: cp });
+    };
+    r.appendChild(i); r.appendChild(v);
+    box.appendChild(r);
+  });
+  var br = el("div", "af-row");
+  var off = el("button", "sm", t("Sluk dem alle")); off.id = "af-ovr-off";
+  off.disabled = !any;
+  off.onclick = function () {
+    var cp = {};
+    have.forEach(function (k) { afDraft.ovr[k] = 0; cp[k] = 0; });
+    afSend({ ovr: cp }, false);
+    buildAfCtrl();
+  };
+  br.appendChild(off);
+  box.appendChild(br);
+  box.appendChild(el("div", "hint", t("Lamper med hvid, ravgul eller UV lyser også med dem. De hører til dette valg — står de på 0, er det kun R/G/B der bestemmer farven. De dæmpes med lysstyrken og slukker ved Alt mørkt.")));
+}
 function afSetColour(c, useFade) { afDraft.colour = c.slice(); var ch = id("af-chip"); if (ch) ch.style.background = hex(c); afSend({ colour: c, colour_mode: "fast" }, useFade); }
 function afBuildSliders(box, chip) {
   var wrap = el("div", "af-rgb");
@@ -4515,6 +4683,278 @@ function openLib() {
   });
 }
 function closeLib() { id("lib").className = ""; libImport = null; }
+
+/* ----------------------------------------------------------- pixel bar */
+/* En pixel bar er ÉN lampe med flere segmenter. Lampetypen beskriver et
+   enkelt segment (fx RGB = 3 kanaler), og antallet siger hvor mange der
+   er. Adresserne kan sættes helt frit, så de passer til kablingen:
+   almindeligt spring, et større spring (hvis baren har huller i sit
+   kanalkort), bagvendt, eller én adresse ad gangen.
+   pbEdit = indekset på den lampe der rettes, eller -1 = opret ny. */
+var pbEdit = -1, pbNew = null;
+function pbDefaults() {
+  return { type: "gen_rgb3", pixels: 8, universe: 1, address: 1, step: 0,
+           reverse: false, len: 1.0, name: "" };
+}
+function openPixelBar(i) {
+  pbEdit = (i == null ? -1 : i);
+  if (pbEdit < 0) {
+    pbNew = pbDefaults();
+    /* start efter den sidste lampe, så man ikke rammer noget */
+    var hi = 0;
+    S.modules.forEach(function (m) {
+      if ((m.universe || 1) !== 1) return;
+      var e = lampLastCh(m); if (e > hi) hi = e;
+    });
+    pbNew.address = Math.min(512, hi + 1);
+  }
+  id("pbar").className = "on";
+  buildPixelBar();
+}
+function closePixelBar() { id("pbar").className = ""; pbEdit = -1; pbNew = null; }
+
+/* de lampetyper der giver mening som ét segment: ingen faste mode-kanaler,
+   og højst 8 kanaler - ellers er det ikke en pixel, men en hel lampe */
+function pbTypes() {
+  var all = profilesAll(), out = [], k;
+  for (k in all) {
+    var p = all[k], ch = p.channels || [];
+    if (!ch.length || ch.length > 8) continue;
+    var hasCol = false, hasMode = false;
+    ch.forEach(function (c) {
+      if (c.k === "r" || c.k === "g" || c.k === "b") hasCol = true;
+      if (c.k === "fixed" || c.k === "preset" || c.k === "sound" || c.k === "delay") hasMode = true;
+    });
+    if (hasCol && !hasMode) out.push([k, p.name, ch.length]);
+  }
+  out.sort(function (a, b) { return a[2] - b[2] || (a[1] < b[1] ? -1 : 1); });
+  return out;
+}
+function pbRow(box, label, hint) {
+  var r = el("div", "rowline");
+  r.appendChild(el("span", "k", label));
+  box.appendChild(r);
+  if (hint) box.appendChild(el("div", "hint", hint));
+  return r;
+}
+function buildPixelBar() {
+  var box = id("pbarbody"); if (!box) return;
+  box.innerHTML = "";
+  var isNew = pbEdit < 0;
+  var m = isNew ? null : S.modules[pbEdit];
+  if (!isNew && !m) { closePixelBar(); return; }
+
+  var cfg;
+  if (isNew) cfg = pbNew;
+  else cfg = { type: m.type, pixels: lampPixels(m), universe: m.universe || 1,
+               address: m.address, step: parseInt(m.pstep, 10) || 0,
+               reverse: false, len: m.len || 1.0, name: m.name };
+
+  box.appendChild(el("div", "pt-sec", isNew ? t("Ny pixel bar")
+    : t("Pixel bar") + ": " + (m.name || "")));
+
+  /* --- lampetype pr. segment (kun ved oprettelse) --- */
+  if (isNew) {
+    var tr1 = pbRow(box, t("Segmentets type"),
+      t("Hvad ét segment er — typen beskriver ét segment, ikke hele baren."));
+    var tsel = el("select");
+    var types = pbTypes();
+    if (!types.length) {
+      box.appendChild(el("div", "hint", t("Der er ingen lampetyper med farvekanaler. Lav en under Lampetyper først.")));
+      return;
+    }
+    types.forEach(function (x) {
+      var o = el("option", "", x[1] + " — " + x[2] + " " + t("kan."));
+      o.value = x[0]; if (x[0] === cfg.type) o.selected = true;
+      tsel.appendChild(o);
+    });
+    if (tsel.selectedIndex < 0) tsel.selectedIndex = 0;
+    cfg.type = tsel.value;
+    tsel.onchange = function () { cfg.type = tsel.value; buildPixelBar(); };
+    tr1.appendChild(tsel);
+
+    var trn = pbRow(box, t("Navn"));
+    var nin = document.createElement("input");
+    nin.type = "text"; nin.value = cfg.name;
+    nin.placeholder = t("Pixel bar");
+    nin.oninput = function () { cfg.name = nin.value; };
+    trn.appendChild(nin);
+  }
+
+  var block = (profilesAll()[cfg.type] || { channels: [] }).channels.length || 1;
+
+  /* --- antal segmenter --- */
+  var tr2 = pbRow(box, t("Antal segmenter"));
+  var nin2 = document.createElement("input");
+  nin2.type = "number"; nin2.min = 1; nin2.max = MAX_PIXELS; nin2.value = cfg.pixels;
+  nin2.id = "pb-n";
+  nin2.onchange = function () {
+    var v = parseInt(nin2.value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    if (v > MAX_PIXELS) v = MAX_PIXELS;
+    nin2.value = v; cfg.pixels = v;
+    if (!isNew) pbApply({ pixels: v });
+    else buildPixelBar();
+  };
+  tr2.appendChild(nin2);
+
+  /* --- univers og startadresse --- */
+  var tr3 = pbRow(box, t("Univers"));
+  var uin = document.createElement("input");
+  uin.type = "number"; uin.min = 1; uin.max = 8; uin.value = cfg.universe;
+  uin.onchange = function () {
+    var v = parseInt(uin.value, 10) || 1; uin.value = v; cfg.universe = v;
+    if (!isNew) setv(["modules", pbEdit, "universe"], v, function () { buildPixelBar(); buildPatch(); });
+  };
+  tr3.appendChild(uin);
+
+  var tr4 = pbRow(box, t("Start-adresse"));
+  var ain = document.createElement("input");
+  ain.type = "number"; ain.min = 1; ain.max = 512; ain.value = cfg.address;
+  ain.id = "pb-addr";
+  ain.onchange = function () {
+    var v = parseInt(ain.value, 10) || 1; ain.value = v; cfg.address = v;
+    if (!isNew) setv(["modules", pbEdit, "address"], v, function () { buildPixelBar(); buildPatch(); });
+    else buildPixelBar();
+  };
+  tr4.appendChild(ain);
+
+  /* --- spring --- */
+  var tr5 = pbRow(box, t("Spring"),
+    t("Kanaler fra ét segment til det næste. 0 = lige efter hinanden (segmentets egen bredde). Sæt den højere, hvis baren har huller i sit kanalkort."));
+  var sin = document.createElement("input");
+  sin.type = "number"; sin.min = 0; sin.max = 512; sin.value = cfg.step;
+  sin.id = "pb-step";
+  sin.placeholder = String(block);
+  sin.onchange = function () {
+    var v = parseInt(sin.value, 10); if (isNaN(v) || v < 0) v = 0;
+    sin.value = v; cfg.step = v;
+    if (!isNew) pbApply({ step: v });
+    else buildPixelBar();
+  };
+  tr5.appendChild(sin);
+
+  /* --- bagvendt --- */
+  var tr6 = pbRow(box, t("Bagvendt"),
+    t("Segment 1 får den højeste adresse. Brug den, hvis baren er monteret omvendt af hvordan den er kablet."));
+  var rb = el("button", "sm", t("Vend adresserne"));
+  rb.id = "pb-rev";
+  rb.onclick = function () {
+    if (isNew) { cfg.reverse = !cfg.reverse; press(rb, cfg.reverse); buildPixelBar(); }
+    else pbApply({ reverse_addr: true });
+  };
+  if (isNew) press(rb, cfg.reverse);
+  tr6.appendChild(rb);
+  if (!isNew) {
+    var rb2 = el("button", "sm", t("Nulstil til springet"));
+    rb2.id = "pb-norev";
+    rb2.onclick = function () { pbApply({ reverse_addr: false }); };
+    tr6.appendChild(rb2);
+  }
+
+  /* --- segmenternes adresser --- */
+  var addrs = isNew ? pbPreview(cfg, block) : lampAddrs(m);
+  box.appendChild(el("div", "pt-sec", t("Segmenternes adresser")));
+  box.appendChild(el("div", "hint", isNew
+    ? t("Sådan ligger de med de valg du har gjort. Når baren er oprettet, kan hver enkelt adresse rettes.")
+    : t("Ret en adresse for at flytte netop det segment. Tom eller 0 følger springet fra start-adressen.")));
+  var seg = el("div", "pb-seg");
+  addrs.forEach(function (a, k) {
+    var c = el("div", "pb-s" + ((a < 1 || a + block - 1 > 512) ? " bad" : ""));
+    c.appendChild(el("span", "n", t("Segment") + " " + (k + 1)));
+    if (isNew) {
+      c.appendChild(el("span", "", String(a) + "–" + (a + block - 1)));
+    } else {
+      var inp = document.createElement("input");
+      inp.type = "number"; inp.min = 0; inp.max = 512;
+      inp.value = (m.paddr && m.paddr[k]) ? m.paddr[k] : "";
+      inp.placeholder = String(a);
+      inp.setAttribute("data-seg", k);
+      inp.onchange = function () {
+        var list = [], j, v;
+        var n = lampPixels(m);
+        var all = id("pbarbody").getElementsByTagName("input");
+        var byseg = {};
+        for (j = 0; j < all.length; j++) {
+          var s = all[j].getAttribute("data-seg");
+          if (s !== null) byseg[parseInt(s, 10)] = all[j].value;
+        }
+        for (j = 0; j < n; j++) {
+          v = parseInt(byseg[j], 10);
+          list.push(isNaN(v) || v < 0 ? 0 : v);
+        }
+        pbApply({ addrs: list });
+      };
+      c.appendChild(inp);
+    }
+    seg.appendChild(c);
+  });
+  box.appendChild(seg);
+
+  /* --- opsummering --- */
+  var lo = addrs[0], hi = addrs[0];
+  addrs.forEach(function (a) { if (a < lo) lo = a; if (a > hi) hi = a; });
+  var sum = el("div", "pb-sum");
+  sum.appendChild(el("div", "", t("I alt {ch} kanaler — fra {lo} til {hi}",
+    { ch: addrs.length * block, lo: lo, hi: hi + block - 1 })));
+  var over = addrs.filter(function (a) { return a < 1 || a + block - 1 > 512; });
+  if (over.length) {
+    var w = el("div", "", t("{n} segmenter ligger uden for universet og sendes ikke.",
+      { n: over.length }));
+    w.style.color = "var(--alarm)";
+    sum.appendChild(w);
+  }
+  box.appendChild(sum);
+
+  /* --- knapper --- */
+  var btns = el("div", "btns"); btns.style.marginTop = "11px";
+  if (isNew) {
+    var add = el("button", "wz-primary", t("Opret pixel bar")); add.id = "pb-add";
+    add.disabled = !!over.length;
+    add.onclick = function () {
+      api({ op: "pixelbar_add", type: cfg.type, pixels: cfg.pixels,
+            universe: cfg.universe, address: cfg.address, step: cfg.step,
+            reverse_addr: cfg.reverse, len: cfg.len,
+            name: cfg.name || null }, function (r) {
+        if (r && r.ok === false) { toast(r.err || t("Kunne ikke oprette baren")); return; }
+        refresh(function () {
+          closePixelBar(); buildPatch(); drawStage();
+          toast(t("Pixel bar oprettet med") + " " + cfg.pixels + " " + t("segmenter"));
+        });
+      });
+    };
+    btns.appendChild(add);
+  } else {
+    var dl = el("button", "ghost", t("Fjern baren")); dl.id = "pb-del";
+    dl.onclick = function () {
+      if (!confirm(t("Fjern") + " " + (m.name || t("Pixel bar")) + "?")) return;
+      api({ op: "fixture_del", index: pbEdit }, function () {
+        refresh(function () { closePixelBar(); buildPatch(); drawStage(); });
+      });
+    };
+    btns.appendChild(dl);
+  }
+  var cl = el("button", "", t("Luk")); cl.onclick = closePixelBar;
+  btns.appendChild(cl);
+  box.appendChild(btns);
+}
+/* adresserne som de VIL ligge, før baren er oprettet */
+function pbPreview(cfg, block) {
+  var step = cfg.step || block, out = [], i;
+  for (i = 0; i < cfg.pixels; i++) {
+    out.push(cfg.reverse ? cfg.address + (cfg.pixels - 1 - i) * step
+                         : cfg.address + i * step);
+  }
+  return out;
+}
+function pbApply(fields) {
+  var m = { op: "pixelbar_set", index: pbEdit }, k;
+  for (k in fields) m[k] = fields[k];
+  api(m, function (r) {
+    if (r && r.ok === false) { toast(r.err || t("Kunne ikke rette baren")); return; }
+    refresh(function () { buildPixelBar(); buildPatch(); drawStage(); });
+  });
+}
 function buildLibList(filter) {
   var grid = id("libgrid"); grid.innerHTML = "";
   filter = (filter || "").toLowerCase();
@@ -6715,12 +7155,16 @@ function wire() {
   id("pa-lib").onclick = openLib;
   id("lib-close").onclick = closeLib;
   id("lib-search").oninput = function () { buildLibList(this.value); };
+  id("pa-pbar").onclick = function () { openPixelBar(-1); };
+  id("pbar-close").onclick = closePixelBar;
   id("pa-import").onclick = function () { id("pa-file").click(); };
   id("pa-file").onchange = function () {
     var f = this.files[0]; if (f) importFixtureFile(f); this.value = "";
   };
   document.addEventListener("keydown", function (e) {
-    if (e.keyCode === 27 && id("lib").className === "on") closeLib();
+    if (e.keyCode !== 27) return;
+    if (id("pbar").className === "on") closePixelBar();
+    else if (id("lib").className === "on") closeLib();
   }, false);
 
   id("ed-lamp").onchange = function () { edLamp = parseInt(this.value, 10) || 0; buildEditor(); };
