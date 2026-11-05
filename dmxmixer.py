@@ -1596,6 +1596,32 @@ class Engine:
                     claim.add(mi)
         return claim
 
+    def live_owner(self, looks=None):
+        """Hvilket look der ejer hver lampe inden for sin egen styring.
+        Rammer to looks fra SAMME styring den samme lampe - fx et gruppe-look
+        og et lampe-look fra 'overtag farverne', eller to grupper der deler
+        lamper - er det det SIDST roerte der gaelder. Ellers blev de blandet
+        med max, og en moerk farve man trykkede kunne druknes af et aeldre,
+        lysere look; brugeren oplevede det som "et levn".
+        Looks fra FORSKELLIGE styringer blandes stadig med HTP - det sker kun
+        naar man selv har slaaet "Flere paa én gang" til, og der er det
+        meningen at den lyseste vinder."""
+        nmods = len(self.show["modules"])
+        best = {}
+        for look in self.live_looks(looks):
+            src = look_src(look)
+            seq = int(look.get("seq") or 0)
+            lid = look.get("id") or look.get("key")
+            for mi in look_targets(self.show, look):
+                if not (0 <= mi < nmods):
+                    continue
+                k = (src, mi)
+                cur = best.get(k)
+                # uden loebenummer (gamle shows) vinder den sidste i listen
+                if cur is None or seq >= cur[0]:
+                    best[k] = (seq, lid)
+        return dict((k, v[1]) for k, v in best.items())
+
     def live_layers(self, looks=None):
         """Byg et lag pr. aktivt gruppe-look. Hvert look peger paa en gruppe
         eller en ad-hoc markering; lamperne faar u ud fra deres plads i
@@ -1605,6 +1631,7 @@ class Engine:
             return []
         nmods = len(self.show["modules"])
         now = time.monotonic()
+        owner = self.live_owner(looks)
         out = []
         for look in src:
             if not look.get("on", True):
@@ -1615,6 +1642,14 @@ class Engine:
                 continue
             col, lvl = look_eased(look, now)
             if lvl <= 0:
+                continue
+            # Kun de lamper looket ejer, lyser af det. Nummereringen beholder
+            # HELE gruppen, saa en chase stadig loeber i gruppens raekkefoelge,
+            # ogsaa naar et nyere look har taget nogle af lamperne.
+            lid = look.get("id") or look.get("key")
+            lsrc = look_src(look)
+            mine = [mi for mi in order_list if owner.get((lsrc, mi)) == lid]
+            if not mine:
                 continue
             # Nummereringen regnes i SEGMENTER, ikke i lamper: en pixel bar
             # fylder lige saa mange pladser som den har segmenter, saa
@@ -1629,7 +1664,7 @@ class Engine:
             L.update({
                 "name": look.get("name", "Look"),
                 "on": True, "opacity": int(clamp(lvl, 0, 255)), "blend": "max",
-                "mask": order_list, "order": order,
+                "mask": mine, "order": order,
                 "order_n": max(1, total), "domain": "order",
                 "pattern": look.get("pattern", "fyldt"),
                 "custom": int(look.get("custom", 0)),
@@ -1839,10 +1874,14 @@ class Engine:
         farven - og er looket slukket, er de moerke."""
         ctl = control_of(self.show)
         now = time.monotonic()
+        # samme udvalg som renderingen bruger: kun looks fra de styringer der
+        # har kontrollen, og derefter det der ejer lampen
+        mine = [lk for lk in self.live_looks() if look_src(lk) in ctl]
+        owner = self.live_owner(mine)
         out = {}
-        for lk in self.live_looks():
-            if look_src(lk) not in ctl:
-                continue
+        for lk in mine:
+            lsrc = look_src(lk)
+            lid = lk.get("id") or lk.get("key")
             lovr = lk.get("ovr") or {}
             if not lk.get("on", True):
                 k = 0.0
@@ -1854,6 +1893,9 @@ class Engine:
                 scaled = dict((kk, int(clamp(int(vv or 0) * k, 0, 255)))
                               for kk, vv in lovr.items())
             for mi in look_targets(self.show, lk):
+                # kun det look der ejer lampen, bestemmer dens farvekanaler
+                if owner.get((lsrc, mi)) != lid:
+                    continue
                 out[mi] = scaled
         return out
 
@@ -2293,7 +2335,13 @@ def apply_scene(show, scene):
     live_bpm = show["master"].get("bpm", 120)
     # En scene er et helt billede: den medbringer ogsaa Afviklings looks.
     # Scener gemt foer dette havde ingen - saa rydder den Afvikling.
-    show.setdefault("live", {"looks": []})["looks"] = looks_snapshot(scene.get("live"))
+    live = show.setdefault("live", {"looks": []})
+    live["looks"] = looks_snapshot(scene.get("live"))
+    # Loebenummeret skal ligge over scenens, ellers ville en aendring man
+    # laver EFTER scenekaldet faa et lavere nummer og tabe lampen til et
+    # look fra scenen.
+    live["seq"] = max([int(live.get("seq") or 0)] +
+                      [int(lk.get("seq") or 0) for lk in live["looks"]])
     show["control"] = scene_control(scene)
     show["master"].update(scene["master"])
     if not show["settings"].get("scene_tempo"):
@@ -2844,6 +2892,18 @@ def default_look(target, fade=1.0):
     }
 
 
+def live_seq(show):
+    """Næste løbenummer til et look. Det afgør hvem der ejer en lampe, når
+    to looks fra samme styring rammer den: det der er rørt SIDST vinder.
+    Uden det blandede de med max, så en mørk farve man trykkede kunne
+    druknes af et ældre, lysere look på samme lampe - fx de lampe-looks
+    'overtag farverne' laver, eller et gammelt gruppe-look."""
+    live = show.setdefault("live", {"looks": []})
+    n = int(live.get("seq") or 0) + 1
+    live["seq"] = n
+    return n
+
+
 def live_apply(show, target, fields, fade, src="afvikling"):
     """Saet vaerdier paa looket for 'target' (opret det hvis det mangler).
     Med fade toner farve og niveau over fra det der vises lige nu.
@@ -2878,6 +2938,7 @@ def live_apply(show, target, fields, fade, src="afvikling"):
     lk["key"] = key
     lk["target"] = target
     lk["src"] = src
+    lk["seq"] = live_seq(show)       # sidst roert vinder lamperne
     lk.setdefault("id", uuid.uuid4().hex[:10])
     return lk
 
@@ -4351,16 +4412,35 @@ def migrate_show(show):
         show["live"]["fade"] = float(clamp(float(show["live"].get("fade", 1.0)), 0.0, 30.0))
     except (TypeError, ValueError):
         show["live"]["fade"] = 1.0
-    for lk in looks:
+    # Enkel har sin egen overgangstid - ét tal for hele visningen, i stedet
+    # for én pr. gruppe som i Afvikling.
+    try:
+        show["live"]["ek_fade"] = float(clamp(
+            float(show["live"].get("ek_fade", show["live"]["fade"])), 0.0, 30.0))
+    except (TypeError, ValueError):
+        show["live"]["ek_fade"] = 1.0
+    for n, lk in enumerate(looks):
         lk.setdefault("id", uuid.uuid4().hex[:10])
         lk.setdefault("target", {})
         lk.setdefault("key", look_key(lk["target"]))
+        # Loebenummeret afgoer hvem der ejer en lampe. Et show gemt foer det
+        # fandtes, faar numrene efter listens raekkefoelge - saa den sidste
+        # vinder, praecis som listen laeses.
+        try:
+            lk["seq"] = int(lk.get("seq") or (n + 1))
+        except (TypeError, ValueError):
+            lk["seq"] = n + 1
         # Krydsfade-tilstand er kun gyldig i den koerende proces (monotonic
         # ur). Efter genindlaesning staar looket paa sin maalvaerdi.
         lk["cfrom"] = lk.get("colour", [255, 255, 255])
         lk["lfrom"] = lk.get("level", 255)
         lk["ft0"] = 0
         lk["fdur"] = 0
+    try:
+        show["live"]["seq"] = max([int(show["live"].get("seq") or 0)] +
+                                 [int(lk.get("seq") or 0) for lk in looks])
+    except (TypeError, ValueError):
+        show["live"]["seq"] = len(looks)
     if "wizard" in show and not isinstance(show["wizard"], dict):
         show.pop("wizard")
     v = show.setdefault("view", default_view())

@@ -929,6 +929,14 @@ html.nogap .lt-seq>*,html.nogap .lt-add>*,html.nogap .lt-now>*{margin-right:8px;
 .ek-level .k{font-weight:800;color:var(--muted)}
 .ek-level input{-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0}
 .ek-level .val{font-weight:800;font-size:16px;min-width:54px;text-align:right}
+/* Enkels overgangstid: skyderen fylder resten, talfeltet står fast til
+   højre, og genvejsknapperne ligger under. */
+.ek-fadewrap{-webkit-flex:0 0 auto;flex:0 0 auto;
+             display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:6px}
+.ek-fadewrap input[type=number]{width:72px;font-weight:700;text-align:right;-webkit-flex:0 0 auto;flex:0 0 auto}
+.ek-fadewrap .hint{margin:0;white-space:nowrap}
+.ek-fadebtns{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:8px}
+.ek-fadebtns button{min-height:40px;min-width:58px;font-weight:800}
 .ek-btns{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:8px}
 .ek-btns button{min-height:46px;font-size:15px;padding:8px 14px}
 .ek-empty{padding:20px;font-size:16px}

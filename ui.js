@@ -2687,6 +2687,39 @@ function ctlApply(nl, transfer) {
   toast((nl.length > 1 ? t("Nu styrer") + " " + ctlNames(nl) + " " + t("sammen") : t("Nu styrer") + " " + ctlName(nl[0]) + " " + t("lyset")) +
         (transfer ? " — " + t("med farverne der lyste") : ""));
 }
+/* Afvikling og Enkel tager selv styringen, så snart man gør noget i dem.
+   Uden det skete der INGENTING, når man valgte en gruppe og trykkede på en
+   farve: looket blev lavet rigtigt, men Pulten havde stadig kontrollen, så
+   farven kom aldrig ud på lamperne. Og havde man været i Enkel først, blev
+   det Enkels gamle farver der stod — det så ud som et levn.
+   Vi beholder billedet, der lyser, med mindre man har fravalgt det under
+   Indstillinger, så lyset ikke hopper midt i et nummer. Handlingen venter
+   på at styringen er skiftet, så den ikke bliver overhalet. */
+function ctlEnsure(c, then) {
+  if (!S || ctlOn(c)) { then(); return; }
+  var cur = ctlNow(), nl;
+  if (ctlMulti) {
+    nl = cur.concat([c]);                 /* har man selv valgt flere, så flere */
+  } else {
+    /* Pulten bliver stående som bund: de lamper man IKKE rører, bliver
+       som de var, så der ikke går noget i sort midt i et nummer. De
+       lamper looket rammer, overtager Afvikling/Enkel alligevel helt
+       (live_claim), så Pulten blander sig ikke i dem.
+       De ANDRE live-styringer træder til side - ellers ville fx Enkels
+       gamle looks lyse videre oven i det man trykker, og det var præcis
+       det "levn", der gjorde at man ikke fik den farve man valgte. */
+    nl = (cur.indexOf("pult") >= 0 ? ["pult", c] : [c]);
+  }
+  nl = CTRL.map(function (x) { return x[0]; }).filter(function (x) { return nl.indexOf(x) >= 0; });
+  S.control = nl;
+  markBusy(); clearBusy();
+  api({ op: "control_set", control: nl, transfer: false }, function () {
+    then();
+    refresh(function () { ctlRefresh(); });
+  });
+  ctlRefresh();
+  toast(t("{name} styrer nu lyset", { name: ctlName(c) }));
+}
 /* lyser der noget lige nu? (ellers er der ingen farver at overtage) */
 function lightIsOn() {
   var px = lastFrame || [];
@@ -2857,7 +2890,7 @@ function ekMirror(lamps, values) {
   lamps.forEach(function (i) {
     var lk = ekLook(i);
     if (!lk) {
-      lk = { key: "e:" + i, src: "enkel", target: { lamps: [i] }, on: true, level: 255, fade: afGlobalFade(),
+      lk = { key: "e:" + i, src: "enkel", target: { lamps: [i] }, on: true, level: 255, fade: ekFade(),
              pattern: "fyldt", colour_mode: "fast", colour: [255, 120, 40] };
       S.live.looks.push(lk);
     }
@@ -2868,13 +2901,57 @@ function ekSend(lamps, values, fade) {
   if (!lamps.length) return;
   ekMirror(lamps, values);
   markBusy(); clearBusy();
-  api({ op: "live_lamps", lamps: lamps, values: values, fade: fade || 0 });
+  var f = fade || 0;
+  /* samme som i Afvikling: Enkel tager styringen, når man gør noget */
+  ctlEnsure("enkel", function () {
+    api({ op: "live_lamps", lamps: lamps, values: values, fade: f });
+  });
 }
 function ekNeedSel() {
-  if (S && !ctlOn("enkel")) toast(t("Enkel styrer ikke lyset — tryk “Lad Enkel styre” øverst"));
   if (ekSel.length) return false;
   toast(t("Tryk først på de lamper du vil styre"));
   return true;
+}
+/* Enkels overgangstid: ét tal for hele visningen, gemt med showet så den
+   følger med til en anden skærm. Gælder farveskift, Sluk og Alt mørkt -
+   lysstyrke-skyderen toner ikke, den skal følge fingeren. */
+function ekFade() {
+  var v = (S && S.live && S.live.ek_fade != null) ? S.live.ek_fade : afGlobalFade();
+  v = parseFloat(v);
+  return isNaN(v) ? 1.0 : Math.max(0, Math.min(30, v));
+}
+function ekSetFade(v, fromSlider) {
+  v = Math.max(0, Math.min(30, Math.round((parseFloat(v) || 0) * 10) / 10));
+  S.live = S.live || { looks: [] };
+  S.live.ek_fade = v;
+  var n = id("ek-faden"), r = id("ek-fade");
+  if (n) n.value = v.toFixed(1);
+  if (r && !fromSlider) r.value = Math.round(v * 10);
+  ekFadeBtns();
+  setv(["live", "ek_fade"], v);
+}
+var EK_FADES = [0, 0.5, 1, 2, 3, 5];
+/* Knapperne bygges ÉN gang og får kun deres markering opdateret bagefter.
+   Byggede vi dem om hver gang tallet ændrer sig, forsvandt knappen under
+   fingeren: taster man et tal og trykker så på en genvejsknap, fyrer
+   talfeltets change (ved blur) først - og klikket ramte et element der
+   ikke fandtes mere, så genvejen ikke virkede. */
+function ekFadeBtns() {
+  var box = id("ek-fadebtns"); if (!box) return;
+  var cur = ekFade();
+  if (!box.firstChild) {
+    EK_FADES.forEach(function (f) {
+      var b = el("button", "sm", f === 0 ? t("Snap") : (String(f).replace(".", ",") + " s"));
+      b.title = f === 0 ? t("Skift med det samme") : t("Ton over {n} sekunder", { n: String(f).replace(".", ",") });
+      b.setAttribute("data-fade", String(f));
+      b.onclick = function () { ekSetFade(f, false); };
+      box.appendChild(b);
+    });
+  }
+  var bs = box.getElementsByTagName("button");
+  for (var i = 0; i < bs.length; i++) {
+    press(bs[i], Math.abs(cur - parseFloat(bs[i].getAttribute("data-fade"))) < 0.05);
+  }
 }
 function ekColour(c) {
   if (ekNeedSel()) return;
@@ -2882,16 +2959,16 @@ function ekColour(c) {
   var lit = [], zero = [];
   ekSel.forEach(function (i) { var lk = ekLook(i); (lk && lk.level === 0 ? zero : lit).push(i); });
   var v = { colour: [c[0], c[1], c[2]], on: true, pattern: "fyldt", colour_mode: "fast" };
-  if (lit.length) ekSend(lit, v, afGlobalFade());
+  if (lit.length) ekSend(lit, v, ekFade());
   if (zero.length) {
     var v2 = {}; for (var k in v) v2[k] = v[k]; v2.level = 255;
-    ekSend(zero, v2, afGlobalFade());
+    ekSend(zero, v2, ekFade());
   }
   ekInfo();
 }
 function ekOff() {
   if (ekNeedSel()) return;
-  ekSend(ekSel.slice(), { on: false }, 0);
+  ekSend(ekSel.slice(), { on: false }, ekFade());
   ekInfo();
 }
 function ekLevel(v) {
@@ -2925,6 +3002,13 @@ function buildEnkel() {
   var box = id("ek-lamps"); if (!box || !S) return;
   var nm = S.modules.length;
   ekSel = ekSel.filter(function (i) { return i < nm; });
+  /* overgangstiden som den står i showet - også efter genindlæsning */
+  (function () {
+    var f = ekFade(), r = id("ek-fade"), n = id("ek-faden");
+    if (r) r.value = Math.round(f * 10);
+    if (n) n.value = f.toFixed(1);
+    ekFadeBtns();
+  })();
   box.innerHTML = "";
   if (!nm) {
     var e = el("div", "ek-empty");
@@ -4205,7 +4289,12 @@ function afSend(values, useFade) {
      clearBusy slipper det igen, så fladen ikke holder op med at
      hente opdateringer fra serveren. */
   markBusy(); clearBusy();
-  api({ op: "live_set", target: tgt, values: values, fade: useFade ? afDraft.fade : 0 });
+  var fade = useFade ? afDraft.fade : 0;
+  /* har Afvikling ikke styringen, tager den den - ellers ville farven
+     aldrig komme ud på lamperne */
+  ctlEnsure("afvikling", function () {
+    api({ op: "live_set", target: tgt, values: values, fade: fade });
+  });
 }
 
 function afTitle() {
@@ -7140,6 +7229,16 @@ function wire() {
       if (!ekLevelT) ekLevelT = setTimeout(function () { ekLevelT = null; ekLevel(parseInt(r.value, 10)); }, 70);
     };
     r.onchange = function () { ekLevel(parseInt(r.value, 10)); };
+  })();
+  /* Enkels overgangstid: skyder, talfelt og genvejsknapper */
+  (function () {
+    var r = id("ek-fade"), n = id("ek-faden");
+    if (!r || !n) return;
+    r.oninput = function () { ekSetFade(parseInt(r.value, 10) / 10, true); };
+    n.onchange = function () {
+      var v = parseFloat(String(n.value).replace(",", "."));
+      ekSetFade(isNaN(v) ? ekFade() : v, false);
+    };
   })();
   id("sh-reset").onclick = openResetDialog;
   /* Lampetest: ← → skifter opsætning mens testen kører */
